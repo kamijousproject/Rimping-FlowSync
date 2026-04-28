@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createUser, findUserByLogin } from "@/backend/auth";
+import {
+  createUser,
+  findUserByLogin,
+  setSessionCookie,
+  signSession,
+} from "@/backend/auth";
 
 const Schema = z.object({
   username: z.string().min(3).max(64),
@@ -29,5 +34,15 @@ export async function POST(req: Request) {
     );
   }
   const id = await createUser(parsed.data);
-  return NextResponse.json({ id }, { status: 201 });
+  const role = parsed.data.role || "staff";
+  const sessionUser = {
+    id,
+    username: parsed.data.username,
+    email: parsed.data.email,
+    full_name: parsed.data.full_name,
+    role,
+  };
+  const token = await signSession(sessionUser);
+  await setSessionCookie(token);
+  return NextResponse.json({ user: sessionUser });
 }

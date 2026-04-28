@@ -66,7 +66,7 @@ export async function recordPayment(input: {
     if (input.amount <= 0) throw new Error("ยอดชำระต้องมากกว่า 0");
     if (newPaid > Number(po.total) + 0.01) {
       throw new Error(
-        `ยอดชำระเกินยอด PO (PO=${po.total}, รวมทั้งหมดจะเป็น ${newPaid})`
+        `ชำระเกินวงเงินคงค้างของ PO (วงเงินรวม=${po.total}, ถ้าชำระจะรวม ${newPaid})`
       );
     }
 

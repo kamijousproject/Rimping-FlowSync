@@ -14,14 +14,19 @@ export async function POST(
   try {
     const data = await getPo(Number(id));
     if (!data) return badRequest("ไม่พบ PO");
-    const amount = Number(body.amount || data.po.remaining_amount);
+    const hasAmount = body && body.amount !== undefined && body.amount !== null;
+    if (hasAmount && Number(body.amount) <= 0)
+      return badRequest("ยอด invoice ต้องมากกว่า 0");
+    const amount = hasAmount
+      ? Number(body.amount)
+      : Number(data.po.remaining_amount);
     if (amount <= 0) return badRequest("ยอด invoice ต้องมากกว่า 0");
     const invoice = await generateInvoice({
       po_id: Number(id),
       amount,
       generated_by: auth.user.id,
     });
-    return NextResponse.json({ invoice });
+    return NextResponse.json({ invoice }, { status: 201 });
   } catch (e) {
     return serverError(e);
   }

@@ -5,7 +5,7 @@ const PUBLIC_API = ["/api/auth/login", "/api/auth/register"];
 
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const token = req.cookies.get("flowsync_session")?.value;
+  const token = req.cookies.get("fs_session")?.value;
 
   // Public paths bypass
   if (PUBLIC_PATHS.includes(pathname) || PUBLIC_API.includes(pathname)) {

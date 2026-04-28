@@ -208,7 +208,7 @@ export async function setPoStatus(
     await exec(
       `UPDATE purchase_orders
        SET status=?,
-           due_date = COALESCE(due_date, DATE_ADD(CURDATE(), INTERVAL credit_term_days DAY)),
+           due_date = DATE_ADD(CURDATE(), INTERVAL credit_term_days DAY),
            signed_at = CASE WHEN ?='received' THEN COALESCE(signed_at, NOW()) ELSE signed_at END
        WHERE id=?`,
       [status, status, id]

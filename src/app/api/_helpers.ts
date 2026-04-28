@@ -9,7 +9,7 @@ export async function requireUser(): Promise<
   if (!user) {
     return {
       ok: false,
-      res: NextResponse.json({ error: "ต้องล็อกอินก่อน" }, { status: 401 }),
+      res: NextResponse.json({ error: "unauthorized" }, { status: 401 }),
     };
   }
   return { ok: true, user };

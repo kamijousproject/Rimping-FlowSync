@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireUser, badRequest, serverError } from "../../../_helpers";
-import { setPoStatus } from "@/backend/services/po";
+import { setPoStatus, getPo } from "@/backend/services/po";
 
 const ALLOWED = [
   "draft",
@@ -24,7 +24,9 @@ export async function POST(
     return badRequest("status ไม่ถูกต้อง");
   try {
     await setPoStatus(Number(id), body.status);
-    return NextResponse.json({ ok: true });
+    const updated = await getPo(Number(id));
+    if (!updated) return badRequest("ไม่พบ PO");
+    return NextResponse.json(updated.po);
   } catch (e) {
     return serverError(e);
   }

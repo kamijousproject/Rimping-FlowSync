@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { query, exec } from "./db";
 
-const COOKIE_NAME = "flowsync_session";
+const COOKIE_NAME = "fs_session";
 const ALG = "HS256";
 
 function secret(): Uint8Array {

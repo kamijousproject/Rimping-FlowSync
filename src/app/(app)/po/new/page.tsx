@@ -109,7 +109,7 @@ function NewPoInner() {
       return;
     }
     const data = await r.json();
-    router.push(`/po/${data.id}`);
+    router.push(`/po/${data.po?.id ?? data.id}`);
   }
 
   return (

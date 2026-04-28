@@ -47,7 +47,7 @@ export async function POST(req: Request) {
   if (!parsed.success) return badRequest("ข้อมูลไม่ถูกต้อง", parsed.error.issues);
   try {
     const po = await createPo({ ...parsed.data, created_by: auth.user.id });
-    return NextResponse.json(po, { status: 201 });
+    return NextResponse.json({ po }, { status: 201 });
   } catch (e) {
     return serverError(e);
   }
