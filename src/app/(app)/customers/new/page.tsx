@@ -50,7 +50,7 @@ export default function NewCustomerPage() {
   }
 
   return (
-    <div className="max-w-3xl space-y-4">
+    <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold text-brand-800">เพิ่มลูกค้าใหม่</h1>
         <p className="text-sm text-muted">

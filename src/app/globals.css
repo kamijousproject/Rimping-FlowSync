@@ -47,6 +47,19 @@ body {
 }
 
 /* Reusable component classes (Tailwind v4: utilities only inside @apply) */
+@media print {
+  /* Remove browser-injected page headers/footers (URL, date, title)
+     by collapsing page margins. Document supplies its own padding. */
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  html,
+  body {
+    background: #ffffff !important;
+  }
+}
+
 @layer components {
   .btn-base {
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed;

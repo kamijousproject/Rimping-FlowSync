@@ -23,7 +23,7 @@ export default async function PoDetailPage({
   const payments = await listPayments(Number(id));
 
   return (
-    <div className="space-y-5 max-w-6xl">
+    <div className="space-y-5">
       <div className="flex items-start justify-between">
         <div>
           <Link href="/po" className="text-sm text-brand-700 hover:underline">
@@ -56,6 +56,12 @@ export default async function PoDetailPage({
                 "th-TH"
               )}`}
           </div>
+          <Link
+            href={`/po/${po.id}/quotation`}
+            className="btn-secondary text-xs"
+          >
+            ดาวน์โหลดใบเสนอราคา
+          </Link>
         </div>
       </div>
 

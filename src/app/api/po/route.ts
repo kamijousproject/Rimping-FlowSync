@@ -10,11 +10,15 @@ export async function GET(req: Request) {
   const customer_id = url.searchParams.get("customer_id");
   const status = url.searchParams.get("status");
   const payment_status = url.searchParams.get("payment_status");
+  const start_date = url.searchParams.get("start_date");
+  const end_date = url.searchParams.get("end_date");
   try {
     const pos = await listPos({
       customer_id: customer_id ? Number(customer_id) : undefined,
       status: status || undefined,
       payment_status: payment_status || undefined,
+      start_date: start_date || undefined,
+      end_date: end_date || undefined,
     });
     return NextResponse.json({ pos });
   } catch (e) {

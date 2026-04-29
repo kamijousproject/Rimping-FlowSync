@@ -105,3 +105,12 @@ CREATE TABLE IF NOT EXISTS invoices (
   CONSTRAINT fk_inv_user FOREIGN KEY (generated_by) REFERENCES users(id),
   INDEX idx_inv_po (po_id)
 ) ENGINE=InnoDB;
+
+-- Quotations (sale-side document offered to customer; one per PO, lazily created when first viewed)
+CREATE TABLE IF NOT EXISTS quotations (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  quote_number VARCHAR(32) UNIQUE NOT NULL,
+  po_id INT NOT NULL UNIQUE,
+  generated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_qt_po FOREIGN KEY (po_id) REFERENCES purchase_orders(id) ON DELETE CASCADE
+) ENGINE=InnoDB;

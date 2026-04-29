@@ -158,6 +158,8 @@ export async function listPos(filter?: {
   customer_id?: number;
   status?: string;
   payment_status?: string;
+  start_date?: string;
+  end_date?: string;
 }): Promise<PurchaseOrder[]> {
   const where: string[] = [];
   const params: unknown[] = [];
@@ -172,6 +174,14 @@ export async function listPos(filter?: {
   if (filter?.payment_status) {
     where.push("po.payment_status = ?");
     params.push(filter.payment_status);
+  }
+  if (filter?.start_date) {
+    where.push("po.created_at >= ?");
+    params.push(filter.start_date);
+  }
+  if (filter?.end_date) {
+    where.push("po.created_at < DATE_ADD(?, INTERVAL 1 DAY)");
+    params.push(filter.end_date);
   }
   const sql = `SELECT po.*, c.name AS customer_name
                FROM purchase_orders po

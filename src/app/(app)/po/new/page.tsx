@@ -113,7 +113,7 @@ function NewPoInner() {
   }
 
   return (
-    <div className="space-y-4 max-w-5xl">
+    <div className="space-y-4">
       <div>
         <Link href="/po" className="text-sm text-brand-700 hover:underline">
           ← กลับ

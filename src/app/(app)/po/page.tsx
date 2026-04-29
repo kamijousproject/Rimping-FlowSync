@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { listPos } from "@/backend/services/po";
 import {
   PaymentBadge,
   StatusBadge,
   fmtMoney,
 } from "@/components/StatusBadge";
+import DateRangeFilter from "@/components/DateRangeFilter";
 
 export const dynamic = "force-dynamic";
 
@@ -29,12 +31,16 @@ export default async function PoListPage({
   searchParams: Promise<{
     status?: string;
     payment_status?: string;
+    start_date?: string;
+    end_date?: string;
   }>;
 }) {
   const sp = await searchParams;
   const pos = await listPos({
     status: sp.status,
     payment_status: sp.payment_status,
+    start_date: sp.start_date,
+    end_date: sp.end_date,
   });
 
   return (
@@ -82,6 +88,9 @@ export default async function PoListPage({
             </FilterPill>
           ))}
         </div>
+        <Suspense>
+          <DateRangeFilter />
+        </Suspense>
       </div>
 
       {/* Mobile: card list */}
