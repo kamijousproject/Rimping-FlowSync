@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getCustomer } from "@/backend/services/customers";
 import { listPos } from "@/backend/services/po";
 import { listAllPaymentsForCustomer } from "@/backend/services/payments";
+import { getCurrentUser, isSuperAdmin } from "@/backend/auth";
 import {
   PaymentBadge,
   StatusBadge,
@@ -20,10 +21,12 @@ export default async function CustomerDetailPage({
   const cid = Number(id);
   const c = await getCustomer(cid);
   if (!c) notFound();
-  const [pos, payments] = await Promise.all([
+  const [pos, payments, user] = await Promise.all([
     listPos({ customer_id: cid }),
     listAllPaymentsForCustomer(cid),
+    getCurrentUser(),
   ]);
+  const canEdit = isSuperAdmin(user);
   const usedPct = c.credit_limit
     ? (Number(c.outstanding) / Number(c.credit_limit)) * 100
     : 0;
@@ -44,9 +47,19 @@ export default async function CustomerDetailPage({
             {c.contact_person ? `ติดต่อ: ${c.contact_person}` : ""}
           </div>
         </div>
-        <Link href={`/po/new?customer_id=${cid}`} className="btn-primary">
-          + สร้าง PO ให้ลูกค้านี้
-        </Link>
+        <div className="flex gap-2">
+          {canEdit && (
+            <Link
+              href={`/customers/${cid}/edit`}
+              className="btn-secondary"
+            >
+              แก้ไขข้อมูล
+            </Link>
+          )}
+          <Link href={`/po/new?customer_id=${cid}`} className="btn-primary">
+            + สร้าง PO ให้ลูกค้านี้
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

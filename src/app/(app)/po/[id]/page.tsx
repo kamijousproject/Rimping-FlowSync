@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getPo } from "@/backend/services/po";
+import { getPo, listPoEditLogs } from "@/backend/services/po";
 import { listPayments } from "@/backend/services/payments";
 import {
   PaymentBadge,
@@ -8,22 +8,35 @@ import {
   fmtMoney,
 } from "@/components/StatusBadge";
 import { PoActions } from "./PoActions";
+import { EditLogsSection } from "./EditLogsSection";
 
 export const dynamic = "force-dynamic";
 
 export default async function PoDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ denied?: string }>;
 }) {
   const { id } = await params;
+  const sp = await searchParams;
   const data = await getPo(Number(id));
   if (!data) notFound();
   const { po, items } = data;
-  const payments = await listPayments(Number(id));
+  const [payments, editLogs] = await Promise.all([
+    listPayments(Number(id)),
+    listPoEditLogs(Number(id)),
+  ]);
+  const isPaid = po.payment_status === "paid";
 
   return (
     <div className="space-y-5">
+      {sp.denied === "paid" && (
+        <div className="text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2">
+          PO นี้ชำระครบแล้ว ไม่สามารถแก้ไขได้
+        </div>
+      )}
       <div className="flex items-start justify-between">
         <div>
           <Link href="/po" className="text-sm text-brand-700 hover:underline">
@@ -56,12 +69,30 @@ export default async function PoDetailPage({
                 "th-TH"
               )}`}
           </div>
-          <Link
-            href={`/po/${po.id}/quotation`}
-            className="btn-secondary text-xs"
-          >
-            ดาวน์โหลดใบเสนอราคา
-          </Link>
+          <div className="flex gap-2">
+            {isPaid ? (
+              <button
+                disabled
+                className="btn-secondary text-xs opacity-50 cursor-not-allowed"
+                title="PO นี้ชำระครบแล้ว ไม่สามารถแก้ไขได้"
+              >
+                แก้ไข PO
+              </button>
+            ) : (
+              <Link
+                href={`/po/${po.id}/edit`}
+                className="btn-secondary text-xs"
+              >
+                แก้ไข PO
+              </Link>
+            )}
+            <Link
+              href={`/po/${po.id}/quotation`}
+              className="btn-secondary text-xs"
+            >
+              ดาวน์โหลดใบเสนอราคา
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -173,16 +204,32 @@ export default async function PoDetailPage({
                   </td>
                   <td className="text-center text-xs">{p.method}</td>
                   <td className="text-xs">{p.reference || "-"}</td>
-                  <td>
+                  <td className="text-center">
                     {p.slip_path ? (
-                      <a
-                        href={p.slip_path}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-brand-700 hover:underline text-xs"
-                      >
-                        ดูสลิป
-                      </a>
+                      /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(p.slip_path) ? (
+                        <a
+                          href={p.slip_path}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="คลิกเพื่อดูเต็ม"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={p.slip_path}
+                            alt="สลิป"
+                            className="w-12 h-12 object-cover rounded border border-border inline-block hover:ring-2 hover:ring-brand-400 transition"
+                          />
+                        </a>
+                      ) : (
+                        <a
+                          href={p.slip_path}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-brand-700 hover:underline text-xs"
+                        >
+                          ดูไฟล์ (PDF)
+                        </a>
+                      )
                     ) : (
                       <span className="text-muted text-xs">-</span>
                     )}
@@ -201,6 +248,9 @@ export default async function PoDetailPage({
           </table>
         </div>
       </div>
+
+      {/* Edit history */}
+      <EditLogsSection logs={editLogs} />
     </div>
   );
 }

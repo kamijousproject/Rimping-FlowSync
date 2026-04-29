@@ -228,6 +228,170 @@ export async function setPoStatus(
   }
 }
 
+export type PoEditLog = {
+  id: number;
+  po_id: number;
+  edited_by: number;
+  editor_name: string;
+  summary: string;
+  changes: string;
+  created_at: Date;
+};
+
+export async function listPoEditLogs(poId: number): Promise<PoEditLog[]> {
+  return query<PoEditLog>(
+    `SELECT l.*, u.full_name AS editor_name
+     FROM po_edit_logs l
+     JOIN users u ON u.id = l.edited_by
+     WHERE l.po_id = ?
+     ORDER BY l.created_at DESC`,
+    [poId]
+  );
+}
+
+/**
+ * Edit a PO (notes, credit_term_days, items). Blocks if paid in full.
+ * Recomputes subtotal/total/remaining_amount and performs credit check
+ * against the new total. Writes an audit log with before/after snapshot.
+ */
+export async function updatePo(input: {
+  id: number;
+  credit_term_days: number;
+  notes?: string | null;
+  items: PoItemInput[];
+  edited_by: number;
+}): Promise<void> {
+  if (!input.items.length) throw new Error("PO ต้องมีอย่างน้อย 1 รายการ");
+
+  const existing = await getPo(input.id);
+  if (!existing) throw new Error("ไม่พบ PO");
+  if (existing.po.payment_status === "paid") {
+    throw new Error("PO นี้ชำระครบแล้ว ไม่สามารถแก้ไขได้");
+  }
+
+  const newSubtotal = input.items.reduce(
+    (s, it) => s + Number(it.quantity) * Number(it.unit_price),
+    0
+  );
+  const newTotal = newSubtotal;
+  const paid = Number(existing.po.paid_amount);
+  if (newTotal < paid) {
+    throw new Error(
+      `ยอด PO ใหม่ (${newTotal.toLocaleString()}) ต่ำกว่ายอดที่ชำระไปแล้ว (${paid.toLocaleString()})`
+    );
+  }
+  const newRemaining = newTotal - paid;
+
+  // Credit check: how much would outstanding become if we change this PO?
+  const otherOutstanding =
+    (await getCustomerOutstanding(existing.po.customer_id)) -
+    Number(existing.po.remaining_amount);
+  const cust = await query<{ credit_limit: number }>(
+    "SELECT credit_limit FROM customers WHERE id=?",
+    [existing.po.customer_id]
+  );
+  if (cust[0]) {
+    const limit = Number(cust[0].credit_limit);
+    if (otherOutstanding + newRemaining > limit) {
+      throw new Error(
+        `เกินวงเงินสินเชื่อ: คงค้างอื่น ${otherOutstanding.toLocaleString()} + PO นี้ ${newRemaining.toLocaleString()} > วงเงิน ${limit.toLocaleString()}`
+      );
+    }
+  }
+
+  // Compute summary & changes JSON
+  const before = {
+    credit_term_days: existing.po.credit_term_days,
+    notes: existing.po.notes,
+    subtotal: Number(existing.po.subtotal),
+    total: Number(existing.po.total),
+    items: existing.items.map((it) => ({
+      product_name: it.product_name,
+      description: it.description || "",
+      quantity: Number(it.quantity),
+      unit: it.unit,
+      unit_price: Number(it.unit_price),
+      line_total: Number(it.line_total),
+    })),
+  };
+  const after = {
+    credit_term_days: input.credit_term_days,
+    notes: input.notes ?? null,
+    subtotal: newSubtotal,
+    total: newTotal,
+    items: input.items.map((it) => ({
+      product_name: it.product_name,
+      description: it.description || "",
+      quantity: Number(it.quantity),
+      unit: it.unit || "pcs",
+      unit_price: Number(it.unit_price),
+      line_total: Number(it.quantity) * Number(it.unit_price),
+    })),
+  };
+  const summaryParts: string[] = [];
+  if (before.total !== after.total)
+    summaryParts.push(
+      `ยอดรวม ${before.total.toLocaleString()} → ${after.total.toLocaleString()}`
+    );
+  if (before.credit_term_days !== after.credit_term_days)
+    summaryParts.push(
+      `เครดิต ${before.credit_term_days}→${after.credit_term_days} วัน`
+    );
+  if (before.items.length !== after.items.length)
+    summaryParts.push(
+      `รายการ ${before.items.length}→${after.items.length} ชิ้น`
+    );
+  if ((before.notes || "") !== (after.notes || ""))
+    summaryParts.push("แก้ไขหมายเหตุ");
+  const summary = summaryParts.length
+    ? summaryParts.join(", ")
+    : "แก้ไขรายการสินค้า";
+
+  await withTx(async (conn) => {
+    await conn.query(
+      `UPDATE purchase_orders
+       SET credit_term_days=?, notes=?, subtotal=?, total=?, remaining_amount=?
+       WHERE id=?`,
+      [
+        input.credit_term_days,
+        input.notes ?? null,
+        newSubtotal,
+        newTotal,
+        newRemaining,
+        input.id,
+      ]
+    );
+    await conn.query("DELETE FROM po_items WHERE po_id=?", [input.id]);
+    for (const it of input.items) {
+      const lineTotal = Number(it.quantity) * Number(it.unit_price);
+      await conn.query(
+        `INSERT INTO po_items
+           (po_id, product_name, description, quantity, unit, unit_price, line_total)
+         VALUES (?,?,?,?,?,?,?)`,
+        [
+          input.id,
+          it.product_name,
+          it.description || null,
+          it.quantity,
+          it.unit || "pcs",
+          it.unit_price,
+          lineTotal,
+        ]
+      );
+    }
+    await conn.query(
+      `INSERT INTO po_edit_logs (po_id, edited_by, summary, changes)
+       VALUES (?,?,?,?)`,
+      [
+        input.id,
+        input.edited_by,
+        summary.slice(0, 255),
+        JSON.stringify({ before, after }),
+      ]
+    );
+  });
+}
+
 export async function setSignedDoc(id: number, path: string) {
   await exec(
     "UPDATE purchase_orders SET signed_doc_path=?, signed_at=NOW(), status=CASE WHEN status IN ('delivered','checked','packed','confirmed') THEN 'received' ELSE status END WHERE id=?",

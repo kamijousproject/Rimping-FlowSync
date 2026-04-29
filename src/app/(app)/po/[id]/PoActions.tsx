@@ -1,7 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, Wallet } from "lucide-react";
+import { FileText, Upload, Wallet, X } from "lucide-react";
 import { fmtMoney } from "@/components/StatusBadge";
 
 const FLOW: { from: string; to: string; label: string }[] = [
@@ -39,6 +39,18 @@ export function PoActions({
   const [payRef, setPayRef] = useState("");
   const [payNotes, setPayNotes] = useState("");
   const [paySlip, setPaySlip] = useState<File | null>(null);
+  const paySlipPreview = useMemo(
+    () =>
+      paySlip && paySlip.type.startsWith("image/")
+        ? URL.createObjectURL(paySlip)
+        : null,
+    [paySlip]
+  );
+  useEffect(() => {
+    return () => {
+      if (paySlipPreview) URL.revokeObjectURL(paySlipPreview);
+    };
+  }, [paySlipPreview]);
 
   // Sign upload
   const [signFile, setSignFile] = useState<File | null>(null);
@@ -336,13 +348,56 @@ export function PoActions({
               />
             </div>
             <div>
-              <label className="label">สลิปการชำระเงิน</label>
-              <input
-                type="file"
-                accept="image/*,application/pdf"
-                className="text-sm"
-                onChange={(e) => setPaySlip(e.target.files?.[0] || null)}
-              />
+              <label className="label">
+                สลิปการชำระเงิน{" "}
+                <span className="text-muted font-normal">
+                  (แนบรูปหรือไฟล์ PDF)
+                </span>
+              </label>
+              {!paySlip ? (
+                <label className="flex items-center justify-center gap-2 border-2 border-dashed border-brand-200 rounded-lg px-4 py-6 text-sm text-brand-700 hover:bg-brand-50 cursor-pointer transition">
+                  <Upload className="w-4 h-4" />
+                  <span>กดเพื่อเลือกไฟล์ / ถ่ายรูปสลิป</span>
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) =>
+                      setPaySlip(e.target.files?.[0] || null)
+                    }
+                  />
+                </label>
+              ) : (
+                <div className="border border-border rounded-lg p-2 flex items-start gap-3">
+                  {paySlipPreview ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={paySlipPreview}
+                      alt="สลิป"
+                      className="w-20 h-20 object-cover rounded border border-border shrink-0"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 rounded border border-border bg-brand-50 flex items-center justify-center text-brand-700 shrink-0">
+                      <FileText className="w-8 h-8" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0 text-sm">
+                    <div className="font-medium truncate">{paySlip.name}</div>
+                    <div className="text-xs text-muted">
+                      {(paySlip.size / 1024).toFixed(1)} KB
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPaySlip(null)}
+                    className="text-muted hover:text-red-600 p-1"
+                    aria-label="ลบไฟล์"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
             </div>
             <div>
               <label className="label">หมายเหตุ</label>

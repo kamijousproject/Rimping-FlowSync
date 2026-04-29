@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireUser, badRequest, serverError } from "../../_helpers";
+import { requireUser, requireRole, badRequest, serverError } from "../../_helpers";
 import { getCustomer, updateCustomer } from "@/backend/services/customers";
 import { listPos } from "@/backend/services/po";
 import { listAllPaymentsForCustomer } from "@/backend/services/payments";
@@ -27,7 +27,7 @@ export async function PATCH(
   req: Request,
   ctx: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireUser();
+  const auth = await requireRole("super_admin");
   if (!auth.ok) return auth.res;
   const { id } = await ctx.params;
   const body = await req.json().catch(() => null);

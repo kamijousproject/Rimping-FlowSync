@@ -16,10 +16,14 @@ export type SessionUser = {
   username: string;
   email: string;
   full_name: string;
-  role: "admin" | "staff";
+  role: "admin" | "super_admin";
 };
 
 export type DbUser = SessionUser & { password_hash: string };
+
+export function isSuperAdmin(user: { role: string } | null | undefined): boolean {
+  return !!user && user.role === "super_admin";
+}
 
 export async function hashPassword(plain: string): Promise<string> {
   return bcrypt.hash(plain, 10);
@@ -45,7 +49,7 @@ export async function createUser(input: {
   email: string;
   password: string;
   full_name: string;
-  role?: "admin" | "staff";
+  role?: "admin" | "super_admin";
 }): Promise<number> {
   const password_hash = await hashPassword(input.password);
   const res = await exec(
@@ -55,7 +59,7 @@ export async function createUser(input: {
       input.email,
       password_hash,
       input.full_name,
-      input.role || "staff",
+      input.role || "admin",
     ]
   );
   return res.insertId;
@@ -79,7 +83,7 @@ export async function readSessionToken(
       username: payload.username as string,
       email: payload.email as string,
       full_name: payload.full_name as string,
-      role: payload.role as "admin" | "staff",
+      role: payload.role as "admin" | "super_admin",
     };
   } catch {
     return null;

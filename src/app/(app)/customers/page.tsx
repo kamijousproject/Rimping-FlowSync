@@ -1,13 +1,26 @@
 import Link from "next/link";
 import { listCustomers } from "@/backend/services/customers";
 import { fmtMoney } from "@/components/StatusBadge";
+import { getCurrentUser, isSuperAdmin } from "@/backend/auth";
 
 export const dynamic = "force-dynamic";
 
-export default async function CustomersPage() {
+export default async function CustomersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ denied?: string }>;
+}) {
   const customers = await listCustomers();
+  const user = await getCurrentUser();
+  const canCreate = isSuperAdmin(user);
+  const sp = await searchParams;
   return (
     <div className="space-y-4">
+      {sp.denied && (
+        <div className="text-sm bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2">
+          ไม่มีสิทธิ์เพิ่มลูกค้าใหม่ — ต้องเป็น super admin เท่านั้น
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-brand-800">
@@ -17,9 +30,11 @@ export default async function CustomersPage() {
             {customers.length} ราย · จัดการวงเงิน · ลูกหนี้คงค้าง
           </p>
         </div>
-        <Link href="/customers/new" className="btn-primary text-sm">
-          + เพิ่มลูกค้า
-        </Link>
+        {canCreate && (
+          <Link href="/customers/new" className="btn-primary text-sm">
+            + เพิ่มลูกค้า
+          </Link>
+        )}
       </div>
 
       {/* Mobile cards */}

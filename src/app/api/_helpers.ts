@@ -15,6 +15,26 @@ export async function requireUser(): Promise<
   return { ok: true, user };
 }
 
+export async function requireRole(
+  ...roles: SessionUser["role"][]
+): Promise<
+  | { ok: true; user: SessionUser }
+  | { ok: false; res: NextResponse }
+> {
+  const auth = await requireUser();
+  if (!auth.ok) return auth;
+  if (!roles.includes(auth.user.role)) {
+    return {
+      ok: false,
+      res: NextResponse.json(
+        { error: "ไม่มีสิทธิ์ดำเนินการนี้ (ต้องเป็น super admin)" },
+        { status: 403 }
+      ),
+    };
+  }
+  return { ok: true, user: auth.user };
+}
+
 export function badRequest(msg: string, details?: unknown) {
   return NextResponse.json({ error: msg, details }, { status: 400 });
 }

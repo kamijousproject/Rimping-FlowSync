@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireUser, badRequest, serverError } from "../_helpers";
+import { requireUser, requireRole, badRequest, serverError } from "../_helpers";
 import { createCustomer, listCustomers } from "@/backend/services/customers";
 
 export async function GET() {
@@ -30,7 +30,7 @@ const Schema = z.object({
 });
 
 export async function POST(req: Request) {
-  const auth = await requireUser();
+  const auth = await requireRole("super_admin");
   if (!auth.ok) return auth.res;
   const body = await req.json().catch(() => null);
   const parsed = Schema.safeParse(body);

@@ -12,7 +12,7 @@ const Schema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   full_name: z.string().min(1),
-  role: z.enum(["admin", "staff"]).optional(),
+  role: z.enum(["admin", "super_admin"]).optional(),
 });
 
 export async function POST(req: Request) {
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     );
   }
   const id = await createUser(parsed.data);
-  const role = parsed.data.role || "staff";
+  const role = parsed.data.role || "admin";
   const sessionUser = {
     id,
     username: parsed.data.username,

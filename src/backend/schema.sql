@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
   email VARCHAR(128) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   full_name VARCHAR(128) NOT NULL,
-  role ENUM('admin','staff') NOT NULL DEFAULT 'staff',
+  role ENUM('admin','super_admin') NOT NULL DEFAULT 'admin',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
@@ -104,6 +104,19 @@ CREATE TABLE IF NOT EXISTS invoices (
   CONSTRAINT fk_inv_po FOREIGN KEY (po_id) REFERENCES purchase_orders(id) ON DELETE CASCADE,
   CONSTRAINT fk_inv_user FOREIGN KEY (generated_by) REFERENCES users(id),
   INDEX idx_inv_po (po_id)
+) ENGINE=InnoDB;
+
+-- Audit log of PO edits
+CREATE TABLE IF NOT EXISTS po_edit_logs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  po_id INT NOT NULL,
+  edited_by INT NOT NULL,
+  summary VARCHAR(255) NOT NULL,
+  changes MEDIUMTEXT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_pel_po FOREIGN KEY (po_id) REFERENCES purchase_orders(id) ON DELETE CASCADE,
+  CONSTRAINT fk_pel_user FOREIGN KEY (edited_by) REFERENCES users(id),
+  INDEX idx_pel_po (po_id)
 ) ENGINE=InnoDB;
 
 -- Quotations (sale-side document offered to customer; one per PO, lazily created when first viewed)
