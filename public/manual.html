@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FlowSync — คู่มือการใช้งาน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /* ====== Theme (ตรงกับเว็บ FlowSync) ====== */
+  :root {
+    --background: #f6faf6;
+    --foreground: #122017;
+    --card: #ffffff;
+    --border: #e1e8df;
+    --muted: #6b7d70;
+    --brand-50: #eef7ef;
+    --brand-100: #d6ecd9;
+    --brand-200: #afd9b4;
+    --brand-300: #84c38c;
+    --brand-400: #5fae6a;
+    --brand-500: #3f9a4d;
+    --brand-600: #2f8b46;
+    --brand-700: #226b34;
+    --brand-800: #185028;
+    --brand-900: #0e3a1c;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Sarabun", "Inter", system-ui, -apple-system, sans-serif;
+    background: var(--background);
+    color: var(--foreground);
+    line-height: 1.65;
+    font-size: 15px;
+  }
+  a { color: var(--brand-700); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, .mono {
+    font-family: "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+    font-size: 0.92em;
+    background: var(--brand-50);
+    color: var(--brand-800);
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--brand-100);
+  }
+  kbd {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.85em;
+    background: #fff;
+    color: var(--brand-800);
+    padding: 2px 7px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.05);
+  }
+
+  /* ====== Layout ====== */
+  .top-bar {
+    position: sticky; top: 0; z-index: 50;
+    background: var(--brand-700);
+    color: #fff;
+    padding: 12px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  }
+  .top-bar .brand {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 700; font-size: 18px;
+  }
+  .top-bar .brand .logo {
+    width: 32px; height: 32px;
+    background: #fff; color: var(--brand-700);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 800;
+  }
+  .top-bar .actions { display: flex; gap: 8px; }
+  .btn {
+    background: #fff;
+    color: var(--brand-800);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: background 0.15s, transform 0.05s;
+  }
+  .btn:hover { background: var(--brand-50); }
+  .btn:active { transform: translateY(1px); }
+  .btn-ghost {
+    background: transparent;
+    color: #fff;
+    border-color: rgba(255,255,255,0.3);
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,0.12); }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    max-width: 1280px;
+    margin: 0 auto;
+    gap: 32px;
+    padding: 32px 24px;
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .toc { position: static !important; }
+  }
+
+  /* ====== Table of contents ====== */
+  .toc {
+    position: sticky;
+    top: 80px;
+    align-self: start;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+  }
+  .toc h4 {
+    margin: 0 0 12px;
+    color: var(--brand-700);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .toc ol {
+    list-style: none;
+    padding: 0; margin: 0;
+    counter-reset: section;
+  }
+  .toc li {
+    counter-increment: section;
+    margin: 4px 0;
+  }
+  .toc a {
+    display: block;
+    padding: 6px 10px;
+    border-radius: 6px;
+    color: var(--foreground);
+    font-size: 14px;
+    border-left: 3px solid transparent;
+  }
+  .toc a:hover {
+    background: var(--brand-50);
+    color: var(--brand-700);
+    text-decoration: none;
+    border-left-color: var(--brand-300);
+  }
+  .toc a::before {
+    content: counter(section) ". ";
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  /* ====== Content ====== */
+  main { min-width: 0; }
+
+  .cover {
+    background: linear-gradient(135deg, var(--brand-600) 0%, var(--brand-800) 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 48px 40px;
+    margin-bottom: 32px;
+    page-break-after: always;
+    position: relative;
+    overflow: hidden;
+  }
+  .cover::after {
+    content: "";
+    position: absolute;
+    right: -80px; bottom: -80px;
+    width: 280px; height: 280px;
+    background: rgba(255,255,255,0.07);
+    border-radius: 50%;
+  }
+  .cover .logo-big {
+    width: 64px; height: 64px;
+    background: #fff; color: var(--brand-700);
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px; font-weight: 800;
+    margin-bottom: 24px;
+  }
+  .cover h1 {
+    margin: 0 0 8px;
+    font-size: 44px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .cover .subtitle {
+    font-size: 20px;
+    opacity: 0.9;
+    margin-bottom: 32px;
+  }
+  .cover .meta {
+    display: flex; gap: 24px;
+    font-size: 14px;
+    opacity: 0.85;
+  }
+  .cover .meta strong { display: block; opacity: 0.7; font-size: 12px; text-transform: uppercase; }
+
+  section.chapter {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    margin-bottom: 24px;
+    page-break-inside: avoid;
+  }
+  section.chapter > h2 {
+    color: var(--brand-800);
+    font-size: 26px;
+    margin: 0 0 8px;
+    padding-bottom: 12px;
+    border-bottom: 3px solid var(--brand-200);
+    display: flex; align-items: center; gap: 12px;
+  }
+  section.chapter > h2 .num {
+    background: var(--brand-600);
+    color: #fff;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  section.chapter > .lead {
+    color: var(--muted);
+    font-size: 15px;
+    margin: 8px 0 24px;
+  }
+  h3 {
+    color: var(--brand-700);
+    font-size: 19px;
+    margin: 28px 0 12px;
+  }
+  h4 {
+    color: var(--brand-800);
+    font-size: 16px;
+    margin: 20px 0 8px;
+  }
+  p { margin: 8px 0 12px; }
+  ul, ol { padding-left: 24px; margin: 8px 0; }
+  ul li, ol li { margin: 4px 0; }
+
+  /* Callouts */
+  .callout {
+    border-left: 4px solid var(--brand-500);
+    background: var(--brand-50);
+    padding: 12px 16px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+  .callout.warn {
+    border-left-color: #d97706;
+    background: #fef3c7;
+    color: #78350f;
+  }
+  .callout.danger {
+    border-left-color: #dc2626;
+    background: #fee2e2;
+    color: #7f1d1d;
+  }
+  .callout strong { display: block; margin-bottom: 4px; }
+
+  /* Step list */
+  .steps {
+    counter-reset: step;
+    list-style: none;
+    padding: 0;
+  }
+  .steps > li {
+    counter-increment: step;
+    position: relative;
+    padding: 12px 12px 12px 56px;
+    margin: 12px 0;
+    background: var(--brand-50);
+    border-left: 4px solid var(--brand-400);
+    border-radius: 0 8px 8px 0;
+  }
+  .steps > li::before {
+    content: counter(step);
+    position: absolute;
+    left: 14px; top: 12px;
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: var(--brand-600);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 14px;
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  th {
+    background: var(--brand-700);
+    color: #fff;
+    text-align: left;
+    padding: 10px 12px;
+    font-weight: 600;
+  }
+  td {
+    padding: 10px 12px;
+    border-top: 1px solid var(--border);
+  }
+  tr:nth-child(even) td { background: var(--brand-50); }
+
+  /* Role badges */
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.admin { background: var(--brand-100); color: var(--brand-800); }
+  .badge.super { background: #fef3c7; color: #78350f; border: 1px solid #fbbf24; }
+
+  /* Status flow diagram */
+  .flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 16px;
+    background: var(--brand-50);
+    border-radius: 12px;
+    margin: 12px 0;
+    overflow-x: auto;
+  }
+  .flow .node {
+    background: #fff;
+    border: 2px solid var(--brand-400);
+    color: var(--brand-800);
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .flow .arrow {
+    color: var(--brand-500);
+    font-size: 18px;
+    font-weight: bold;
+  }
+
+  /* Print button (top-right floating on small screens) */
+  @media print {
+    .top-bar, .toc, .no-print { display: none !important; }
+    body { background: #fff; }
+    .layout {
+      display: block;
+      max-width: 100%;
+      margin: 0;
+      padding: 0;
+      gap: 0;
+    }
+    section.chapter {
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+      padding: 16mm 0;
+      margin: 0;
+      page-break-after: always;
+      page-break-inside: auto;
+    }
+    section.chapter:last-of-type { page-break-after: auto; }
+    .cover {
+      border-radius: 0;
+      margin: 0;
+      padding: 30mm 20mm;
+      min-height: 90vh;
+    }
+    h2, h3 { page-break-after: avoid; }
+    table, .steps li, .callout { page-break-inside: avoid; }
+    a { color: inherit !important; text-decoration: none !important; }
+    @page {
+      size: A4;
+      margin: 15mm;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header class="top-bar no-print">
+  <div class="brand">
+    <div class="logo">F</div>
+    FlowSync — คู่มือการใช้งาน
+  </div>
+  <div class="actions">
+    <a href="/" class="btn btn-ghost">← กลับสู่ระบบ</a>
+    <button class="btn" onclick="window.print()" title="พิมพ์ / บันทึกเป็น PDF">
+      📥 Export PDF
+    </button>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="toc no-print" aria-label="สารบัญ">
+    <h4>📑 สารบัญ</h4>
+    <ol>
+      <li><a href="#intro">ภาพรวมระบบ</a></li>
+      <li><a href="#login">การเข้าสู่ระบบ &amp; สิทธิ์การใช้งาน</a></li>
+      <li><a href="#dashboard">หน้า Dashboard</a></li>
+      <li><a href="#customers">การจัดการลูกค้า</a></li>
+      <li><a href="#po-create">สร้าง Purchase Order</a></li>
+      <li><a href="#po-flow">การติดตามสถานะ PO</a></li>
+      <li><a href="#po-edit">แก้ไข PO &amp; ประวัติการแก้ไข</a></li>
+      <li><a href="#payments">บันทึกการชำระเงิน &amp; แนบสลิป</a></li>
+      <li><a href="#docs">ใบเสนอราคา / ใบแจ้งหนี้ (พิมพ์ &amp; PDF)</a></li>
+      <li><a href="#faq">คำถามที่พบบ่อย (FAQ)</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <!-- ============ COVER ============ -->
+    <div class="cover">
+      <div class="logo-big">F</div>
+      <h1>FlowSync</h1>
+      <div class="subtitle">คู่มือการใช้งานระบบจัดการ Purchase Order &amp; สินเชื่อลูกค้า</div>
+      <div class="meta">
+        <div>
+          <strong>สำหรับ</strong>
+          พนักงานหลังบ้าน Rimping
+        </div>
+        <div>
+          <strong>เวอร์ชัน</strong>
+          1.0 — 2026
+        </div>
+        <div>
+          <strong>ภาษา</strong>
+          ภาษาไทย
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ 1. INTRO ============ -->
+    <section class="chapter" id="intro">
+      <h2><span class="num">1</span> ภาพรวมระบบ</h2>
+      <p class="lead">FlowSync คือระบบหลังบ้านสำหรับจัดการการขายสินค้า<strong>แบบสินเชื่อ</strong>ให้ลูกค้า ครอบคลุมตั้งแต่การออก PO ตรวจวงเงิน ติดตามสถานะการจัดส่ง บันทึกการชำระเงิน ไปจนถึงพิมพ์ใบแจ้งหนี้</p>
+
+      <h3>ระบบช่วยอะไรได้บ้าง</h3>
+      <ul>
+        <li>📝 <strong>ออก PO</strong> พร้อมตรวจวงเงินสินเชื่อ (credit limit) ก่อนออกอัตโนมัติ</li>
+        <li>📦 <strong>ติดตามขั้นตอน</strong> ตั้งแต่ร่าง → ยืนยัน → แพ็ค → ตรวจ → จัดส่ง → ลูกค้ารับของ</li>
+        <li>💵 <strong>ออกใบแจ้งหนี้</strong> + บันทึกการชำระเงิน (จ่ายเต็มหรือบางส่วนก็ได้) + แนบสลิปรูป</li>
+        <li>✏️ <strong>แก้ไข PO</strong> ได้ตราบที่ยังไม่ชำระครบ พร้อมบันทึก audit log ทุกครั้ง</li>
+        <li>📊 <strong>Dashboard</strong> สรุปลูกหนี้คงค้าง วงเงินใช้ไป PO เกินกำหนด</li>
+        <li>🖨️ <strong>พิมพ์เอกสาร A4</strong> ใบเสนอราคา/ใบแจ้งหนี้ ส่งออก PDF ได้ทันที</li>
+      </ul>
+
+      <h3>โครงสร้างเมนูหลัก</h3>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 25%;">เมนู</th>
+            <th>ใช้ทำอะไร</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Dashboard</strong></td>
+            <td>หน้าแรกหลัง login — ดูสถิติภาพรวมและ PO ล่าสุด</td>
+          </tr>
+          <tr>
+            <td><strong>ลูกค้า</strong></td>
+            <td>รายการลูกค้าทั้งหมด พร้อมวงเงินและลูกหนี้คงค้าง</td>
+          </tr>
+          <tr>
+            <td><strong>Purchase Orders</strong></td>
+            <td>รายการ PO ทั้งหมด กรองได้ตามสถานะและวันที่</td>
+          </tr>
+          <tr>
+            <td><strong>+ สร้าง PO</strong> (ปุ่ม FAB)</td>
+            <td>ปุ่มสีเขียวกลม สร้าง PO ใหม่ได้ทุกหน้า</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ============ 2. LOGIN ============ -->
+    <section class="chapter" id="login">
+      <h2><span class="num">2</span> การเข้าสู่ระบบ &amp; สิทธิ์การใช้งาน</h2>
+      <p class="lead">ระบบมีผู้ใช้ 2 ระดับ: <strong>admin</strong> (ทั่วไป) และ <strong>super_admin</strong> (สิทธิ์เต็ม)</p>
+
+      <h3>ขั้นตอน login</h3>
+      <ol class="steps">
+        <li>เปิด browser ไปที่ <code>http://localhost:3000/login</code></li>
+        <li>กรอก <strong>Username หรือ Email</strong> และ <strong>Password</strong></li>
+        <li>กดปุ่ม <strong>เข้าสู่ระบบ</strong> — ระบบจะพาเข้าหน้า Dashboard</li>
+      </ol>
+
+      <h3>บัญชีเริ่มต้น (Default credentials)</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Password</th>
+            <th>ระดับ</th>
+            <th>สิทธิ์</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>admin</code></td>
+            <td><code>Admin@123</code></td>
+            <td><span class="badge admin">admin</span></td>
+            <td>ทุกฟังก์ชัน <strong>ยกเว้น</strong> เพิ่ม/แก้ไขข้อมูลลูกค้า</td>
+          </tr>
+          <tr>
+            <td><code>superadmin</code></td>
+            <td><code>SuperAdmin@123</code></td>
+            <td><span class="badge super">super_admin</span></td>
+            <td>ทุกฟังก์ชัน รวมถึงเพิ่ม/แก้ไขลูกค้า</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout warn">
+        <strong>⚠️ ความปลอดภัย</strong>
+        เปลี่ยน password ทันทีหลังใช้งานครั้งแรกในสภาพแวดล้อม production
+      </div>
+
+      <h3>ตารางสิทธิ์ตามระดับ</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>ฟังก์ชัน</th>
+            <th style="width: 18%;">admin</th>
+            <th style="width: 18%;">super_admin</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>ดูรายการลูกค้า / PO / Dashboard</td><td>✅</td><td>✅</td></tr>
+          <tr><td>สร้าง PO</td><td>✅</td><td>✅</td></tr>
+          <tr><td>เปลี่ยนสถานะ PO (confirm/pack/...)</td><td>✅</td><td>✅</td></tr>
+          <tr><td>บันทึกการชำระเงิน + แนบสลิป</td><td>✅</td><td>✅</td></tr>
+          <tr><td>แก้ไข PO (รายการ/notes/credit term)</td><td>✅</td><td>✅</td></tr>
+          <tr><td>เพิ่มลูกค้าใหม่</td><td>❌</td><td>✅</td></tr>
+          <tr><td>แก้ไขข้อมูลลูกค้า / วงเงิน / Credit Score</td><td>❌</td><td>✅</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ============ 3. DASHBOARD ============ -->
+    <section class="chapter" id="dashboard">
+      <h2><span class="num">3</span> หน้า Dashboard</h2>
+      <p class="lead">หน้าแรกหลัง login แสดงภาพรวมของระบบในจุดเดียว</p>
+
+      <h3>การ์ดสรุป (KPI)</h3>
+      <ul>
+        <li><strong>ลูกหนี้รวม</strong> — ยอดที่ลูกค้าทุกรายค้างชำระอยู่</li>
+        <li><strong>PO เปิดอยู่</strong> — จำนวน PO ที่ยังไม่ปิดงาน (ยังไม่ received)</li>
+        <li><strong>PO เกินกำหนดชำระ</strong> — PO ที่ <code>due_date</code> ผ่านมาแล้วแต่ยังไม่ paid</li>
+        <li><strong>มูลค่าขายเดือนนี้</strong> — รวมยอด PO ที่สร้างในเดือนปัจจุบัน</li>
+      </ul>
+
+      <h3>ตาราง PO ล่าสุด</h3>
+      <p>แสดง 10 รายการล่าสุด คลิกที่ PO number เพื่อเข้าหน้ารายละเอียด</p>
+    </section>
+
+    <!-- ============ 4. CUSTOMERS ============ -->
+    <section class="chapter" id="customers">
+      <h2><span class="num">4</span> การจัดการลูกค้า</h2>
+      <p class="lead">เมนู <strong>ลูกค้า</strong> — ดู/เพิ่ม/แก้ไขข้อมูลและวงเงินสินเชื่อ</p>
+
+      <h3>4.1 ดูรายการลูกค้า</h3>
+      <p>ทุก role ดูได้ — แต่ละแถวแสดง:</p>
+      <ul>
+        <li>ชื่อ + รหัสลูกค้า + ผู้ติดต่อ</li>
+        <li><strong>วงเงินสินเชื่อ</strong> (credit_limit)</li>
+        <li><strong>ลูกหนี้คงค้าง</strong> + แถบสถานะการใช้วงเงิน (เขียว/เหลือง/แดง)</li>
+        <li><strong>วงเงินคงเหลือ</strong> = limit − outstanding</li>
+        <li><strong>Credit Score</strong> 0–1000 (เตรียมไว้ให้ AI ประเมิน)</li>
+      </ul>
+
+      <h3>4.2 เพิ่มลูกค้าใหม่ <span class="badge super">super_admin เท่านั้น</span></h3>
+      <ol class="steps">
+        <li>เข้าเมนู <strong>ลูกค้า</strong> → กดปุ่ม <strong>+ เพิ่มลูกค้า</strong> (มุมขวาบน)</li>
+        <li>กรอกข้อมูล: ชื่อกิจการ ผู้ติดต่อ โทรศัพท์ Email เลขผู้เสียภาษี ที่อยู่</li>
+        <li>กำหนด <strong>วงเงินสินเชื่อ</strong> (บาท) และ <strong>เครดิต (วัน) เริ่มต้น</strong> เช่น 7/15/30/60</li>
+        <li>กรอก Credit Score 0–1000 และหมายเหตุ (ถ้ามี)</li>
+        <li>กด <strong>บันทึก</strong> — ระบบจะพาไปหน้ารายละเอียดลูกค้าทันที</li>
+      </ol>
+
+      <div class="callout">
+        <strong>💡 admin ทั่วไป</strong>
+        ถ้าไม่ใช่ super_admin จะไม่เห็นปุ่ม "+ เพิ่มลูกค้า" และเข้า URL ตรงๆ ก็ถูก redirect กลับ พร้อมแบนเนอร์เตือน
+      </div>
+
+      <h3>4.3 แก้ไขข้อมูลลูกค้า <span class="badge super">super_admin เท่านั้น</span></h3>
+      <ol class="steps">
+        <li>เข้าหน้ารายละเอียดลูกค้า (กดที่ชื่อในรายการ)</li>
+        <li>กดปุ่ม <strong>แก้ไขข้อมูล</strong> มุมขวาบน</li>
+        <li>ปรับฟิลด์ที่ต้องการ — ชื่อ ที่อยู่ วงเงิน เครดิตเริ่มต้น Credit Score ฯลฯ</li>
+        <li>กด <strong>บันทึกการเปลี่ยนแปลง</strong></li>
+      </ol>
+    </section>
+
+    <!-- ============ 5. PO CREATE ============ -->
+    <section class="chapter" id="po-create">
+      <h2><span class="num">5</span> สร้าง Purchase Order</h2>
+      <p class="lead">ออก PO ใหม่ พร้อม<strong>ตรวจวงเงิน</strong>ก่อนบันทึกอัตโนมัติ</p>
+
+      <ol class="steps">
+        <li>กดปุ่มกลม <strong>+</strong> ตรงกลาง bottom nav (มือถือ) หรือ <strong>+ สร้าง PO</strong> (เดสก์ท็อป)</li>
+        <li>เลือก <strong>ลูกค้า</strong> — dropdown จะแสดงวงเงินที่เหลือของแต่ละราย</li>
+        <li>เลือก <strong>เครดิต (วัน)</strong> — ค่า default จะดึงจากลูกค้า สามารถเปลี่ยนได้</li>
+        <li>เพิ่ม <strong>รายการสินค้า</strong>: ชื่อสินค้า รายละเอียด จำนวน หน่วย ราคา/หน่วย</li>
+        <li>กดปุ่ม <strong>+ เพิ่มรายการ</strong> เพื่อเพิ่มอีก หรือกด ✕ เพื่อลบ</li>
+        <li>ตรวจสอบ <strong>ยอดรวม</strong> ด้านล่าง</li>
+        <li>กรอก <strong>หมายเหตุ</strong> (ถ้ามี)</li>
+        <li>กด <strong>บันทึก PO</strong> — สถานะเริ่มต้นจะเป็น <strong>draft</strong></li>
+      </ol>
+
+      <div class="callout danger">
+        <strong>🚫 เกินวงเงิน</strong>
+        ถ้ายอด PO + ลูกหนี้คงค้างเดิม &gt; วงเงิน จะมีกล่องแดงเตือนและปุ่มบันทึกจะถูก disable
+      </div>
+    </section>
+
+    <!-- ============ 6. PO FLOW ============ -->
+    <section class="chapter" id="po-flow">
+      <h2><span class="num">6</span> การติดตามสถานะ PO</h2>
+      <p class="lead">PO ทุกใบจะเดินตามขั้นตอน <strong>7 สถานะ</strong> เริ่มจาก draft จบที่ received</p>
+
+      <div class="flow">
+        <span class="node">draft</span>
+        <span class="arrow">→</span>
+        <span class="node">confirmed</span>
+        <span class="arrow">→</span>
+        <span class="node">packed</span>
+        <span class="arrow">→</span>
+        <span class="node">checked</span>
+        <span class="arrow">→</span>
+        <span class="node">delivered</span>
+        <span class="arrow">→</span>
+        <span class="node">received</span>
+      </div>
+
+      <h3>ความหมายแต่ละสถานะ</h3>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 18%;">สถานะ</th>
+            <th>ความหมาย</th>
+            <th>ปุ่มกด</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>draft</strong></td><td>ร่าง — ยังไม่ส่งให้ลูกค้ายืนยัน</td><td>ยืนยัน PO</td></tr>
+          <tr><td><strong>confirmed</strong></td><td>ลูกค้ายืนยันแล้ว เตรียมแพ็คได้</td><td>แพ็คของแล้ว</td></tr>
+          <tr><td><strong>packed</strong></td><td>แพ็คเสร็จ รอตรวจ</td><td>ตรวจของครบแล้ว</td></tr>
+          <tr><td><strong>checked</strong></td><td>ตรวจครบ พร้อมส่ง</td><td>จัดส่งแล้ว</td></tr>
+          <tr><td><strong>delivered</strong></td><td>ของออกจากคลัง — ระบบตั้ง <code>due_date</code> ให้อัตโนมัติ</td><td>ลูกค้ารับของแล้ว</td></tr>
+          <tr><td><strong>received</strong></td><td>ลูกค้ารับเรียบร้อย รอชำระเงิน</td><td>—</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout">
+        <strong>📅 due_date</strong>
+        คำนวณจาก วันที่ delivered + จำนวนวันเครดิต ตอนเปลี่ยนสถานะเป็น delivered/received เท่านั้น
+      </div>
+
+      <h3>การยกเลิก PO</h3>
+      <p>กดปุ่ม <strong>ยกเลิก PO</strong> ได้ทุกสถานะก่อน received — สถานะจะกลายเป็น <code>cancelled</code> และล็อกแก้ไขไม่ได้</p>
+    </section>
+
+    <!-- ============ 7. PO EDIT ============ -->
+    <section class="chapter" id="po-edit">
+      <h2><span class="num">7</span> แก้ไข PO &amp; ประวัติการแก้ไข</h2>
+      <p class="lead">ตราบที่ยัง<strong>ไม่ชำระครบ</strong> สามารถแก้ไขรายการและเงื่อนไขได้</p>
+
+      <h3>เงื่อนไขการแก้ไข</h3>
+      <ul>
+        <li>✅ <code>payment_status</code> เป็น <strong>unpaid</strong> หรือ <strong>partial</strong> → แก้ได้</li>
+        <li>❌ <code>payment_status</code> เป็น <strong>paid</strong> (ชำระครบ) → ปุ่มจะ<strong>เทาและกดไม่ได้</strong></li>
+      </ul>
+
+      <h3>ขั้นตอนการแก้ไข</h3>
+      <ol class="steps">
+        <li>เข้าหน้ารายละเอียด PO</li>
+        <li>กดปุ่ม <strong>แก้ไข PO</strong> มุมขวาบน (ข้างปุ่มดาวน์โหลดใบเสนอราคา)</li>
+        <li>ปรับ: เครดิต (วัน), หมายเหตุ, รายการสินค้า (เพิ่ม/ลบ/แก้)</li>
+        <li>ระบบคำนวณ <strong>คงค้างใหม่</strong> = ยอด PO ใหม่ − ที่ชำระไปแล้ว</li>
+        <li>กด <strong>บันทึกการเปลี่ยนแปลง</strong></li>
+      </ol>
+
+      <div class="callout warn">
+        <strong>⚠️ ข้อจำกัด</strong>
+        <ul style="margin: 4px 0 0;">
+          <li>ยอดรวมใหม่ <strong>ห้ามต่ำกว่า</strong> ยอดที่ชำระไปแล้ว</li>
+          <li>คงค้างใหม่ + คงค้างของ PO อื่น <strong>ห้ามเกิน</strong> วงเงินลูกค้า</li>
+          <li>เปลี่ยน<strong>ลูกค้า</strong>หลังออก PO ไม่ได้</li>
+        </ul>
+      </div>
+
+      <h3>ประวัติการแก้ไข (Audit Log)</h3>
+      <p>ทุกครั้งที่กด "บันทึกการเปลี่ยนแปลง" ระบบจะเก็บ snapshot ก่อน-หลังให้อัตโนมัติ ดูได้ที่ส่วนล่างของหน้า PO</p>
+      <ul>
+        <li>📜 ส่วน <strong>"ประวัติการแก้ไข PO"</strong> แสดงรายการการแก้ทั้งหมด</li>
+        <li>กดที่แต่ละรายการเพื่อ<strong>ขยายดู diff</strong> — เปรียบเทียบ <em>ก่อน</em> vs <em>หลัง</em> ในตารางคู่กัน</li>
+        <li>แต่ละรายการแสดง: ผู้แก้ไข, วันเวลา, สรุปการเปลี่ยนแปลง</li>
+      </ul>
+    </section>
+
+    <!-- ============ 8. PAYMENTS ============ -->
+    <section class="chapter" id="payments">
+      <h2><span class="num">8</span> บันทึกการชำระเงิน &amp; แนบสลิป</h2>
+      <p class="lead">รับชำระได้ทั้ง<strong>เต็มจำนวน</strong>หรือ<strong>บางส่วน</strong> (จ่ายเป็นงวดได้)</p>
+
+      <h3>ขั้นตอน</h3>
+      <ol class="steps">
+        <li>เข้าหน้า PO ที่ต้องการบันทึกชำระ</li>
+        <li>กดปุ่ม <strong>บันทึกการชำระเงิน</strong> (ในส่วน Workflow &amp; Actions)</li>
+        <li>กรอก <strong>ยอดที่ชำระ</strong> — ค่า default คือยอดคงค้างทั้งหมด ปรับลดได้</li>
+        <li>เลือก <strong>วันเวลาที่ชำระ</strong> และ <strong>วิธีชำระ</strong> (โอน/เงินสด/เช็ค)</li>
+        <li>กรอก <strong>เลขอ้างอิง</strong> (transaction ref / เลขเช็ค)</li>
+        <li>กดที่กรอบเส้นประ <strong>"กดเพื่อเลือกไฟล์ / ถ่ายรูปสลิป"</strong> เพื่อแนบสลิป</li>
+        <li>ระบบจะแสดง<strong>รูปตัวอย่าง</strong>ทันที กดไอคอน ✕ เพื่อเปลี่ยนรูปได้</li>
+        <li>กรอกหมายเหตุ (ถ้ามี) → กด <strong>บันทึก</strong></li>
+      </ol>
+
+      <div class="callout">
+        <strong>📱 มือถือ</strong>
+        ระบบรองรับ <code>capture="environment"</code> — กดแล้วเปิดกล้องหลังให้ถ่ายสลิปตรงได้เลย ไม่ต้องบันทึกรูปก่อน
+      </div>
+
+      <h3>การคำนวณ</h3>
+      <ul>
+        <li>หลังบันทึก: <code>paid_amount</code> += ยอดที่จ่าย, <code>remaining_amount</code> −= ยอดที่จ่าย</li>
+        <li>ถ้า remaining = 0 → <code>payment_status</code> เปลี่ยนเป็น <strong>paid</strong> อัตโนมัติ</li>
+        <li>ถ้า paid &gt; 0 แต่ &lt; total → <strong>partial</strong></li>
+      </ul>
+
+      <h3>ดูประวัติการชำระ</h3>
+      <p>ตาราง <strong>"ประวัติการชำระเงิน"</strong> ที่ส่วนล่างของหน้า PO แสดง:</p>
+      <ul>
+        <li>วันที่ + ยอด + วิธี + เลขอ้างอิง + หมายเหตุ</li>
+        <li>คอลัมน์ <strong>"สลิป"</strong> แสดง <strong>thumbnail รูปสลิป</strong> — คลิกเพื่อดูเต็ม</li>
+        <li>ถ้าแนบ PDF จะแสดงเป็นลิงก์ "ดูไฟล์ (PDF)"</li>
+      </ul>
+    </section>
+
+    <!-- ============ 9. DOCS ============ -->
+    <section class="chapter" id="docs">
+      <h2><span class="num">9</span> ใบเสนอราคา / ใบแจ้งหนี้ (พิมพ์ &amp; PDF)</h2>
+      <p class="lead">ระบบสร้างเอกสาร A4 พร้อมสำหรับพิมพ์หรือส่งออกเป็น PDF</p>
+
+      <h3>9.1 ใบเสนอราคา (Quotation)</h3>
+      <ol class="steps">
+        <li>เข้าหน้า PO → กดปุ่ม <strong>ดาวน์โหลดใบเสนอราคา</strong> (มุมขวาบน)</li>
+        <li>เปิดเป็น tab ใหม่แสดงเอกสาร A4</li>
+        <li>กดปุ่ม <strong>📥 พิมพ์ / Export PDF</strong> หรือ <kbd>Ctrl</kbd>+<kbd>P</kbd></li>
+        <li>ใน print dialog เลือก <strong>"Save as PDF"</strong></li>
+      </ol>
+
+      <h3>9.2 ใบแจ้งหนี้ (Invoice)</h3>
+      <ol class="steps">
+        <li>เข้าหน้า PO ที่<strong>มีการชำระอย่างน้อย 1 ครั้ง</strong></li>
+        <li>กดปุ่ม <strong>สร้างใบแจ้งหนี้</strong></li>
+        <li>ระบบจะสร้างเลข INV ใหม่และเปิดเอกสารใน tab ใหม่</li>
+        <li>พิมพ์/ส่งออก PDF เหมือนข้อ 9.1</li>
+      </ol>
+
+      <div class="callout">
+        <strong>🖨️ Tip การพิมพ์</strong>
+        ในกล่อง print dialog → <em>More settings</em> → <strong>uncheck "Headers and footers"</strong> เพื่อไม่ให้มีวันที่/URL ติดบนกระดาษ (ระบบตั้ง <code>@page margin: 0</code> ให้แล้ว ส่วนใหญ่จะหายเอง)
+      </div>
+    </section>
+
+    <!-- ============ 10. FAQ ============ -->
+    <section class="chapter" id="faq">
+      <h2><span class="num">10</span> คำถามที่พบบ่อย (FAQ)</h2>
+
+      <h4>Q: ทำไมเพิ่มลูกค้าใหม่ไม่ได้?</h4>
+      <p>A: เฉพาะ <span class="badge super">super_admin</span> เท่านั้นที่เพิ่มได้ — ติดต่อผู้ดูแลระบบเพื่อยกระดับสิทธิ์ หรือให้ super_admin เพิ่มแทน</p>
+
+      <h4>Q: PO ที่ชำระครบแล้วต้องการแก้ไขทำอย่างไร?</h4>
+      <p>A: ระบบ<strong>ล็อก</strong>การแก้ไข PO ที่ชำระครบเพื่อรักษาความถูกต้องของบัญชี — ถ้าจำเป็นจริงๆ ต้องคืนเงินก่อน (ลบรายการชำระล่าสุด) จึงจะแก้ไขได้</p>
+
+      <h4>Q: บันทึกชำระผิด ต้องการลบทำอย่างไร?</h4>
+      <p>A: เวอร์ชันปัจจุบันยังไม่มีปุ่มลบใน UI — ติดต่อผู้ดูแล database เพื่อแก้ไข (จะมีในเวอร์ชันต่อไป)</p>
+
+      <h4>Q: รูปสลิปแสดงเป็น "—" ดูไม่ได้</h4>
+      <p>A: ตรวจว่าโฟลเดอร์ <code>public/uploads/slips/</code> มีไฟล์อยู่ และ environment variable <code>UPLOAD_DIR</code> ตั้งถูกต้อง</p>
+
+      <h4>Q: เครดิต Score คืออะไร ใช้ทำอะไร?</h4>
+      <p>A: ฟิลด์ 0–1000 เตรียมไว้ให้ระบบ AI ประเมินความน่าเชื่อถือลูกค้าในอนาคต ตอนนี้กรอกเองได้ที่หน้าแก้ไขลูกค้า</p>
+
+      <h4>Q: ลืม password ทำอย่างไร?</h4>
+      <p>A: ติดต่อ super_admin ให้ reset ผ่าน database โดยตรง (เวอร์ชันต่อไปจะมี UI reset password)</p>
+
+      <h4>Q: ระบบรองรับมือถือไหม?</h4>
+      <p>A: รองรับเต็มที่ — มี bottom navigation พร้อม FAB สีเขียวกลางจอสำหรับสร้าง PO เร็วๆ และทุกตารางแปลงเป็น card view บนจอเล็ก</p>
+
+      <hr style="border: none; border-top: 1px solid var(--border); margin: 32px 0;" />
+      <div style="text-align: center; color: var(--muted); font-size: 13px;">
+        — จบคู่มือ —<br>
+        <strong>FlowSync</strong> · Rimping Internal · 2026
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  // smooth scroll for TOC anchors
+  document.querySelectorAll('.toc a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  });
+</script>
+
+</body>
+</html>

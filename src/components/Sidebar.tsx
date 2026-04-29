@@ -7,6 +7,7 @@ import {
   Users,
   Package,
   PlusCircle,
+  BookOpen,
   type LucideIcon,
 } from "lucide-react";
 
@@ -15,6 +16,7 @@ const NAV: { href: string; label: string; Icon: LucideIcon }[] = [
   { href: "/customers", label: "ลูกค้า", Icon: Users },
   { href: "/po", label: "Purchase Orders", Icon: Package },
   { href: "/po/new", label: "สร้าง PO ใหม่", Icon: PlusCircle },
+  { href: "/manual", label: "คู่มือการใช้งาน", Icon: BookOpen },
 ];
 
 export function Sidebar({

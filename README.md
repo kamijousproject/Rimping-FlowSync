@@ -22,8 +22,12 @@
 
 - 📝 **ออก PO** ตรวจวงเงินก่อนออกอัตโนมัติ
 - 📦 **ติดตามขั้นตอน** draft → confirmed → packed → checked → delivered → received
-- 💵 **ออก Invoice** + บันทึกการชำระบางส่วน/เต็มจำนวน + แนบสลิป
+- 💵 **ออก Invoice** + บันทึกการชำระบางส่วน/เต็มจำนวน + แนบสลิป (พร้อม preview รูป)
+- ✏️ **แก้ไข PO ได้** ตราบที่ยังไม่ชำระครบ + บันทึก audit log ทุกครั้ง
+- 🔐 **Permission 2 ระดับ** — `admin` / `super_admin` (เพิ่ม/แก้ไขลูกค้าเฉพาะ super_admin)
 - 📊 **Dashboard** สรุปลูกหนี้คงค้าง, วงเงิน, PO เกินกำหนด
+- 🖨️ **พิมพ์ใบเสนอราคา / ใบแจ้งหนี้** A4 พร้อมส่งออก PDF (Ctrl+P)
+- 📖 **คู่มือการใช้งาน** ภาษาไทยที่ [`/manual`](http://localhost:3000/manual) (export PDF ได้)
 - 🤖 **เตรียม field** Credit Score (0–1000) ไว้รองรับ AI ประเมินภายหลัง
 
 ---
@@ -136,9 +140,10 @@ npm run build && npm start
 
 ### 5. เข้าสู่ระบบ
 
-| Username | Password    | Role  |
-|----------|-------------|-------|
-| `admin`  | `admin1234` | admin |
+| Username     | Password         | Role          | สิทธิ์                                       |
+|--------------|------------------|---------------|----------------------------------------------|
+| `admin`      | `Admin@123`      | `admin`       | ทุกอย่าง **ยกเว้น** เพิ่ม/แก้ไขลูกค้า       |
+| `superadmin` | `SuperAdmin@123` | `super_admin` | ทุกอย่าง รวมถึงเพิ่ม/แก้ไขข้อมูลลูกค้า      |
 
 > 🔐 ระบบ**ไม่มี**การลงทะเบียนสำหรับลูกค้า เป็นระบบหลังบ้านอย่างเดียว
 > ใช้ `/register` (เข้าจาก /login) สร้างบัญชีพนักงานเพิ่มเติม
@@ -183,24 +188,25 @@ npm run build && npm start
 | GET    | `/api/auth/me`           | current user             |
 
 ### Customers
-| Method | Path                       | คำอธิบาย                       |
-|--------|----------------------------|--------------------------------|
-| GET    | `/api/customers`           | รายการ + credit สรุป           |
-| POST   | `/api/customers`           | เพิ่มลูกค้า                    |
-| GET    | `/api/customers/[id]`      | รายละเอียด + PO + payments     |
-| PATCH  | `/api/customers/[id]`      | แก้ไข (รวม `credit_score`)     |
+| Method | Path                       | คำอธิบาย                                            | Role          |
+|--------|----------------------------|-----------------------------------------------------|---------------|
+| GET    | `/api/customers`           | รายการ + credit สรุป                                | any           |
+| POST   | `/api/customers`           | เพิ่มลูกค้า                                         | `super_admin` |
+| GET    | `/api/customers/[id]`      | รายละเอียด + PO + payments                          | any           |
+| PATCH  | `/api/customers/[id]`      | แก้ไข (รวม `credit_score`)                          | `super_admin` |
 
 ### Purchase Orders
-| Method | Path                              | คำอธิบาย                   |
-|--------|-----------------------------------|----------------------------|
-| GET    | `/api/po?status=&payment_status=` | filter list                |
-| POST   | `/api/po`                         | สร้าง PO + credit check    |
-| GET    | `/api/po/[id]`                    | detail + items + payments  |
-| POST   | `/api/po/[id]/status`             | `{status}`                 |
-| POST   | `/api/po/[id]/sign`               | (multipart) อัปโหลดเอกสาร  |
-| GET    | `/api/po/[id]/payments`           | ประวัติการชำระ             |
-| POST   | `/api/po/[id]/payments`           | บันทึกชำระ + แนบสลิป       |
-| POST   | `/api/po/[id]/invoice`            | สร้างเลข Invoice           |
+| Method | Path                              | คำอธิบาย                                         |
+|--------|-----------------------------------|--------------------------------------------------|
+| GET    | `/api/po?status=&payment_status=` | filter list                                      |
+| POST   | `/api/po`                         | สร้าง PO + credit check                          |
+| GET    | `/api/po/[id]`                    | detail + items + payments                        |
+| **PUT**| **`/api/po/[id]`**                | **แก้ไข PO + บันทึก audit log (block ถ้า paid)**|
+| POST   | `/api/po/[id]/status`             | `{status}`                                       |
+| POST   | `/api/po/[id]/sign`               | (multipart) อัปโหลดเอกสาร                        |
+| GET    | `/api/po/[id]/payments`           | ประวัติการชำระ                                   |
+| POST   | `/api/po/[id]/payments`           | บันทึกชำระ + แนบสลิป                             |
+| POST   | `/api/po/[id]/invoice`            | สร้างเลข Invoice                                 |
 
 ### Dashboard
 | Method | Path              | คำอธิบาย                 |
@@ -244,14 +250,16 @@ await updateCustomer(customerId, {
 ## 🗂️ Database Schema
 
 ```
-users               (id, username, email, password_hash, role)
+users               (id, username, email, password_hash, role['admin'|'super_admin'])
 customers           (id, code, name, credit_limit, credit_score, ...)
 purchase_orders     (id, po_number, customer_id, status, payment_status,
                      subtotal, total, paid_amount, remaining_amount,
                      credit_term_days, due_date, signed_doc_path, ...)
 po_items            (id, po_id, product_name, quantity, unit_price, line_total)
+po_edit_logs        (id, po_id, edited_by, summary, changes JSON, created_at)
 payments            (id, po_id, amount, paid_at, method, slip_path, ...)
 invoices            (id, invoice_number, po_id, amount, generated_at)
+quotations          (id, quote_number, po_id, generated_at)
 ```
 
 ดูเต็มที่ [`src/backend/schema.sql`](src/backend/schema.sql)
@@ -269,7 +277,20 @@ npm run lint     # next lint
 
 ---
 
+## 📖 คู่มือการใช้งาน (User Manual)
+
+คู่มือภาษาไทยอยู่ที่ **`/manual`** (เข้าได้หลัง login):
+
+```
+http://localhost:3000/manual
+```
+
+- มีปุ่ม **📥 Export PDF** — กดแล้วเรียก print dialog → Save as PDF
+- หรือเปิดไฟล์ HTML ตรงๆ ที่ [`public/manual.html`](public/manual.html)
+- ธีมสีเขียวเหมือนเว็บ พิมพ์ A4 จัดหน้าให้พร้อม
+
+---
+
 ## 📝 License
 
 Internal use — Rimping FlowSync project
-# Rimping-FlowSync
