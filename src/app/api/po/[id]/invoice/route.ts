@@ -23,6 +23,7 @@ export async function POST(
     if (amount <= 0) return badRequest("ยอด invoice ต้องมากกว่า 0");
     const invoice = await generateInvoice({
       po_id: Number(id),
+      po_number: data.po.po_number,
       amount,
       generated_by: auth.user.id,
     });

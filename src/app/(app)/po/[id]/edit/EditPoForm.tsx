@@ -45,9 +45,9 @@ export function EditPoForm({
   const [items, setItems] = useState<Item[]>(
     initialItems.length ? initialItems : [newItem()]
   );
-  const [creditAvailableForThis, setCreditAvailableForThis] = useState<
-    number | null
-  >(null);
+  const [creditAvailableForThis, setCreditAvailableForThis] = useState<number | null>(null);
+  const [tempExtra, setTempExtra] = useState<number>(0);
+  const [baseLimit, setBaseLimit] = useState<number>(0);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -59,13 +59,14 @@ export function EditPoForm({
       .then((r) => r.json())
       .then((d) => {
         if (!d?.customer) return;
-        const limit = Number(d.customer.credit_limit);
+        const effective = d.effective;
+        const limit = effective ? Number(effective.effective_limit) : Number(d.customer.credit_limit);
         const totalOutstanding = Number(d.customer.outstanding);
-        const thisPo = (d.pos || []).find(
-          (p: { id: number }) => p.id === poId
-        );
+        const thisPo = (d.pos || []).find((p: { id: number }) => p.id === poId);
         const thisOutstanding = thisPo ? Number(thisPo.remaining_amount) : 0;
         setCreditAvailableForThis(limit - (totalOutstanding - thisOutstanding));
+        setTempExtra(effective ? Number(effective.temp_extra) : 0);
+        setBaseLimit(Number(d.customer.credit_limit));
       })
       .catch(() => {});
   }, [customerId, poId]);
@@ -157,6 +158,18 @@ export function EditPoForm({
               <option value={60}>60 วัน</option>
             </select>
           </div>
+          {tempExtra > 0 && (
+            <div className="md:col-span-3 rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+              🔵 <strong>วงเงินชั่วคราวใช้งานอยู่:</strong> +{fmtMoney(tempExtra)} (วงเงินรวม{" "}
+              {fmtMoney(baseLimit + tempExtra)}, วงเงินหลัก {fmtMoney(baseLimit)})
+            </div>
+          )}
+          {creditAvailableForThis !== null && (
+            <div className="md:col-span-3 text-xs text-muted">
+              วงเงินที่ใช้ได้สำหรับ PO นี้:{" "}
+              <span className="font-semibold text-brand-800">{fmtMoney(creditAvailableForThis)}</span>
+            </div>
+          )}
         </div>
 
         <div className="card p-5">

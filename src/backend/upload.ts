@@ -4,7 +4,7 @@ import path from "node:path";
 const BASE = process.env.UPLOAD_DIR || path.join(process.cwd(), "uploads");
 
 export async function saveUpload(
-  category: "slips" | "signed",
+  category: "slips" | "signed" | "customer-files",
   file: File
 ): Promise<string> {
   const dir = path.join(BASE, category);
@@ -22,7 +22,7 @@ export async function readUpload(
   name: string
 ): Promise<{ buf: Buffer; mime: string } | null> {
   if (!/^[\w.-]+$/.test(name)) return null;
-  if (!["slips", "signed"].includes(category)) return null;
+  if (!["slips", "signed", "customer-files"].includes(category)) return null;
   const full = path.join(BASE, category, name);
   try {
     const buf = await fs.readFile(full);

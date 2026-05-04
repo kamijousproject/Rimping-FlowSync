@@ -54,6 +54,19 @@ export function PoActions({
 
   // Sign upload
   const [signFile, setSignFile] = useState<File | null>(null);
+  const [replaceSign, setReplaceSign] = useState(false);
+  const signPreview = useMemo(
+    () =>
+      signFile && signFile.type.startsWith("image/")
+        ? URL.createObjectURL(signFile)
+        : null,
+    [signFile]
+  );
+  useEffect(() => {
+    return () => {
+      if (signPreview) URL.revokeObjectURL(signPreview);
+    };
+  }, [signPreview]);
 
   // Invoice generated
   const [invoice, setInvoice] = useState<{
@@ -116,8 +129,7 @@ export function PoActions({
     }
     const d = await r.json();
     setInvoice(d.invoice);
-    // open invoice in new tab
-    window.open(`/po/${poId}/invoice?inv=${d.invoice.id}`, "_blank");
+    router.push(`/po/${poId}/invoice?inv=${d.invoice.id}`);
   }
 
   async function submitPayment(e: React.FormEvent) {
@@ -216,8 +228,8 @@ export function PoActions({
           <div className="text-sm font-medium mb-2">
             เอกสารหลักฐานรับของ (signed by customer)
           </div>
-          {signed_doc_path ? (
-            <div className="flex items-center gap-3">
+          {signed_doc_path && !replaceSign ? (
+            <div className="flex items-center gap-3 flex-wrap">
               <a
                 href={signed_doc_path}
                 target="_blank"
@@ -227,22 +239,75 @@ export function PoActions({
                 ดูเอกสาร
               </a>
               <span className="text-xs text-muted">บันทึกแล้ว</span>
+              <button
+                type="button"
+                onClick={() => setReplaceSign(true)}
+                className="text-xs text-muted hover:text-brand-700 underline"
+              >
+                เปลี่ยนไฟล์
+              </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
-              <input
-                type="file"
-                accept="image/*,application/pdf"
-                onChange={(e) => setSignFile(e.target.files?.[0] || null)}
-                className="text-sm"
-              />
-              <button
-                onClick={uploadSigned}
-                disabled={!signFile || busy}
-                className="btn-secondary text-sm"
-              >
-                อัปโหลดเอกสาร
-              </button>
+            <div className="space-y-2">
+              {!signFile ? (
+                <label className="flex items-center justify-center gap-2 border-2 border-dashed border-brand-200 rounded-lg px-4 py-5 text-sm text-brand-700 hover:bg-brand-50 cursor-pointer transition">
+                  <Upload className="w-4 h-4" />
+                  <span>กดเพื่อเลือกไฟล์เอกสาร / ถ่ายรูป</span>
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => setSignFile(e.target.files?.[0] || null)}
+                  />
+                </label>
+              ) : (
+                <div className="border border-border rounded-lg p-2 flex items-start gap-3">
+                  {signPreview ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={signPreview}
+                      alt="เอกสาร"
+                      className="w-20 h-20 object-cover rounded border border-border shrink-0"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 rounded border border-border bg-brand-50 flex items-center justify-center text-brand-700 shrink-0">
+                      <FileText className="w-8 h-8" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0 text-sm">
+                    <div className="font-medium truncate">{signFile.name}</div>
+                    <div className="text-xs text-muted">
+                      {(signFile.size / 1024).toFixed(1)} KB
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSignFile(null)}
+                    className="text-muted hover:text-red-600 p-1"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={uploadSigned}
+                  disabled={!signFile || busy}
+                  className="btn-secondary text-sm"
+                >
+                  อัปโหลดเอกสาร
+                </button>
+                {replaceSign && (
+                  <button
+                    type="button"
+                    onClick={() => { setReplaceSign(false); setSignFile(null); }}
+                    className="text-sm text-muted hover:text-foreground"
+                  >
+                    ยกเลิก
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>

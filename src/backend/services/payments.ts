@@ -1,5 +1,5 @@
-import { query, withTx } from "../db";
-import { generateInvoiceNumber } from "./po";
+import { query, exec, withTx } from "../db";
+import { invoiceNumberFromPo } from "./po";
 
 export type Payment = {
   id: number;
@@ -104,26 +104,28 @@ export async function recordPayment(input: {
 
 export async function generateInvoice(input: {
   po_id: number;
+  po_number: string;
   amount: number;
   generated_by: number;
 }): Promise<Invoice> {
-  const invoice_number = await generateInvoiceNumber();
-  return withTx(async (conn) => {
-    const [r] = await conn.query(
-      `INSERT INTO invoices (invoice_number, po_id, amount, generated_by)
-       VALUES (?,?,?,?)`,
-      [invoice_number, input.po_id, input.amount, input.generated_by]
-    );
-    const id = (r as { insertId: number }).insertId;
-    return {
-      id,
-      invoice_number,
-      po_id: input.po_id,
-      amount: input.amount,
-      generated_at: new Date(),
-      generated_by: input.generated_by,
-    };
-  });
+  // Idempotent — return existing invoice if one already exists for this PO
+  const existing = await query<Invoice>(
+    "SELECT * FROM invoices WHERE po_id = ? ORDER BY id DESC LIMIT 1",
+    [input.po_id]
+  );
+  if (existing[0]) return existing[0];
+
+  const invoice_number = invoiceNumberFromPo(input.po_number);
+  await exec(
+    `INSERT INTO invoices (invoice_number, po_id, amount, generated_by)
+     VALUES (?,?,?,?)`,
+    [invoice_number, input.po_id, input.amount, input.generated_by]
+  );
+  const rows = await query<Invoice>(
+    "SELECT * FROM invoices WHERE po_id = ? ORDER BY id DESC LIMIT 1",
+    [input.po_id]
+  );
+  return rows[0];
 }
 
 export async function getInvoice(id: number): Promise<Invoice | null> {

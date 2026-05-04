@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { getDashboardStats, getRecentPos } from "@/backend/services/dashboard";
+import { getDashboardStats } from "@/backend/services/dashboard";
+import { listCustomers } from "@/backend/services/customers";
 import { PaymentBadge, StatusBadge, fmtMoney } from "@/components/StatusBadge";
 
 export const dynamic = "force-dynamic";
@@ -25,9 +26,9 @@ const STATUS_LABEL_TH: Record<string, string> = {
 };
 
 export default async function DashboardPage() {
-  const [stats, recent] = await Promise.all([
+  const [stats, customers] = await Promise.all([
     getDashboardStats(),
-    getRecentPos(10),
+    listCustomers(),
   ]);
 
   const cards = [
@@ -155,69 +156,137 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className="card p-5">
+      <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold">PO ล่าสุด</h3>
-          <Link href="/po" className="text-sm text-brand-700 hover:underline">
-            ดูทั้งหมด →
+          <h3 className="font-semibold text-brand-800">ลูกค้าทั้งหมด</h3>
+          <Link href="/customers" className="text-sm text-brand-700 hover:underline">
+            จัดการลูกค้า →
           </Link>
         </div>
-        <div className="overflow-x-auto">
+
+        {/* Mobile cards */}
+        <div className="md:hidden space-y-2">
+          {customers.map((c) => {
+            const usedPct = c.effective_limit
+              ? (Number(c.outstanding) / Number(c.effective_limit)) * 100
+              : 0;
+            return (
+              <Link
+                key={c.id}
+                href={`/customers/${c.id}`}
+                className="block card p-4 active:scale-[0.99] transition"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold truncate">{c.name}</div>
+                    <div className="text-xs text-muted">
+                      {c.code || "—"}{c.phone ? ` · ${c.phone}` : ""}
+                    </div>
+                  </div>
+                  {c.credit_score != null && (
+                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                      c.credit_score >= 700 ? "bg-brand-100 text-brand-800"
+                      : c.credit_score >= 600 ? "bg-amber-100 text-amber-800"
+                      : "bg-red-100 text-red-700"
+                    }`}>{c.credit_score}</span>
+                  )}
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                  <div>
+                    <div className="text-muted text-[10px]">วงเงิน</div>
+                    <div className="font-medium">{fmtMoney(c.effective_limit)}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted text-[10px]">ใช้ไป</div>
+                    <div className="font-medium text-red-600">{fmtMoney(c.outstanding)}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted text-[10px]">คงเหลือ</div>
+                    <div className="font-medium text-brand-700">{fmtMoney(c.credit_available)}</div>
+                  </div>
+                </div>
+                <div className="h-1.5 rounded-full bg-brand-100 mt-2 overflow-hidden">
+                  <div
+                    className={`h-full ${
+                      usedPct > 80 ? "bg-red-500" : usedPct > 50 ? "bg-amber-500" : "bg-brand-600"
+                    }`}
+                    style={{ width: `${Math.min(100, usedPct)}%` }}
+                  />
+                </div>
+                {Number(c.open_pos || 0) > 0 && (
+                  <div className="text-[11px] text-muted mt-2">PO เปิดอยู่ {Number(c.open_pos)} ใบ</div>
+                )}
+              </Link>
+            );
+          })}
+          {customers.length === 0 && (
+            <div className="card p-8 text-center text-muted text-sm">ยังไม่มีลูกค้า</div>
+          )}
+        </div>
+
+        {/* Desktop table */}
+        <div className="hidden md:block card overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-xs text-muted border-b">
+            <thead className="text-xs text-muted bg-brand-50">
               <tr>
-                <th className="text-left py-2">PO No.</th>
-                <th className="text-left">ลูกค้า</th>
-                <th className="text-right">ยอดรวม</th>
-                <th className="text-right">คงค้าง</th>
-                <th>สถานะ</th>
-                <th>การชำระ</th>
-                <th>กำหนดชำระ</th>
+                <th className="text-left p-3">รหัส / ชื่อ</th>
+                <th className="text-left">ติดต่อ</th>
+                <th className="text-right">วงเงิน</th>
+                <th className="text-right">ใช้ไป</th>
+                <th className="text-right">คงเหลือ</th>
+                <th className="text-center">PO เปิดอยู่</th>
+                <th className="text-center">Score</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              {(recent as Array<Record<string, unknown>>).map((r) => (
-                <tr key={r.id as number} className="border-b last:border-0">
-                  <td className="py-2">
-                    <Link
-                      href={`/po/${r.id}`}
-                      className="text-brand-700 hover:underline font-medium"
-                    >
-                      {r.po_number as string}
-                    </Link>
-                  </td>
-                  <td>
-                    <Link
-                      href={`/customers/${r.customer_id}`}
-                      className="hover:underline"
-                    >
-                      {r.customer_name as string}
-                    </Link>
-                  </td>
-                  <td className="text-right">{fmtMoney(r.total as number)}</td>
-                  <td className="text-right text-red-600">
-                    {fmtMoney(r.remaining_amount as number)}
-                  </td>
-                  <td className="text-center">
-                    <StatusBadge status={r.status as string} />
-                  </td>
-                  <td className="text-center">
-                    <PaymentBadge status={r.payment_status as string} />
-                  </td>
-                  <td className="text-center text-xs">
-                    {r.due_date
-                      ? new Date(r.due_date as string).toLocaleDateString(
-                          "th-TH"
-                        )
-                      : "-"}
-                  </td>
-                </tr>
-              ))}
-              {recent.length === 0 && (
+              {customers.map((c) => {
+                const usedPct = c.effective_limit
+                  ? (Number(c.outstanding) / Number(c.effective_limit)) * 100
+                  : 0;
+                return (
+                  <tr key={c.id} className="border-t hover:bg-brand-50/40">
+                    <td className="p-3">
+                      <div className="font-medium">{c.name}</div>
+                      <div className="text-xs text-muted">{c.code || "-"}</div>
+                    </td>
+                    <td>
+                      <div className="text-xs">{c.phone || "-"}</div>
+                      <div className="text-xs text-muted">{c.email || ""}</div>
+                    </td>
+                    <td className="text-right">
+                      {fmtMoney(c.effective_limit)}
+                      {c.temp_extra > 0 && (
+                        <div className="text-[10px] text-blue-600">+{fmtMoney(c.temp_extra)} ชั่วคราว</div>
+                      )}
+                    </td>
+                    <td className="text-right text-red-600">{fmtMoney(c.outstanding)}</td>
+                    <td className="text-right text-brand-700 font-medium">
+                      {fmtMoney(c.credit_available)}
+                      <div className="h-1.5 rounded-full bg-brand-100 mt-1 w-24 ml-auto overflow-hidden">
+                        <div
+                          className={`h-full ${
+                            usedPct > 80 ? "bg-red-500" : usedPct > 50 ? "bg-amber-500" : "bg-brand-600"
+                          }`}
+                          style={{ width: `${Math.min(100, usedPct)}%` }}
+                        />
+                      </div>
+                    </td>
+                    <td className="text-center">{Number(c.open_pos || 0)}</td>
+                    <td className="text-center">
+                      {c.credit_score ?? <span className="text-muted text-xs">—</span>}
+                    </td>
+                    <td className="pr-3">
+                      <Link href={`/customers/${c.id}`} className="text-brand-700 hover:underline text-sm">
+                        ดู →
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+              {customers.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="text-center py-6 text-muted">
-                    ยังไม่มี PO
-                  </td>
+                  <td colSpan={8} className="text-center py-8 text-muted">ยังไม่มีลูกค้า</td>
                 </tr>
               )}
             </tbody>
@@ -225,7 +294,6 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {Object.values(STATUS_LABEL_TH).length === 0 && null}
     </div>
   );
 }

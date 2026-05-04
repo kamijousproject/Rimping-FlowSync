@@ -11,22 +11,54 @@ type FormState = {
   email: string;
   tax_id: string;
   address: string;
-  credit_limit: number;
   credit_score: string;
   credit_score_notes: string;
   default_credit_term_days: number;
   notes: string;
 };
 
-export function EditCustomerForm({
-  id,
-  initial,
-}: {
+type Props = {
   id: number;
-  initial: FormState;
-}) {
+  initial: FormState & { credit_limit: number };
+};
+
+export function EditCustomerForm({ id, initial }: Props) {
   const router = useRouter();
-  const [form, setForm] = useState<FormState>(initial);
+  const [form, setForm] = useState<FormState>({
+    code: initial.code,
+    name: initial.name,
+    contact_person: initial.contact_person,
+    phone: initial.phone,
+    email: initial.email,
+    tax_id: initial.tax_id,
+    address: initial.address,
+    credit_score: initial.credit_score,
+    credit_score_notes: initial.credit_score_notes,
+    default_credit_term_days: initial.default_credit_term_days,
+    notes: initial.notes,
+  });
+
+  // Credit adjustment panel
+  const [currentLimit, setCurrentLimit] = useState(initial.credit_limit);
+  const [creditDelta, setCreditDelta] = useState<"" | number>("");
+  const [creditSign, setCreditSign] = useState<"increase" | "decrease">("increase");
+  const [creditReason, setCreditReason] = useState("");
+  const [creditLoading, setCreditLoading] = useState(false);
+  const [creditMsg, setCreditMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  // Temp credit panel
+  const [tempExtra, setTempExtra] = useState<"" | number>("");
+  const [tempStart, setTempStart] = useState("");
+  const [tempEnd, setTempEnd] = useState("");
+  const [tempReason, setTempReason] = useState("");
+  const [tempLoading, setTempLoading] = useState(false);
+  const [tempMsg, setTempMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  // Upload files
+  const [files, setFiles] = useState<File[]>([]);
+  const [fileLoading, setFileLoading] = useState(false);
+  const [fileMsg, setFileMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -40,8 +72,7 @@ export function EditCustomerForm({
     setLoading(true);
     const payload = {
       ...form,
-      credit_score:
-        form.credit_score === "" ? null : Number(form.credit_score),
+      credit_score: form.credit_score === "" ? null : Number(form.credit_score),
     };
     const r = await fetch(`/api/customers/${id}`, {
       method: "PATCH",
@@ -58,111 +89,126 @@ export function EditCustomerForm({
     router.refresh();
   }
 
+  async function submitCreditAdjust() {
+    if (creditDelta === "" || Number(creditDelta) <= 0) return;
+    setCreditLoading(true);
+    setCreditMsg(null);
+    const delta = creditSign === "increase" ? Number(creditDelta) : -Number(creditDelta);
+    const r = await fetch(`/api/customers/${id}/credit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "adjust", delta, reason: creditReason || undefined }),
+    });
+    setCreditLoading(false);
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      setCreditMsg({ type: "err", text: d.error || "ปรับวงเงินไม่สำเร็จ" });
+      return;
+    }
+    const d = await r.json();
+    setCurrentLimit(d.new_limit);
+    setCreditDelta("");
+    setCreditReason("");
+    setCreditMsg({ type: "ok", text: `ปรับวงเงินสำเร็จ → ${Number(d.new_limit).toLocaleString()} บาท` });
+  }
+
+  async function submitTempCredit() {
+    if (!tempExtra || !tempStart || !tempEnd) return;
+    setTempLoading(true);
+    setTempMsg(null);
+    const r = await fetch(`/api/customers/${id}/credit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "temp",
+        extra_amount: Number(tempExtra),
+        start_date: tempStart,
+        end_date: tempEnd,
+        reason: tempReason || undefined,
+      }),
+    });
+    setTempLoading(false);
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      setTempMsg({ type: "err", text: d.error || "เพิ่มวงเงินชั่วคราวไม่สำเร็จ" });
+      return;
+    }
+    setTempExtra("");
+    setTempStart("");
+    setTempEnd("");
+    setTempReason("");
+    setTempMsg({ type: "ok", text: "บันทึกวงเงินชั่วคราวสำเร็จ" });
+  }
+
+  async function uploadFiles() {
+    if (!files.length) return;
+    setFileLoading(true);
+    setFileMsg(null);
+    const fd = new FormData();
+    files.forEach((f) => fd.append("files", f));
+    const r = await fetch(`/api/customers/${id}/files`, { method: "POST", body: fd });
+    setFileLoading(false);
+    if (!r.ok) {
+      setFileMsg({ type: "err", text: "อัพโหลดไม่สำเร็จ" });
+      return;
+    }
+    setFiles([]);
+    setFileMsg({ type: "ok", text: `อัพโหลด ${files.length} ไฟล์สำเร็จ` });
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
-        <Link
-          href={`/customers/${id}`}
-          className="text-sm text-brand-700 hover:underline"
-        >
+        <Link href={`/customers/${id}`} className="text-sm text-brand-700 hover:underline">
           ← กลับ
         </Link>
-        <h1 className="text-2xl font-bold text-brand-800 mt-1">
-          แก้ไขข้อมูลลูกค้า
-        </h1>
-        <p className="text-sm text-muted">
-          ปรับข้อมูลติดต่อ วงเงินสินเชื่อ และ Credit Score
-        </p>
+        <h1 className="text-2xl font-bold text-brand-800 mt-1">แก้ไขข้อมูลลูกค้า</h1>
+        <p className="text-sm text-muted">ปรับข้อมูลติดต่อ วงเงินสินเชื่อ และ Credit Score</p>
       </div>
+
+      {/* ── Main Info ─────────────────────────────────────────────────── */}
       <form onSubmit={submit} className="card p-6 space-y-4">
+        <h2 className="font-semibold text-brand-800">ข้อมูลทั่วไป</h2>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="label">รหัสลูกค้า (ไม่บังคับ)</label>
-            <input
-              className="input"
-              value={form.code}
-              onChange={(e) => set("code", e.target.value)}
-              placeholder="เช่น C001"
-            />
+            <input className="input" value={form.code} onChange={(e) => set("code", e.target.value)} placeholder="เช่น C001" />
           </div>
           <div>
             <label className="label">ชื่อกิจการ / ลูกค้า *</label>
-            <input
-              className="input"
-              required
-              value={form.name}
-              onChange={(e) => set("name", e.target.value)}
-            />
+            <input className="input" required value={form.name} onChange={(e) => set("name", e.target.value)} />
           </div>
           <div>
             <label className="label">ผู้ติดต่อ</label>
-            <input
-              className="input"
-              value={form.contact_person}
-              onChange={(e) => set("contact_person", e.target.value)}
-            />
+            <input className="input" value={form.contact_person} onChange={(e) => set("contact_person", e.target.value)} />
           </div>
           <div>
             <label className="label">โทรศัพท์</label>
-            <input
-              className="input"
-              value={form.phone}
-              onChange={(e) => set("phone", e.target.value)}
-            />
+            <input className="input" value={form.phone} onChange={(e) => set("phone", e.target.value)} />
           </div>
           <div>
             <label className="label">Email</label>
-            <input
-              type="email"
-              className="input"
-              value={form.email}
-              onChange={(e) => set("email", e.target.value)}
-            />
+            <input type="email" className="input" value={form.email} onChange={(e) => set("email", e.target.value)} />
           </div>
           <div>
             <label className="label">เลขผู้เสียภาษี</label>
-            <input
-              className="input"
-              value={form.tax_id}
-              onChange={(e) => set("tax_id", e.target.value)}
-            />
+            <input className="input" value={form.tax_id} onChange={(e) => set("tax_id", e.target.value)} />
           </div>
           <div className="col-span-2">
             <label className="label">ที่อยู่</label>
-            <textarea
-              className="input"
-              rows={2}
-              value={form.address}
-              onChange={(e) => set("address", e.target.value)}
-            />
+            <textarea className="input" rows={2} value={form.address} onChange={(e) => set("address", e.target.value)} />
           </div>
         </div>
 
         <div className="border-t pt-4">
-          <h3 className="font-semibold text-brand-800 mb-3">
-            ข้อมูลสินเชื่อ (Credit)
-          </h3>
+          <h3 className="font-semibold text-brand-800 mb-3">ข้อมูลสินเชื่อ (Credit)</h3>
           <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="label">วงเงิน (บาท) *</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                className="input"
-                required
-                value={form.credit_limit}
-                onChange={(e) => set("credit_limit", Number(e.target.value))}
-              />
-            </div>
             <div>
               <label className="label">เครดิต (วัน) เริ่มต้น</label>
               <select
                 className="input"
                 value={form.default_credit_term_days}
-                onChange={(e) =>
-                  set("default_credit_term_days", Number(e.target.value))
-                }
+                onChange={(e) => set("default_credit_term_days", Number(e.target.value))}
               >
                 <option value={7}>7 วัน</option>
                 <option value={15}>15 วัน</option>
@@ -183,40 +229,163 @@ export function EditCustomerForm({
             </div>
             <div className="col-span-3">
               <label className="label">หมายเหตุ Credit Score</label>
-              <input
-                className="input"
-                value={form.credit_score_notes}
-                onChange={(e) => set("credit_score_notes", e.target.value)}
-              />
+              <input className="input" value={form.credit_score_notes} onChange={(e) => set("credit_score_notes", e.target.value)} />
             </div>
           </div>
         </div>
 
         <div>
           <label className="label">บันทึกเพิ่มเติม</label>
-          <textarea
-            className="input"
-            rows={2}
-            value={form.notes}
-            onChange={(e) => set("notes", e.target.value)}
-          />
+          <textarea className="input" rows={2} value={form.notes} onChange={(e) => set("notes", e.target.value)} />
         </div>
 
         {err && (
-          <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-            {err}
-          </div>
+          <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{err}</div>
         )}
-
         <div className="flex gap-2">
           <button className="btn-primary" disabled={loading}>
             {loading ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}
           </button>
-          <Link href={`/customers/${id}`} className="btn-secondary">
-            ยกเลิก
-          </Link>
+          <Link href={`/customers/${id}`} className="btn-secondary">ยกเลิก</Link>
         </div>
       </form>
+
+      {/* ── Credit Limit Adjustment ───────────────────────────────────── */}
+      <div className="card p-6 space-y-3">
+        <h2 className="font-semibold text-brand-800">ปรับวงเงินสินเชื่อ</h2>
+        <div className="text-sm text-muted">
+          วงเงินปัจจุบัน:{" "}
+          <span className="font-bold text-brand-800 text-base">
+            {Number(currentLimit).toLocaleString()} บาท
+          </span>
+        </div>
+        <div className="grid grid-cols-4 gap-3 items-end">
+          <div>
+            <label className="label">ประเภท</label>
+            <select className="input" value={creditSign} onChange={(e) => setCreditSign(e.target.value as "increase" | "decrease")}>
+              <option value="increase">เพิ่มวงเงิน</option>
+              <option value="decrease">ลดวงเงิน</option>
+            </select>
+          </div>
+          <div>
+            <label className="label">จำนวน (บาท)</label>
+            <input
+              type="number"
+              min="1"
+              step="0.01"
+              className="input"
+              value={creditDelta}
+              onChange={(e) => setCreditDelta(e.target.value === "" ? "" : Number(e.target.value))}
+              placeholder="เช่น 50000"
+            />
+          </div>
+          <div>
+            <label className="label">เหตุผล (ไม่บังคับ)</label>
+            <input className="input" value={creditReason} onChange={(e) => setCreditReason(e.target.value)} placeholder="เช่น ขยายกิจการ" />
+          </div>
+          <div>
+            <button
+              type="button"
+              className="btn-primary w-full"
+              disabled={creditLoading || !creditDelta}
+              onClick={submitCreditAdjust}
+            >
+              {creditLoading ? "กำลังบันทึก..." : "ยืนยัน"}
+            </button>
+          </div>
+        </div>
+        {creditMsg && (
+          <p className={`text-sm ${creditMsg.type === "ok" ? "text-green-700" : "text-red-600"}`}>{creditMsg.text}</p>
+        )}
+        {creditDelta !== "" && Number(creditDelta) > 0 && (
+          <p className="text-xs text-muted">
+            วงเงินใหม่จะเป็น:{" "}
+            <span className="font-semibold text-brand-800">
+              {(creditSign === "increase"
+                ? Number(currentLimit) + Number(creditDelta)
+                : Number(currentLimit) - Number(creditDelta)
+              ).toLocaleString()}{" "}
+              บาท
+            </span>
+          </p>
+        )}
+      </div>
+
+      {/* ── Temporary Credit Limit ────────────────────────────────────── */}
+      <div className="card p-6 space-y-3">
+        <h2 className="font-semibold text-brand-800">วงเงินสินเชื่อชั่วคราว</h2>
+        <p className="text-xs text-muted">เพิ่มวงเงินชั่วคราวสำหรับช่วงเวลาที่กำหนด โดยไม่เปลี่ยนวงเงินหลัก</p>
+        <div className="grid grid-cols-4 gap-3 items-end">
+          <div>
+            <label className="label">จำนวนวงเงินเพิ่มเติม (บาท)</label>
+            <input
+              type="number"
+              min="1"
+              step="0.01"
+              className="input"
+              value={tempExtra}
+              onChange={(e) => setTempExtra(e.target.value === "" ? "" : Number(e.target.value))}
+              placeholder="เช่น 100000"
+            />
+          </div>
+          <div>
+            <label className="label">วันที่เริ่มต้น</label>
+            <input type="date" className="input" value={tempStart} onChange={(e) => setTempStart(e.target.value)} />
+          </div>
+          <div>
+            <label className="label">วันที่สิ้นสุด</label>
+            <input type="date" className="input" value={tempEnd} onChange={(e) => setTempEnd(e.target.value)} />
+          </div>
+          <div>
+            <label className="label">เหตุผล</label>
+            <input className="input" value={tempReason} onChange={(e) => setTempReason(e.target.value)} placeholder="เช่น ช่วงเทศกาล" />
+          </div>
+        </div>
+        <button
+          type="button"
+          className="btn-primary"
+          disabled={tempLoading || !tempExtra || !tempStart || !tempEnd}
+          onClick={submitTempCredit}
+        >
+          {tempLoading ? "กำลังบันทึก..." : "บันทึกวงเงินชั่วคราว"}
+        </button>
+        {tempMsg && (
+          <p className={`text-sm ${tempMsg.type === "ok" ? "text-green-700" : "text-red-600"}`}>{tempMsg.text}</p>
+        )}
+      </div>
+
+      {/* ── File Upload ───────────────────────────────────────────────── */}
+      <div className="card p-6 space-y-3">
+        <h2 className="font-semibold text-brand-800">อัพโหลดไฟล์ประกอบเพิ่มเติม</h2>
+        <input
+          type="file"
+          multiple
+          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+          className="input py-1.5 cursor-pointer"
+          onChange={(e) => setFiles(Array.from(e.target.files || []))}
+        />
+        {files.length > 0 && (
+          <div className="space-y-1">
+            {files.map((f, i) => (
+              <div key={i} className="flex items-center justify-between text-xs bg-brand-50 border border-brand-200 rounded px-3 py-1.5">
+                <span className="truncate max-w-xs">{f.name}</span>
+                <span className="text-muted ml-2">{(f.size / 1024).toFixed(0)} KB</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={fileLoading || !files.length}
+          onClick={uploadFiles}
+        >
+          {fileLoading ? "กำลังอัพโหลด..." : "อัพโหลดไฟล์"}
+        </button>
+        {fileMsg && (
+          <p className={`text-sm ${fileMsg.type === "ok" ? "text-green-700" : "text-red-600"}`}>{fileMsg.text}</p>
+        )}
+      </div>
     </div>
   );
 }

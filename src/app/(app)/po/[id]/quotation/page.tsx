@@ -224,20 +224,34 @@ export default async function QuotationPage({
             <div className="font-semibold text-brand-800 mb-1">
               วิธีชำระเงิน / Payment Method
             </div>
-            <div>โอนเงินเข้าบัญชีธนาคาร</div>
-            <div className="mt-1">
-              ชื่อบัญชี ธนาคารกรุงเทพ สาขาท่าแพ-เชียงใหม่
-            </div>
-            <div>
-              เลขที่บัญชี:{" "}
-              <span className="font-mono">251-5-01738-8</span>
-            </div>
-            <div>ประเภทบัญชี: ออมทรัพย์</div>
-            <div className="mt-1 text-muted">
-              Bangkok Bank · Account No. 251-5-01738-8
-            </div>
-            <div className="text-muted">
-              Account Name: TRNTRAPHAN SUPPERMARKET (1944) CO., LTD.
+            <div className="flex gap-3 items-start">
+              <div className="flex-1">
+                <div>โอนเงินเข้าบัญชีธนาคาร</div>
+                <div className="mt-1">
+                  ชื่อบัญชี ธนาคารกรุงเทพ สาขาท่าแพ-เชียงใหม่
+                </div>
+                <div>
+                  เลขที่บัญชี:{" "}
+                  <span className="font-mono">251-5-01738-8</span>
+                </div>
+                <div>ประเภทบัญชี: ออมทรัพย์</div>
+                <div className="mt-1 text-muted">
+                  Bangkok Bank · Account No. 251-5-01738-8
+                </div>
+                <div className="text-muted">
+                  Account Name: TRNTRAPHAN SUPPERMARKET (1944) CO., LTD.
+                </div>
+              </div>
+              <div className="shrink-0 text-center">
+                <Image
+                  src="/payment-qr.png"
+                  alt="QR PromptPay"
+                  width={80}
+                  height={80}
+                  className="border border-border rounded"
+                />
+                <div className="text-[9px] text-muted mt-0.5">สแกนชำระเงิน</div>
+              </div>
             </div>
           </div>
           <div className="border border-border rounded p-3">

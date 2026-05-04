@@ -71,15 +71,8 @@ export async function generatePoNumber(): Promise<string> {
   return `PO${ym}-${String(n).padStart(4, "0")}`;
 }
 
-export async function generateInvoiceNumber(): Promise<string> {
-  const now = new Date();
-  const ym = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const rows = await query<{ c: number }>(
-    "SELECT COUNT(*) AS c FROM invoices WHERE invoice_number LIKE ?",
-    [`INV${ym}-%`]
-  );
-  const n = Number(rows[0]?.c || 0) + 1;
-  return `INV${ym}-${String(n).padStart(4, "0")}`;
+export function invoiceNumberFromPo(po_number: string): string {
+  return po_number.replace(/^PO/, "INV").replace(/^QT/, "INV");
 }
 
 export async function createPo(input: {

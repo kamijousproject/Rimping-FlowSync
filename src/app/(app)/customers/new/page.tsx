@@ -21,6 +21,7 @@ export default function NewCustomerPage() {
   });
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
 
   function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
     setForm({ ...form, [k]: v });
@@ -39,13 +40,22 @@ export default function NewCustomerPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    setLoading(false);
     if (!r.ok) {
+      setLoading(false);
       const d = await r.json().catch(() => ({}));
       setErr(d.error || "บันทึกไม่สำเร็จ");
       return;
     }
     const data = await r.json();
+    if (files.length > 0) {
+      const fd = new FormData();
+      files.forEach((f) => fd.append("files", f));
+      await fetch(`/api/customers/${data.id}/files`, {
+        method: "POST",
+        body: fd,
+      });
+    }
+    setLoading(false);
     router.push(`/customers/${data.id}`);
   }
 
@@ -176,6 +186,28 @@ export default function NewCustomerPage() {
               />
             </div>
           </div>
+        </div>
+
+        <div className="border-t pt-4">
+          <h3 className="font-semibold text-brand-800 mb-3">ไฟล์ประกอบ (รูปภาพ, PDF, เอกสาร)</h3>
+          <label className="label">อัพโหลดไฟล์ (เลือกได้หลายไฟล์)</label>
+          <input
+            type="file"
+            multiple
+            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+            className="input py-1.5 cursor-pointer"
+            onChange={(e) => setFiles(Array.from(e.target.files || []))}
+          />
+          {files.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {files.map((f, i) => (
+                <div key={i} className="flex items-center justify-between text-xs bg-brand-50 border border-brand-200 rounded px-3 py-1.5">
+                  <span className="truncate max-w-xs">{f.name}</span>
+                  <span className="text-muted ml-2">{(f.size / 1024).toFixed(0)} KB</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div>

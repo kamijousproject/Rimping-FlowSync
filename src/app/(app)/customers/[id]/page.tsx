@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getCustomer } from "@/backend/services/customers";
+import {
+  getCustomer,
+  listCustomerFiles,
+  listCustomerEditLogs,
+  getEffectiveCreditLimit,
+} from "@/backend/services/customers";
 import { listPos } from "@/backend/services/po";
 import { listAllPaymentsForCustomer } from "@/backend/services/payments";
 import { getCurrentUser, isSuperAdmin } from "@/backend/auth";
@@ -9,6 +14,8 @@ import {
   StatusBadge,
   fmtMoney,
 } from "@/components/StatusBadge";
+import { CustomerFilesModal } from "./CustomerFilesModal";
+import { CustomerEditLogsSection } from "./CustomerEditLogsSection";
 
 export const dynamic = "force-dynamic";
 
@@ -21,15 +28,29 @@ export default async function CustomerDetailPage({
   const cid = Number(id);
   const c = await getCustomer(cid);
   if (!c) notFound();
-  const [pos, payments, user] = await Promise.all([
+  const [pos, payments, user, files, editLogs, effective] = await Promise.all([
     listPos({ customer_id: cid }),
     listAllPaymentsForCustomer(cid),
     getCurrentUser(),
+    listCustomerFiles(cid),
+    listCustomerEditLogs(cid),
+    getEffectiveCreditLimit(cid),
   ]);
   const canEdit = isSuperAdmin(user);
-  const usedPct = c.credit_limit
-    ? (Number(c.outstanding) / Number(c.credit_limit)) * 100
+
+  const today = new Date().toISOString().slice(0, 10);
+  const tempCredit = effective.temp_credit;
+  const tempExpired =
+    tempCredit &&
+    today > tempCredit.end_date &&
+    tempCredit.is_active;
+  const usedPct = effective.effective_limit
+    ? (Number(c.outstanding) / Number(effective.effective_limit)) * 100
     : 0;
+  const overBaseLimit =
+    !tempCredit &&
+    Number(c.credit_limit) > 0 &&
+    Number(c.outstanding) > Number(c.credit_limit);
 
   return (
     <div className="space-y-5">
@@ -47,12 +68,17 @@ export default async function CustomerDetailPage({
             {c.contact_person ? `ติดต่อ: ${c.contact_person}` : ""}
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <CustomerFilesModal
+            customerId={cid}
+            initialFiles={files.map((f) => ({
+              ...f,
+              created_at: f.created_at instanceof Date ? f.created_at.toISOString() : String(f.created_at),
+            }))}
+            canDelete={canEdit}
+          />
           {canEdit && (
-            <Link
-              href={`/customers/${cid}/edit`}
-              className="btn-secondary"
-            >
+            <Link href={`/customers/${cid}/edit`} className="btn-secondary">
               แก้ไขข้อมูล
             </Link>
           )}
@@ -62,12 +88,46 @@ export default async function CustomerDetailPage({
         </div>
       </div>
 
+      {/* Over base limit warning (temp credit expired or no temp credit) */}
+      {overBaseLimit && (
+        <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 font-medium">
+          ⚠️ ลูกค้ามียอดค้างชำระ {fmtMoney(c.outstanding)} เกินวงเงินหลัก {fmtMoney(c.credit_limit)}
+        </div>
+      )}
+
+      {/* Temp credit expired warning */}
+      {tempExpired && (
+        <div className="rounded-lg border border-orange-300 bg-orange-50 px-4 py-3 text-sm text-orange-700">
+          ⚠️ <strong>วงเงินชั่วคราวหมดอายุแล้ว</strong> (หมดเมื่อ {tempCredit!.end_date}) — วงเงินเพิ่มเติม{" "}
+          {fmtMoney(tempCredit!.extra_amount)} ไม่นับรวมอีกต่อไป{" "}
+          {Number(c.outstanding) > Number(c.credit_limit) && (
+            <span className="font-bold text-red-700">
+              · ยอดค้างชำระ {fmtMoney(c.outstanding)} เกินวงเงินหลัก {fmtMoney(c.credit_limit)}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Active temp credit banner */}
+      {tempCredit && !tempExpired && (
+        <div className="rounded-lg border border-blue-300 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          🔵 <strong>วงเงินชั่วคราวใช้งานอยู่:</strong> +{fmtMoney(tempCredit.extra_amount)} (ถึง{" "}
+          {new Date(tempCredit.end_date).toLocaleDateString("th-TH")}){" "}
+          {tempCredit.reason ? `· ${tempCredit.reason}` : ""}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="card p-5">
           <div className="text-xs text-muted">วงเงินสินเชื่อ</div>
           <div className="text-2xl font-bold text-brand-800">
-            {fmtMoney(c.credit_limit)}
+            {fmtMoney(effective.effective_limit)}
           </div>
+          {effective.temp_extra > 0 && (
+            <div className="text-xs text-blue-700 mt-0.5">
+              วงเงินหลัก {fmtMoney(c.credit_limit)} + ชั่วคราว +{fmtMoney(effective.temp_extra)}
+            </div>
+          )}
           <div className="text-xs text-muted mt-1">
             เครดิตเริ่มต้น: {c.default_credit_term_days} วัน
           </div>
@@ -94,9 +154,9 @@ export default async function CustomerDetailPage({
           </div>
         </div>
         <div className="card p-5">
-          <div className="text-xs text-muted">วงเงินคงเหลือ</div>
+          <div className="text-xs text-muted">วงเงินคงเหลือ (effective)</div>
           <div className="text-2xl font-bold text-brand-700">
-            {fmtMoney(c.credit_available)}
+            {fmtMoney(Math.max(0, effective.effective_limit - Number(c.outstanding)))}
           </div>
           <div className="text-xs text-muted mt-1">
             Credit Score:{" "}
@@ -255,6 +315,13 @@ export default async function CustomerDetailPage({
           </table>
         </div>
       </div>
+
+      <CustomerEditLogsSection
+        logs={editLogs.map((l) => ({
+          ...l,
+          created_at: l.created_at instanceof Date ? l.created_at.toISOString() : String(l.created_at),
+        }))}
+      />
     </div>
   );
 }

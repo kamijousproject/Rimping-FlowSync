@@ -19,6 +19,8 @@ type Customer = {
   credit_limit: number;
   outstanding: number;
   credit_available: number;
+  effective_limit: number;
+  temp_extra: number;
   default_credit_term_days: number;
 };
 
@@ -161,23 +163,33 @@ function NewPoInner() {
             </select>
           </div>
           {selected && (
-            <div className="md:col-span-3 grid grid-cols-3 gap-3 text-sm bg-brand-50 rounded-lg p-3">
-              <div>
-                <div className="text-xs text-muted">วงเงิน</div>
-                <div className="font-semibold">
-                  {fmtMoney(selected.credit_limit)} ฿
+            <div className="md:col-span-3 space-y-2">
+              {selected.temp_extra > 0 && (
+                <div className="rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+                  🔵 <strong>วงเงินชั่วคราวใช้งานอยู่:</strong> +{fmtMoney(selected.temp_extra)} (วงเงินรวม {fmtMoney(selected.effective_limit)})
                 </div>
-              </div>
-              <div>
-                <div className="text-xs text-muted">ลูกหนี้คงค้าง</div>
-                <div className="font-semibold text-red-600">
-                  {fmtMoney(selected.outstanding)} ฿
+              )}
+              <div className="grid grid-cols-3 gap-3 text-sm bg-brand-50 rounded-lg p-3">
+                <div>
+                  <div className="text-xs text-muted">วงเงิน (effective)</div>
+                  <div className="font-semibold">
+                    {fmtMoney(selected.effective_limit)} บ
+                  </div>
+                  {selected.temp_extra > 0 && (
+                    <div className="text-xs text-muted">หลัก {fmtMoney(selected.credit_limit)}</div>
+                  )}
                 </div>
-              </div>
-              <div>
-                <div className="text-xs text-muted">วงเงินคงเหลือ</div>
-                <div className="font-semibold text-brand-700">
-                  {fmtMoney(selected.credit_available)} ฿
+                <div>
+                  <div className="text-xs text-muted">ลูกหนี้คงค้าง</div>
+                  <div className="font-semibold text-red-600">
+                    {fmtMoney(selected.outstanding)} บ
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted">วงเงินคงเหลือ</div>
+                  <div className="font-semibold text-brand-700">
+                    {fmtMoney(selected.credit_available)} บ
+                  </div>
                 </div>
               </div>
             </div>

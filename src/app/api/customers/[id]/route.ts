@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireUser, requireRole, badRequest, serverError } from "../../_helpers";
-import { getCustomer, updateCustomer } from "@/backend/services/customers";
+import { getCustomer, updateCustomerWithLog, getEffectiveCreditLimit } from "@/backend/services/customers";
 import { listPos } from "@/backend/services/po";
 import { listAllPaymentsForCustomer } from "@/backend/services/payments";
 
@@ -15,9 +15,12 @@ export async function GET(
     const customer = await getCustomer(Number(id));
     if (!customer)
       return NextResponse.json({ error: "ไม่พบลูกค้า" }, { status: 404 });
-    const pos = await listPos({ customer_id: Number(id) });
-    const payments = await listAllPaymentsForCustomer(Number(id));
-    return NextResponse.json({ customer, pos, payments });
+    const [pos, payments, effective] = await Promise.all([
+      listPos({ customer_id: Number(id) }),
+      listAllPaymentsForCustomer(Number(id)),
+      getEffectiveCreditLimit(Number(id)),
+    ]);
+    return NextResponse.json({ customer, pos, payments, effective });
   } catch (e) {
     return serverError(e);
   }
@@ -33,7 +36,7 @@ export async function PATCH(
   const body = await req.json().catch(() => null);
   if (!body || typeof body !== "object") return badRequest("body ไม่ถูกต้อง");
   try {
-    await updateCustomer(Number(id), body);
+    await updateCustomerWithLog(Number(id), body, auth.user.id);
     return NextResponse.json({ ok: true });
   } catch (e) {
     return serverError(e);
