@@ -16,6 +16,7 @@ import {
 } from "@/components/StatusBadge";
 import { CustomerFilesModal } from "./CustomerFilesModal";
 import { CustomerEditLogsSection } from "./CustomerEditLogsSection";
+import { CustomerPoTable } from "./CustomerPoTable";
 
 export const dynamic = "force-dynamic";
 
@@ -197,63 +198,21 @@ export default async function CustomerDetailPage({
         </div>
       </div>
 
-      <div className="card p-5">
-        <h3 className="font-semibold mb-3">ประวัติ Purchase Order</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-xs text-muted border-b">
-              <tr>
-                <th className="text-left py-2">PO</th>
-                <th className="text-right">ยอดรวม</th>
-                <th className="text-right">ชำระแล้ว</th>
-                <th className="text-right">คงค้าง</th>
-                <th>สถานะ</th>
-                <th>ชำระ</th>
-                <th>กำหนดชำระ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pos.map((p) => (
-                <tr key={p.id} className="border-b last:border-0">
-                  <td className="py-2">
-                    <Link
-                      href={`/po/${p.id}`}
-                      className="text-brand-700 hover:underline font-medium"
-                    >
-                      {p.po_number}
-                    </Link>
-                  </td>
-                  <td className="text-right">{fmtMoney(p.total)}</td>
-                  <td className="text-right text-brand-700">
-                    {fmtMoney(p.paid_amount)}
-                  </td>
-                  <td className="text-right text-red-600">
-                    {fmtMoney(p.remaining_amount)}
-                  </td>
-                  <td className="text-center">
-                    <StatusBadge status={p.status} />
-                  </td>
-                  <td className="text-center">
-                    <PaymentBadge status={p.payment_status} />
-                  </td>
-                  <td className="text-center text-xs">
-                    {p.due_date
-                      ? new Date(p.due_date).toLocaleDateString("th-TH")
-                      : "-"}
-                  </td>
-                </tr>
-              ))}
-              {pos.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="text-center py-6 text-muted">
-                    ยังไม่มี PO
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <CustomerPoTable
+        customerId={cid}
+        pos={pos.map((p) => ({
+          id: p.id,
+          po_number: p.po_number,
+          total: Number(p.total),
+          paid_amount: Number(p.paid_amount),
+          remaining_amount: Number(p.remaining_amount),
+          status: p.status,
+          payment_status: p.payment_status,
+          due_date: p.due_date ? (p.due_date instanceof Date ? p.due_date.toISOString().slice(0, 10) : String(p.due_date).slice(0, 10)) : null,
+          created_at: p.created_at instanceof Date ? p.created_at.toISOString() : String(p.created_at),
+          tax_invoice_number: p.tax_invoice_number ?? null,
+        }))}
+      />
 
       <div className="card p-5">
         <h3 className="font-semibold mb-3">ประวัติการชำระเงิน (ทุก PO)</h3>

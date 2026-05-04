@@ -109,6 +109,13 @@ export async function createCreditNote(input: CreateCreditNoteInput): Promise<Cr
     }
 
     await conn.query(
+      `UPDATE purchase_orders
+         SET remaining_amount = GREATEST(remaining_amount - ?, 0)
+       WHERE id = ?`,
+      [totalDiff, input.po_id]
+    );
+
+    await conn.query(
       `INSERT INTO credit_note_logs (credit_note_id, action, performed_by, summary)
        VALUES (?, 'created', ?, ?)`,
       [cnId, input.created_by, `สร้างใบลดหนี้ ${cn_number} ส่วนต่าง ${totalDiff} บาท`]
@@ -184,6 +191,7 @@ export async function updateCreditNote(id: number, input: UpdateCreditNoteInput)
   if (!existing) throw new Error("ไม่พบใบลดหนี้");
   if (existing.status === "voided") throw new Error("ไม่สามารถแก้ไขใบลดหนี้ที่ถูกยกเลิกแล้ว");
 
+  const oldDiff = Number(existing.total_diff);
   const totalOriginal = input.items.reduce((s, it) => s + it.original_price * it.quantity, 0);
   const totalNew = input.items.reduce((s, it) => s + it.new_price * it.quantity, 0);
   const totalDiff = +(totalOriginal - totalNew).toFixed(2);
@@ -204,6 +212,15 @@ export async function updateCreditNote(id: number, input: UpdateCreditNoteInput)
       `UPDATE credit_notes SET reason=?, total_original=?, total_new=?, total_diff=? WHERE id=?`,
       [input.reason || null, totalOriginal, totalNew, totalDiff, id]
     );
+    const deltaDiff = +(totalDiff - oldDiff).toFixed(2);
+    if (deltaDiff !== 0) {
+      await conn.query(
+        `UPDATE purchase_orders
+           SET remaining_amount = GREATEST(remaining_amount - ?, 0)
+         WHERE id = ?`,
+        [deltaDiff, existing.po_id]
+      );
+    }
     await conn.query(
       `INSERT INTO credit_note_logs (credit_note_id, action, performed_by, summary)
        VALUES (?, 'updated', ?, ?)`,
@@ -234,12 +251,22 @@ export async function voidCreditNote(id: number, performed_by: number): Promise<
   if (!existing) throw new Error("ไม่พบใบลดหนี้");
   if (existing.status === "voided") throw new Error("ใบลดหนี้นี้ถูกยกเลิกไปแล้ว");
 
+  const oldDiff = Number(existing.total_diff);
+
   await withTx(async (conn) => {
     await conn.query("UPDATE credit_notes SET status='voided' WHERE id=?", [id]);
+    if (oldDiff !== 0) {
+      await conn.query(
+        `UPDATE purchase_orders
+           SET remaining_amount = remaining_amount + ?
+         WHERE id = ?`,
+        [oldDiff, existing.po_id]
+      );
+    }
     await conn.query(
       `INSERT INTO credit_note_logs (credit_note_id, action, performed_by, summary)
        VALUES (?, 'voided', ?, ?)`,
-      [id, performed_by, `ยกเลิกใบลดหนี้ ${existing.cn_number}`]
+      [id, performed_by, `ยกเลิกใบลดหนี้ ${existing.cn_number} คืนเครดิต ${oldDiff} บาท`]
     );
   });
 }

@@ -277,74 +277,54 @@ export default async function InvoicePage({
         )}
 
         {/* Payment + signatures */}
-        <div className="mt-4 grid grid-cols-2 gap-4 text-[11px]">
-          <div className="border border-border rounded p-3">
-            <div className="font-semibold text-brand-800 mb-1">
-              วิธีชำระเงิน / Payment Method
-            </div>
-            <div className="flex gap-3 items-start">
-              <div className="flex-1">
-                <div>โอนเงินเข้าบัญชีธนาคาร</div>
-                <div className="mt-1">
-                  ชื่อบัญชี ธนาคารกรุงเทพ สาขาท่าแพ-เชียงใหม่
-                </div>
-                <div>
-                  เลขที่บัญชี:{" "}
-                  <span className="font-mono">251-5-01738-8</span>
-                </div>
-                <div>ประเภทบัญชี: ออมทรัพย์</div>
-                <div className="mt-1 text-muted">
-                  Bangkok Bank Account No. 251-5-01738-8
-                </div>
-                <div className="text-muted">
-                  Account Name: TRNTRAPHAN SUPPERMARKET (1944) CO., LTD.
-                </div>
-              </div>
-              <div className="shrink-0 text-center">
-                <Image
-                  src="/payment-qr.png"
-                  alt="QR PromptPay"
-                  width={80}
-                  height={80}
-                  className="border border-border rounded"
-                />
-                <div className="text-[9px] text-muted mt-0.5">สแกนชำระเงิน</div>
-              </div>
-            </div>
-          </div>
+        <div className="mt-4 grid grid-cols-2 gap-6 text-[11px] items-stretch">
+          {/* Left: payment info + approver signature */}
           <div className="space-y-4">
-            <div className="text-center">
-              <div className="text-[11px] mb-1">ลงชื่อ ผู้จัดทำเอกสารวางบิล</div>
-              <div className="h-8 flex items-end justify-center">
-                {creator && (
-                  <span className="font-semibold text-xs">{creator.full_name}</span>
-                )}
-              </div>
-              <div className="border-t border-foreground mt-1" />
-              <div className="text-muted text-[10px] mt-1">
-                วันที่ ………/………/…………
+            <div className="border border-border rounded p-3">
+              <div className="font-semibold text-brand-800 mb-2">วิธีชำระเงิน / Payment Method</div>
+              <div className="flex gap-3 items-start">
+                <div className="flex-1 space-y-0.5">
+                  <div>โอนเงินเข้าบัญชีธนาคาร</div>
+                  <div>ชื่อบัญชี ธนาคารกรุงเทพ สาขาท่าแพ-เชียงใหม่</div>
+                  <div>เลขที่บัญชี : <span className="font-mono">251-5-01738-8</span> ประเภทบัญชี ออมทรัพย์</div>
+                  <div className="mt-1">Bangkok Bank : Account No. : 251-5-01738-8</div>
+                  <div>Account Name:</div>
+                  <div>TRNTRAPHAN SUPPERMARKET (1944) CO., LTD.</div>
+                </div>
+                <div className="shrink-0 text-center">
+                  <Image
+                    src="/payment-qr.png"
+                    alt="QR PromptPay"
+                    width={72}
+                    height={72}
+                    className="border border-border rounded"
+                  />
+                  <div className="text-[9px] text-muted mt-0.5">สแกนชำระเงิน</div>
+                </div>
               </div>
             </div>
-            <div className="text-center">
-              <div className="text-[11px] mb-1">ลงชื่อ ผู้อนุมัติ</div>
-              <div className="h-8" />
-              <div className="border-t border-foreground mt-1" />
-              <div className="text-muted text-[10px] mt-1">
-                Sale FoodService · วันที่ ………/………/…………
+            <div>
+              <div className="text-[11px] mb-1">ลงชื่อ ………………………………………………</div>
+              <div className="text-[10px] text-muted">
+                {creator ? `( ${creator.full_name} )` : ""}
               </div>
+              <div className="text-[11px] mt-1">ผู้อนุมัติ / Sale FoodService / วันที่ ……/……/……</div>
             </div>
           </div>
-        </div>
 
-        {/* Receiver signature */}
-        <div className="mt-6 grid grid-cols-2 gap-4 text-[11px]">
-          <div />
-          <div className="text-center">
-            <div className="text-[11px] mb-1">ลงชื่อ ผู้รับเอกสารใบวางบิล</div>
-            <div className="h-8" />
-            <div className="border-t border-foreground mt-1" />
-            <div className="text-muted text-[10px] mt-1">
-              วันที่ ………/………/…………
+          {/* Right: maker + receiver signatures */}
+          <div className="flex flex-col justify-between">
+            <div>
+              <div className="text-[11px] mb-6">ลงชื่อ ………………………………………………</div>
+              <div className="text-[10px] text-muted">
+                {creator ? `( ${creator.full_name} )` : ""}
+              </div>
+              <div className="text-[11px] mt-1">ผู้จัดทำเอกสารวางบิล / วันที่ ……/……/……</div>
+            </div>
+            <div>
+              <div className="text-[11px] mb-6">ลงชื่อ ………………………………………………</div>
+              <div className="text-[10px] text-muted">(………………………………………………)</div>
+              <div className="text-[11px] mt-1">ผู้รับเอกสารใบวางบิล / วันที่ ………………………</div>
             </div>
           </div>
         </div>
