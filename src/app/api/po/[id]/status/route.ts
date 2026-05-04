@@ -22,8 +22,13 @@ export async function POST(
   const body = await req.json().catch(() => null);
   if (!body?.status || !ALLOWED.includes(body.status))
     return badRequest("status ไม่ถูกต้อง");
+  if (body.status === "delivered" && !body.tax_invoice_number?.trim())
+    return badRequest("กรุณากรอกเลขที่ใบกำกับภาษีเต็มรูปแบบก่อนจัดส่ง");
   try {
-    await setPoStatus(Number(id), body.status);
+    await setPoStatus(Number(id), body.status, {
+      tax_invoice_number: body.tax_invoice_number?.trim() || undefined,
+      edited_by: auth.user.id,
+    });
     const updated = await getPo(Number(id));
     if (!updated) return badRequest("ไม่พบ PO");
     return NextResponse.json(updated.po);

@@ -123,6 +123,12 @@ export default async function InvoicePage({
               <span className="text-muted">เลขที่ / No.</span>{" "}
               <span className="font-mono font-semibold">{invNo}</span>
             </div>
+            {po.tax_invoice_number && (
+              <div>
+                <span className="text-muted">เลขที่ใบกำกับภาษีเต็มรูปแบบ</span>{" "}
+                <span className="font-mono font-semibold">{po.tax_invoice_number}</span>
+              </div>
+            )}
             <div>
               <span className="text-muted">วันที่ / Date</span>{" "}
               {issuedAt.toLocaleDateString("th-TH")}

@@ -116,11 +116,23 @@ export async function generateInvoice(input: {
   if (existing[0]) return existing[0];
 
   const invoice_number = invoiceNumberFromPo(input.po_number);
-  await exec(
-    `INSERT INTO invoices (invoice_number, po_id, amount, generated_by)
-     VALUES (?,?,?,?)`,
-    [invoice_number, input.po_id, input.amount, input.generated_by]
-  );
+  try {
+    await exec(
+      `INSERT INTO invoices (invoice_number, po_id, amount, generated_by)
+       VALUES (?,?,?,?)`,
+      [invoice_number, input.po_id, input.amount, input.generated_by]
+    );
+  } catch (e: unknown) {
+    // If duplicate invoice_number, return whichever invoice exists for this po
+    const code = (e as { code?: string }).code;
+    if (code !== "ER_DUP_ENTRY") throw e;
+    const fallback = await query<Invoice>(
+      "SELECT * FROM invoices WHERE po_id = ? ORDER BY id DESC LIMIT 1",
+      [input.po_id]
+    );
+    if (fallback[0]) return fallback[0];
+    throw e;
+  }
   const rows = await query<Invoice>(
     "SELECT * FROM invoices WHERE po_id = ? ORDER BY id DESC LIMIT 1",
     [input.po_id]

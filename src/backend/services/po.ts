@@ -36,6 +36,7 @@ export type PurchaseOrder = {
   remaining_amount: number;
   signed_doc_path: string | null;
   signed_at: Date | null;
+  tax_invoice_number: string | null;
   due_date: Date | null;
   notes: string | null;
   created_by: number;
@@ -204,21 +205,60 @@ export async function getPo(
 
 export async function setPoStatus(
   id: number,
-  status: PurchaseOrder["status"]
+  status: PurchaseOrder["status"],
+  opts?: { tax_invoice_number?: string; edited_by?: number }
 ) {
-  // When moving to delivered/received, set due_date if not set
+  const existing = await query<PurchaseOrder>("SELECT * FROM purchase_orders WHERE id=?", [id]);
+  const before = existing[0];
+  if (!before) throw new Error("ไม่พบ PO");
+
   if (status === "received" || status === "delivered") {
     await exec(
       `UPDATE purchase_orders
        SET status=?,
+           tax_invoice_number = COALESCE(?, tax_invoice_number),
            due_date = DATE_ADD(CURDATE(), INTERVAL credit_term_days DAY),
            signed_at = CASE WHEN ?='received' THEN COALESCE(signed_at, NOW()) ELSE signed_at END
        WHERE id=?`,
-      [status, status, id]
+      [status, opts?.tax_invoice_number ?? null, status, id]
     );
   } else {
     await exec("UPDATE purchase_orders SET status=? WHERE id=?", [status, id]);
   }
+
+  if (opts?.edited_by) {
+    const summaryParts: string[] = [`เปลี่ยนสถานะ: ${before.status} → ${status}`];
+    if (opts.tax_invoice_number) summaryParts.push(`เลขใบกำกับภาษี: ${opts.tax_invoice_number}`);
+    await exec(
+      `INSERT INTO po_edit_logs (po_id, edited_by, summary, changes) VALUES (?,?,?,?)`,
+      [
+        id,
+        opts.edited_by,
+        summaryParts.join(", ").slice(0, 255),
+        JSON.stringify({ before: { status: before.status, tax_invoice_number: before.tax_invoice_number }, after: { status, tax_invoice_number: opts.tax_invoice_number ?? before.tax_invoice_number } }),
+      ]
+    );
+  }
+}
+
+export async function setTaxInvoiceNumber(
+  id: number,
+  tax_invoice_number: string,
+  edited_by: number
+): Promise<void> {
+  const existing = await query<PurchaseOrder>("SELECT * FROM purchase_orders WHERE id=?", [id]);
+  const before = existing[0];
+  if (!before) throw new Error("ไม่พบ PO");
+  await exec("UPDATE purchase_orders SET tax_invoice_number=? WHERE id=?", [tax_invoice_number, id]);
+  await exec(
+    `INSERT INTO po_edit_logs (po_id, edited_by, summary, changes) VALUES (?,?,?,?)`,
+    [
+      id,
+      edited_by,
+      `แก้ไขเลขใบกำกับภาษี: ${before.tax_invoice_number ?? "(ว่าง)"} → ${tax_invoice_number}`.slice(0, 255),
+      JSON.stringify({ before: { tax_invoice_number: before.tax_invoice_number }, after: { tax_invoice_number } }),
+    ]
+  );
 }
 
 export type PoEditLog = {

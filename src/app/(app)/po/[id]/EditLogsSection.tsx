@@ -12,12 +12,12 @@ type Log = {
   created_at: string | Date;
 };
 
-type Snapshot = {
-  credit_term_days: number;
-  notes: string | null;
-  subtotal: number;
-  total: number;
-  items: {
+type PoSnapshot = {
+  credit_term_days?: number;
+  notes?: string | null;
+  subtotal?: number;
+  total?: number;
+  items?: {
     product_name: string;
     description: string;
     quantity: number;
@@ -25,17 +25,23 @@ type Snapshot = {
     unit_price: number;
     line_total: number;
   }[];
+  [key: string]: unknown;
 };
 
-function parseChanges(json: string): { before: Snapshot; after: Snapshot } | null {
+function parseChanges(json: string): { before: PoSnapshot; after: PoSnapshot } | null {
   try {
-    return JSON.parse(json);
+    const parsed = JSON.parse(json);
+    if (parsed && typeof parsed === "object" && "before" in parsed && "after" in parsed) {
+      return parsed as { before: PoSnapshot; after: PoSnapshot };
+    }
+    return null;
   } catch {
     return null;
   }
 }
 
-function ItemTable({ items }: { items: Snapshot["items"] }) {
+function ItemTable({ items }: { items: NonNullable<PoSnapshot["items"]> }) {
+  if (!Array.isArray(items) || items.length === 0) return null;
   return (
     <table className="w-full text-xs border border-border">
       <thead className="bg-brand-50 text-muted">
@@ -67,6 +73,55 @@ function ItemTable({ items }: { items: Snapshot["items"] }) {
   );
 }
 
+const FIELD_LABELS: Record<string, string> = {
+  status: "สถานะ",
+  tax_invoice_number: "เลขใบกำกับภาษี",
+  credit_term_days: "เครดิต (วัน)",
+  notes: "หมายเหตุ",
+  total: "ยอดรวม",
+  subtotal: "ยอดก่อนภาษี",
+};
+
+function SnapshotPanel({
+  snapshot,
+  label,
+  labelClass,
+}: {
+  snapshot: PoSnapshot;
+  label: string;
+  labelClass: string;
+}) {
+  const hasItems = Array.isArray(snapshot.items) && snapshot.items.length > 0;
+  const scalarKeys = Object.keys(snapshot).filter((k) => k !== "items");
+  return (
+    <div>
+      <div className={`font-semibold mb-1 ${labelClass}`}>{label}</div>
+      <div className="space-y-1">
+        {scalarKeys.map((k) => {
+          const val = snapshot[k];
+          const display =
+            val === null || val === undefined || val === ""
+              ? "—"
+              : typeof val === "number" && (k === "total" || k === "subtotal")
+              ? `${fmtMoney(val)} ฿`
+              : String(val);
+          return (
+            <div key={k}>
+              <span className="text-muted">{FIELD_LABELS[k] ?? k}:</span>{" "}
+              <span className="font-mono">{display}</span>
+            </div>
+          );
+        })}
+      </div>
+      {hasItems && (
+        <div className="mt-2">
+          <ItemTable items={snapshot.items!} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LogRow({ log }: { log: Log }) {
   const [open, setOpen] = useState(false);
   const diff = parseChanges(log.changes);
@@ -91,60 +146,10 @@ function LogRow({ log }: { log: Log }) {
         </div>
       </button>
       {open && diff && (
-        <div className="p-3 border-t border-border bg-brand-50/30 space-y-3">
+        <div className="p-3 border-t border-border bg-brand-50/30">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-            <div>
-              <div className="font-semibold text-muted mb-1">ก่อน</div>
-              <div className="space-y-1">
-                <div>
-                  เครดิต:{" "}
-                  <span className="font-mono">
-                    {diff.before.credit_term_days} วัน
-                  </span>
-                </div>
-                <div>
-                  ยอดรวม:{" "}
-                  <span className="font-mono">
-                    {fmtMoney(diff.before.total)} ฿
-                  </span>
-                </div>
-                <div>
-                  หมายเหตุ:{" "}
-                  <span className="text-muted">
-                    {diff.before.notes || "—"}
-                  </span>
-                </div>
-              </div>
-              <div className="mt-2">
-                <ItemTable items={diff.before.items} />
-              </div>
-            </div>
-            <div>
-              <div className="font-semibold text-brand-700 mb-1">หลัง</div>
-              <div className="space-y-1">
-                <div>
-                  เครดิต:{" "}
-                  <span className="font-mono">
-                    {diff.after.credit_term_days} วัน
-                  </span>
-                </div>
-                <div>
-                  ยอดรวม:{" "}
-                  <span className="font-mono font-semibold text-brand-700">
-                    {fmtMoney(diff.after.total)} ฿
-                  </span>
-                </div>
-                <div>
-                  หมายเหตุ:{" "}
-                  <span className="text-muted">
-                    {diff.after.notes || "—"}
-                  </span>
-                </div>
-              </div>
-              <div className="mt-2">
-                <ItemTable items={diff.after.items} />
-              </div>
-            </div>
+            <SnapshotPanel snapshot={diff.before} label="ก่อน" labelClass="text-muted" />
+            <SnapshotPanel snapshot={diff.after} label="หลัง" labelClass="text-brand-700" />
           </div>
         </div>
       )}

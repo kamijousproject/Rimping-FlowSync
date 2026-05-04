@@ -127,6 +127,7 @@ export default async function PoDetailPage({
         payment_status={po.payment_status}
         remaining={Number(po.remaining_amount)}
         signed_doc_path={po.signed_doc_path}
+        tax_invoice_number={po.tax_invoice_number}
       />
 
       {/* Items */}

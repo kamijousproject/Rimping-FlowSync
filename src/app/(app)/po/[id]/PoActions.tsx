@@ -18,12 +18,14 @@ export function PoActions({
   payment_status,
   remaining,
   signed_doc_path,
+  tax_invoice_number: initialTaxInvNo,
 }: {
   poId: number;
   status: string;
   payment_status: string;
   remaining: number;
   signed_doc_path: string | null;
+  tax_invoice_number: string | null;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -52,6 +54,13 @@ export function PoActions({
     };
   }, [paySlipPreview]);
 
+  // Tax invoice number
+  const [showTaxModal, setShowTaxModal] = useState(false);
+  const [taxInvNo, setTaxInvNo] = useState(initialTaxInvNo ?? "");
+  const [taxInvInput, setTaxInvInput] = useState("");
+  const [editingTaxInv, setEditingTaxInv] = useState(false);
+  const [editTaxInvInput, setEditTaxInvInput] = useState("");
+
   // Sign upload
   const [signFile, setSignFile] = useState<File | null>(null);
   const [replaceSign, setReplaceSign] = useState(false);
@@ -76,13 +85,13 @@ export function PoActions({
 
   const next = FLOW.find((f) => f.from === status);
 
-  async function setStatus(to: string) {
+  async function setStatus(to: string, extraData?: Record<string, string>) {
     setBusy(true);
     setErr(null);
     const r = await fetch(`/api/po/${poId}/status`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: to }),
+      body: JSON.stringify({ status: to, ...extraData }),
     });
     setBusy(false);
     if (!r.ok) {
@@ -90,6 +99,34 @@ export function PoActions({
       setErr(d.error || "เปลี่ยนสถานะไม่สำเร็จ");
       return;
     }
+    router.refresh();
+  }
+
+  async function submitTaxInvModal() {
+    if (!taxInvInput.trim()) return;
+    setShowTaxModal(false);
+    await setStatus("delivered", { tax_invoice_number: taxInvInput.trim() });
+    setTaxInvNo(taxInvInput.trim());
+    setTaxInvInput("");
+  }
+
+  async function saveTaxInvEdit() {
+    if (!editTaxInvInput.trim()) return;
+    setBusy(true);
+    setErr(null);
+    const r = await fetch(`/api/po/${poId}/tax-invoice`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tax_invoice_number: editTaxInvInput.trim() }),
+    });
+    setBusy(false);
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      setErr(d.error || "บันทึกไม่สำเร็จ");
+      return;
+    }
+    setTaxInvNo(editTaxInvInput.trim());
+    setEditingTaxInv(false);
     router.refresh();
   }
 
@@ -202,7 +239,14 @@ export function PoActions({
       <div className="flex flex-wrap gap-2">
         {next && status !== "cancelled" && (
           <button
-            onClick={() => setStatus(next.to)}
+            onClick={() => {
+              if (next.to === "delivered") {
+                setTaxInvInput("");
+                setShowTaxModal(true);
+              } else {
+                setStatus(next.to);
+              }
+            }}
             disabled={busy}
             className="btn-primary"
           >
@@ -221,6 +265,37 @@ export function PoActions({
           </button>
         )}
       </div>
+
+      {/* Tax invoice number display / edit */}
+      {(status === "delivered" || status === "received") && (
+        <div className="border-t pt-3 text-sm">
+          <div className="font-medium mb-1">เลขที่ใบกำกับภาษีเต็มรูปแบบ</div>
+          {editingTaxInv ? (
+            <div className="flex gap-2 items-center">
+              <input
+                className="input flex-1"
+                value={editTaxInvInput}
+                onChange={(e) => setEditTaxInvInput(e.target.value)}
+                placeholder="เช่น 1234-56789"
+                autoFocus
+              />
+              <button onClick={saveTaxInvEdit} disabled={busy || !editTaxInvInput.trim()} className="btn-primary text-sm">บันทึก</button>
+              <button type="button" onClick={() => setEditingTaxInv(false)} className="text-sm text-muted hover:text-foreground">ยกเลิก</button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-brand-800">{taxInvNo || <span className="text-muted">ยังไม่ได้กรอก</span>}</span>
+              <button
+                type="button"
+                onClick={() => { setEditTaxInvInput(taxInvNo); setEditingTaxInv(true); }}
+                className="text-xs text-muted hover:text-brand-700 underline"
+              >
+                แก้ไข
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Signed delivery doc */}
       {(status === "delivered" || status === "received" || signed_doc_path) && (
@@ -348,6 +423,53 @@ export function PoActions({
       {err && (
         <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
           {err}
+        </div>
+      )}
+
+      {/* Tax invoice number modal */}
+      {showTaxModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <h2 className="text-lg font-semibold text-brand-800">
+              กรอกเลขที่ใบกำกับภาษีเต็มรูปแบบ
+            </h2>
+            <p className="text-sm text-muted">
+              ต้องกรอกเลขนี้ก่อนเปลี่ยนสถานะเป็น <strong>จัดส่งแล้ว</strong> (แก้ไขได้ภายหลัง)
+            </p>
+            <div>
+              <label className="label">เลขที่ใบกำกับภาษีเต็มรูปแบบ *</label>
+              <input
+                className="input"
+                value={taxInvInput}
+                onChange={(e) => setTaxInvInput(e.target.value)}
+                placeholder="เช่น 1234-56789"
+                autoFocus
+                onKeyDown={(e) => { if (e.key === "Enter") submitTaxInvModal(); }}
+              />
+            </div>
+            {err && (
+              <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                {err}
+              </div>
+            )}
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => { setShowTaxModal(false); setTaxInvInput(""); }}
+                className="btn-secondary"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={submitTaxInvModal}
+                disabled={!taxInvInput.trim() || busy}
+                className="btn-primary"
+              >
+                ยืนยันและจัดส่ง
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
