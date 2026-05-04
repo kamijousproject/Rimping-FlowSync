@@ -1,21 +1,20 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import {
-  createUser,
-  findUserByLogin,
-  setSessionCookie,
-  signSession,
-} from "@/backend/auth";
+import { createUser, findUserByLogin } from "@/backend/auth";
+import { requireRole } from "../../_helpers";
 
 const Schema = z.object({
   username: z.string().min(3).max(64),
   email: z.string().email(),
   password: z.string().min(6),
   full_name: z.string().min(1),
-  role: z.enum(["admin", "super_admin"]).optional(),
+  role: z.enum(["admin", "super_admin"]).default("admin"),
 });
 
 export async function POST(req: Request) {
+  const auth = await requireRole("super_admin");
+  if (!auth.ok) return auth.res;
+
   const body = await req.json().catch(() => null);
   const parsed = Schema.safeParse(body);
   if (!parsed.success) {
@@ -34,15 +33,5 @@ export async function POST(req: Request) {
     );
   }
   const id = await createUser(parsed.data);
-  const role = parsed.data.role || "admin";
-  const sessionUser = {
-    id,
-    username: parsed.data.username,
-    email: parsed.data.email,
-    full_name: parsed.data.full_name,
-    role,
-  };
-  const token = await signSession(sessionUser);
-  await setSessionCookie(token);
-  return NextResponse.json({ user: sessionUser });
+  return NextResponse.json({ user: { id, username: parsed.data.username, role: parsed.data.role } }, { status: 201 });
 }

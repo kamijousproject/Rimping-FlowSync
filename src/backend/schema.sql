@@ -185,3 +185,105 @@ CREATE TABLE IF NOT EXISTS quotations (
   generated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_qt_po FOREIGN KEY (po_id) REFERENCES purchase_orders(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+-- Credit notes (ใบลดหนี้) — only allowed when PO status = received
+CREATE TABLE IF NOT EXISTS credit_notes (
+  id                INT AUTO_INCREMENT PRIMARY KEY,
+  cn_number         VARCHAR(32) UNIQUE NOT NULL,          -- เลขที่ใบลดหนี้ เช่น CN202605-0001
+  po_id             INT NOT NULL,
+  customer_id       INT NOT NULL,
+  created_by        INT NOT NULL,
+  reason            VARCHAR(500),
+  total_original    DECIMAL(14,2) NOT NULL DEFAULT 0,     -- ยอดรวมราคาเดิมของรายการที่ลด
+  total_new         DECIMAL(14,2) NOT NULL DEFAULT 0,     -- ยอดรวมราคาใหม่
+  total_diff        DECIMAL(14,2) NOT NULL DEFAULT 0,     -- ส่วนต่างที่คืนเครดิต (original - new)
+  status            ENUM('active','voided') NOT NULL DEFAULT 'active',
+  created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_cn_po       FOREIGN KEY (po_id)       REFERENCES purchase_orders(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_cn_customer FOREIGN KEY (customer_id) REFERENCES customers(id),
+  CONSTRAINT fk_cn_user     FOREIGN KEY (created_by)  REFERENCES users(id),
+  INDEX idx_cn_po (po_id),
+  INDEX idx_cn_customer (customer_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Credit note line items
+CREATE TABLE IF NOT EXISTS credit_note_items (
+  id              INT AUTO_INCREMENT PRIMARY KEY,
+  credit_note_id  INT NOT NULL,
+  po_item_id      INT NOT NULL,                           -- อ้างอิง po_items
+  product_name    VARCHAR(255) NOT NULL,
+  description     VARCHAR(500),
+  quantity        DECIMAL(10,2) NOT NULL DEFAULT 1,
+  unit            VARCHAR(50),
+  original_price  DECIMAL(14,2) NOT NULL,                 -- ราคาเดิม/หน่วย
+  new_price       DECIMAL(14,2) NOT NULL,                 -- ราคาใหม่/หน่วย
+  diff_amount     DECIMAL(14,2) NOT NULL,                 -- (original - new) * quantity
+  CONSTRAINT fk_cni_cn      FOREIGN KEY (credit_note_id) REFERENCES credit_notes(id) ON DELETE CASCADE,
+  CONSTRAINT fk_cni_poitem  FOREIGN KEY (po_item_id)     REFERENCES po_items(id) ON DELETE RESTRICT,
+  INDEX idx_cni_cn (credit_note_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Credit note audit log
+CREATE TABLE IF NOT EXISTS credit_note_logs (
+  id             INT AUTO_INCREMENT PRIMARY KEY,
+  credit_note_id INT NOT NULL,
+  action         ENUM('created','updated','voided') NOT NULL,
+  performed_by   INT NOT NULL,
+  summary        VARCHAR(255),
+  changes        MEDIUMTEXT,
+  created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_cnl_cn   FOREIGN KEY (credit_note_id) REFERENCES credit_notes(id) ON DELETE CASCADE,
+  CONSTRAINT fk_cnl_user FOREIGN KEY (performed_by)  REFERENCES users(id),
+  INDEX idx_cnl_cn (credit_note_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Products / price catalog (synced from store CSV, refreshed daily at 02:00)
+CREATE TABLE IF NOT EXISTS products (
+  id            INT AUTO_INCREMENT PRIMARY KEY,
+
+  -- Identity
+  store         SMALLINT NOT NULL,
+  currency      CHAR(3) NOT NULL DEFAULT 'THB',
+  sku           VARCHAR(32) NOT NULL,
+  description   VARCHAR(512) NOT NULL DEFAULT '',
+
+  -- Current pricing
+  price_use         VARCHAR(32),
+  current_price     DECIMAL(12,3) NOT NULL DEFAULT 0,
+  price_type        VARCHAR(64),
+  current_start     DATE,
+  current_end       DATE,
+  current_event     VARCHAR(64),
+
+  -- Original pricing (before any promotion)
+  original_use      VARCHAR(32),
+  original_price    DECIMAL(12,3),
+  original_start    DATE,
+  original_end      DATE,
+  original_type     VARCHAR(64),
+  original_event    VARCHAR(64),
+
+  -- Department hierarchy
+  d                 SMALLINT,
+  sd                SMALLINT,
+  c                 SMALLINT,
+  dept              VARCHAR(64),
+  sub_dept          VARCHAR(64),
+  class             VARCHAR(64),
+  mer               VARCHAR(16),
+  ishida            VARCHAR(16),
+
+  -- Vendor
+  vendor            INT,
+  vendor_name       VARCHAR(255),
+
+  -- Metadata
+  synced_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  UNIQUE KEY uq_store_sku (store, sku),
+  KEY idx_sku (sku),
+  KEY idx_dept (dept),
+  KEY idx_vendor (vendor),
+  FULLTEXT KEY ft_sku_desc (sku, description)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

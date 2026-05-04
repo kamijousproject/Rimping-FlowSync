@@ -6,6 +6,7 @@ import { getInvoice } from "@/backend/services/payments";
 import { fmtMoney } from "@/components/StatusBadge";
 import { bahtText } from "@/lib/bahtText";
 import { InvoicePrintBar } from "./InvoicePrintBar";
+import { getUserById } from "@/backend/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,10 @@ export default async function InvoicePage({
   const data = await getPo(Number(id));
   if (!data) notFound();
   const { po, items } = data;
-  const customer = await getCustomer(po.customer_id);
+  const [customer, creator] = await Promise.all([
+    getCustomer(po.customer_id),
+    getUserById(po.created_by),
+  ]);
 
   const invoice = inv ? await getInvoice(Number(inv)) : null;
   const invNo =
@@ -290,7 +294,7 @@ export default async function InvoicePage({
                 </div>
                 <div>ประเภทบัญชี: ออมทรัพย์</div>
                 <div className="mt-1 text-muted">
-                  Bangkok Bank · Account No. 251-5-01738-8
+                  Bangkok Bank Account No. 251-5-01738-8
                 </div>
                 <div className="text-muted">
                   Account Name: TRNTRAPHAN SUPPERMARKET (1944) CO., LTD.
@@ -308,20 +312,24 @@ export default async function InvoicePage({
               </div>
             </div>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="text-center">
-              <div className="border-t border-foreground pt-1 text-[11px]">
-                ลงชื่อ ผู้จัดทำเอกสารวางบิล
+              <div className="text-[11px] mb-1">ลงชื่อ ผู้จัดทำเอกสารวางบิล</div>
+              <div className="h-8 flex items-end justify-center">
+                {creator && (
+                  <span className="font-semibold text-xs">{creator.full_name}</span>
+                )}
               </div>
-              <div className="text-muted text-[10px]">
+              <div className="border-t border-foreground mt-1" />
+              <div className="text-muted text-[10px] mt-1">
                 วันที่ ………/………/…………
               </div>
             </div>
             <div className="text-center">
-              <div className="border-t border-foreground pt-1 text-[11px]">
-                ลงชื่อ ผู้อนุมัติ
-              </div>
-              <div className="text-muted text-[10px]">
+              <div className="text-[11px] mb-1">ลงชื่อ ผู้อนุมัติ</div>
+              <div className="h-8" />
+              <div className="border-t border-foreground mt-1" />
+              <div className="text-muted text-[10px] mt-1">
                 Sale FoodService · วันที่ ………/………/…………
               </div>
             </div>
@@ -329,13 +337,13 @@ export default async function InvoicePage({
         </div>
 
         {/* Receiver signature */}
-        <div className="mt-4 grid grid-cols-2 gap-4 text-[11px]">
+        <div className="mt-6 grid grid-cols-2 gap-4 text-[11px]">
           <div />
           <div className="text-center">
-            <div className="border-t border-foreground pt-1">
-              ลงชื่อ ผู้รับเอกสารใบวางบิล
-            </div>
-            <div className="text-muted text-[10px]">
+            <div className="text-[11px] mb-1">ลงชื่อ ผู้รับเอกสารใบวางบิล</div>
+            <div className="h-8" />
+            <div className="border-t border-foreground mt-1" />
+            <div className="text-muted text-[10px] mt-1">
               วันที่ ………/………/…………
             </div>
           </div>

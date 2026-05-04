@@ -187,11 +187,11 @@ export function EditPoForm({
             <table className="w-full text-sm">
               <thead className="text-xs text-muted">
                 <tr>
-                  <th className="text-left p-2">สินค้า *</th>
+                  <th className="text-left p-2">สินค้า (SKU) *</th>
                   <th className="text-left p-2">รายละเอียด</th>
                   <th className="text-right p-2 w-24">จำนวน *</th>
                   <th className="text-left p-2 w-24">หน่วย</th>
-                  <th className="text-right p-2 w-32">ราคา/หน่วย *</th>
+                  <th className="text-right p-2 w-32">ราคา/หน่ วย *</th>
                   <th className="text-right p-2 w-32">รวม</th>
                   <th className="w-10"></th>
                 </tr>
@@ -224,8 +224,8 @@ export function EditPoForm({
                       <td className="p-1">
                         <input
                           type="number"
-                          step="0.01"
-                          min="0.01"
+                          step="1"
+                          min="1"
                           className="input text-right"
                           required
                           value={it.quantity}

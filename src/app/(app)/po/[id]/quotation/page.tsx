@@ -6,6 +6,7 @@ import { getOrCreateQuotation } from "@/backend/services/quotations";
 import { fmtMoney } from "@/components/StatusBadge";
 import { bahtText } from "@/lib/bahtText";
 import { QuotationPrintBar } from "./QuotationPrintBar";
+import { getUserById } from "@/backend/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -18,8 +19,11 @@ export default async function QuotationPage({
   const data = await getPo(Number(id));
   if (!data) notFound();
   const { po, items } = data;
-  const customer = await getCustomer(po.customer_id);
-  const quote = await getOrCreateQuotation(po.id);
+  const [customer, quote, creator] = await Promise.all([
+    getCustomer(po.customer_id),
+    getOrCreateQuotation(po.id),
+    getUserById(po.created_by),
+  ]);
 
   const quoteNo = quote.quote_number;
   const issuedAt = new Date(quote.generated_at);
@@ -236,7 +240,7 @@ export default async function QuotationPage({
                 </div>
                 <div>ประเภทบัญชี: ออมทรัพย์</div>
                 <div className="mt-1 text-muted">
-                  Bangkok Bank · Account No. 251-5-01738-8
+                  Bangkok Bank Account No. 251-5-01738-8
                 </div>
                 <div className="text-muted">
                   Account Name: TRNTRAPHAN SUPPERMARKET (1944) CO., LTD.
@@ -270,18 +274,22 @@ export default async function QuotationPage({
         {/* Signatures */}
         <div className="mt-12 grid grid-cols-2 gap-12 text-xs">
           <div className="text-center">
-            <div className="border-t border-foreground pt-2">
-              ลงชื่อ ผู้เสนอราคา
+            <div className="text-xs mb-2">ลงชื่อ ผู้เสนอราคา</div>
+            <div className="h-10 flex items-end justify-center">
+              {creator && (
+                <span className="font-semibold text-sm">{creator.full_name}</span>
+              )}
             </div>
-            <div className="text-muted mt-1">
+            <div className="border-t border-foreground mt-1" />
+            <div className="text-muted mt-2">
               วันที่ ………/………/…………
             </div>
           </div>
           <div className="text-center">
-            <div className="border-t border-foreground pt-2">
-              ลงชื่อ ผู้สั่งซื้อ / ลูกค้า
-            </div>
-            <div className="text-muted mt-1">
+            <div className="text-xs mb-2">ลงชื่อ ผู้สั่งซื้อ / ลูกค้า</div>
+            <div className="h-10" />
+            <div className="border-t border-foreground mt-1" />
+            <div className="text-muted mt-2">
               วันที่ ………/………/…………
             </div>
           </div>

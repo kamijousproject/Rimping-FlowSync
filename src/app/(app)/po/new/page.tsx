@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { fmtMoney } from "@/components/StatusBadge";
@@ -24,13 +24,27 @@ type Customer = {
   default_credit_term_days: number;
 };
 
+type ProductHit = {
+  id: number;
+  sku: string;
+  description: string;
+  current_price: number;
+  dept: string | null;
+  vendor_name: string | null;
+};
+
 type Item = {
   product_name: string;
   description: string;
   quantity: number;
   unit: string;
   unit_price: number;
+  _prodQuery?: string;
+  _prodOpen?: boolean;
+  _prodHits?: ProductHit[];
 };
+
+type DropdownPos = { top: number; left: number; width: number };
 
 const newItem = (): Item => ({
   product_name: "",
@@ -38,6 +52,9 @@ const newItem = (): Item => ({
   quantity: 1,
   unit: "ชิ้น",
   unit_price: 0,
+  _prodQuery: "",
+  _prodOpen: false,
+  _prodHits: [],
 });
 
 function NewPoInner() {
@@ -47,6 +64,8 @@ function NewPoInner() {
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerId, setCustomerId] = useState<number | "">("");
+  const [custQuery, setCustQuery] = useState("");
+  const [custOpen, setCustOpen] = useState(false);
   const [creditTerm, setCreditTerm] = useState(30);
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<Item[]>([newItem()]);
@@ -57,15 +76,31 @@ function NewPoInner() {
     fetch("/api/customers")
       .then((r) => r.json())
       .then((d) => {
-        setCustomers(d.customers || []);
+        const list: Customer[] = d.customers || [];
+        setCustomers(list);
         if (presetCust) {
           const id = Number(presetCust);
           setCustomerId(id);
-          const c = (d.customers || []).find((x: Customer) => x.id === id);
-          if (c) setCreditTerm(c.default_credit_term_days);
+          const c = list.find((x) => x.id === id);
+          if (c) { setCreditTerm(c.default_credit_term_days); setCustQuery(c.name); }
         }
       });
   }, [presetCust]);
+
+  const custMatches = custQuery.trim()
+    ? customers.filter(
+        (c) =>
+          c.name.toLowerCase().includes(custQuery.toLowerCase()) ||
+          (c.code ?? "").toLowerCase().includes(custQuery.toLowerCase())
+      )
+    : customers;
+
+  function selectCustomer(c: Customer) {
+    setCustomerId(c.id);
+    setCustQuery(c.name);
+    setCreditTerm(c.default_credit_term_days);
+    setCustOpen(false);
+  }
 
   const selected = customers.find((c) => c.id === customerId);
   const total = items.reduce(
@@ -77,6 +112,63 @@ function NewPoInner() {
 
   function updateItem(idx: number, patch: Partial<Item>) {
     setItems(items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+  }
+
+  const searchTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+  const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const [dropdownPos, setDropdownPos] = useState<DropdownPos | null>(null);
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
+
+  const recalcPos = useCallback((idx: number) => {
+    const el = inputRefs.current[idx];
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setDropdownPos({ top: r.bottom + window.scrollY + 2, left: r.left + window.scrollX, width: r.width });
+  }, []);
+
+  function onProdQueryChange(idx: number, val: string) {
+    const cleared = !val.trim();
+    setItems((prev) =>
+      prev.map((it, i) =>
+        i === idx
+          ? { ...it, _prodQuery: val, _prodOpen: true, product_name: val, _prodHits: cleared ? [] : it._prodHits }
+          : it
+      )
+    );
+    setOpenIdx(idx);
+    recalcPos(idx);
+    clearTimeout(searchTimers.current[idx]);
+    if (cleared) { setItems((prev) => prev.map((it, i) => i === idx ? { ...it, _prodHits: [] } : it)); return; }
+    searchTimers.current[idx] = setTimeout(async () => {
+      const r = await fetch(`/api/products?q=${encodeURIComponent(val)}`);
+      if (!r.ok) return;
+      const d = await r.json();
+      setItems((prev) =>
+        prev.map((it, i) =>
+          i === idx ? { ...it, _prodHits: d.products ?? [] } : it
+        )
+      );
+    }, 250);
+  }
+
+  function selectProduct(idx: number, p: ProductHit) {
+    setItems((prev) =>
+      prev.map((it, i) =>
+        i === idx
+          ? {
+              ...it,
+              product_name: p.sku,
+              description: p.description,
+              unit_price: Number(p.current_price),
+              _prodQuery: p.sku,
+              _prodOpen: false,
+              _prodHits: [],
+            }
+          : it
+      )
+    );
+    setOpenIdx(null);
+    setDropdownPos(null);
   }
   function removeItem(idx: number) {
     setItems(items.filter((_, i) => i !== idx));
@@ -94,6 +186,7 @@ function NewPoInner() {
       return;
     }
     setLoading(true);
+    const cleanItems = items.map(({ _prodQuery: _q, _prodOpen: _o, _prodHits: _h, ...rest }) => rest);
     const r = await fetch("/api/po", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -101,7 +194,7 @@ function NewPoInner() {
         customer_id: customerId,
         credit_term_days: creditTerm,
         notes,
-        items,
+        items: cleanItems,
       }),
     });
     setLoading(false);
@@ -127,27 +220,60 @@ function NewPoInner() {
 
       <form onSubmit={submit} className="space-y-4">
         <div className="card p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-2">
+          <div className="md:col-span-2 relative">
             <label className="label">ลูกค้า *</label>
-            <select
+            <input
               className="input"
-              value={customerId}
+              placeholder="พิมพ์ชื่อหรือรหัสลูกค้า..."
+              value={custQuery}
+              autoComplete="off"
+              onFocus={() => setCustOpen(true)}
+              onBlur={() => setTimeout(() => setCustOpen(false), 150)}
               onChange={(e) => {
-                const id = Number(e.target.value);
-                setCustomerId(id || "");
-                const c = customers.find((x) => x.id === id);
-                if (c) setCreditTerm(c.default_credit_term_days);
+                setCustQuery(e.target.value);
+                setCustOpen(true);
+                if (!e.target.value) setCustomerId("");
               }}
-              required
-            >
-              <option value="">— เลือกลูกค้า —</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.code ? `[${c.code}] ` : ""}
-                  {c.name} (วงเงินเหลือ {fmtMoney(c.credit_available)})
-                </option>
-              ))}
-            </select>
+            />
+            {custOpen && custMatches.length > 0 && (
+              <ul className="absolute z-30 mt-1 w-full bg-white border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto text-sm">
+                {custMatches.map((c) => (
+                  <li
+                    key={c.id}
+                    onMouseDown={() => selectCustomer(c)}
+                    className={`px-3 py-2 cursor-pointer hover:bg-brand-50 ${
+                      c.id === customerId ? "bg-brand-50 font-medium" : ""
+                    }`}
+                  >
+                    <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5">
+                      <span className="font-medium">
+                        {c.code ? <span className="text-muted mr-1">[{c.code}]</span> : null}
+                        {c.name}
+                      </span>
+                      {c.temp_extra > 0 && (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                          +{fmtMoney(c.temp_extra)} วงเงินชั่วคราว
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted mt-0.5">
+                      วงเงินเหลือ{" "}
+                      <span className={c.credit_available <= 0 ? "text-red-600 font-semibold" : "font-semibold text-brand-700"}>
+                        {fmtMoney(c.credit_available)} บ
+                      </span>
+                      {c.temp_extra > 0 && (
+                        <span className="text-muted ml-1">(รวมวงเงินหลัก {fmtMoney(c.credit_limit)} + ชั่วคราว {fmtMoney(c.temp_extra)})</span>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {custOpen && custQuery.trim() && custMatches.length === 0 && (
+              <div className="absolute z-30 mt-1 w-full bg-white border border-border rounded-lg shadow-lg px-3 py-2 text-sm text-muted">
+                ไม่พบลูกค้าที่ตรงกัน
+              </div>
+            )}
           </div>
           <div>
             <label className="label">เครดิต (วัน) *</label>
@@ -211,7 +337,7 @@ function NewPoInner() {
             <table className="w-full text-sm">
               <thead className="text-xs text-muted">
                 <tr>
-                  <th className="text-left p-2">สินค้า *</th>
+                  <th className="text-left p-2">สินค้า (SKU) *</th>
                   <th className="text-left p-2">รายละเอียด</th>
                   <th className="text-right p-2 w-24">จำนวน *</th>
                   <th className="text-left p-2 w-24">หน่วย</th>
@@ -227,12 +353,15 @@ function NewPoInner() {
                     <tr key={idx} className="border-t">
                       <td className="p-1">
                         <input
+                          ref={(el) => { inputRefs.current[idx] = el; }}
                           className="input"
                           required
-                          value={it.product_name}
-                          onChange={(e) =>
-                            updateItem(idx, { product_name: e.target.value })
-                          }
+                          placeholder="ค้น SKU..."
+                          autoComplete="off"
+                          value={it._prodQuery ?? it.product_name}
+                          onFocus={() => { setOpenIdx(idx); recalcPos(idx); updateItem(idx, { _prodOpen: true }); }}
+                          onBlur={() => setTimeout(() => { updateItem(idx, { _prodOpen: false }); setOpenIdx(null); setDropdownPos(null); }, 150)}
+                          onChange={(e) => onProdQueryChange(idx, e.target.value)}
                         />
                       </td>
                       <td className="p-1">
@@ -247,8 +376,8 @@ function NewPoInner() {
                       <td className="p-1">
                         <input
                           type="number"
-                          step="0.01"
-                          min="0.01"
+                          step="1"
+                          min="1"
                           className="input text-right"
                           required
                           value={it.quantity}
@@ -351,6 +480,50 @@ function NewPoInner() {
           </Link>
         </div>
       </form>
+
+      {/* Fixed-position product dropdown — renders outside overflow containers */}
+      {openIdx !== null && dropdownPos && (() => {
+        const it = items[openIdx];
+        if (!it) return null;
+        const hits = it._prodHits ?? [];
+        const query = it._prodQuery ?? "";
+        if (!query.trim()) return null;
+        return (
+          <ul
+            style={{
+              position: "fixed",
+              top: dropdownPos.top,
+              left: dropdownPos.left,
+              width: Math.max(dropdownPos.width, 380),
+              zIndex: 9999,
+            }}
+            className="bg-white border border-border rounded-lg shadow-xl max-h-64 overflow-y-auto text-xs"
+          >
+            {hits.length === 0 ? (
+              <li className="px-3 py-2 text-muted">ไม่พบสินค้า</li>
+            ) : (
+              hits.map((p) => (
+                <li
+                  key={p.id}
+                  onMouseDown={() => selectProduct(openIdx, p)}
+                  className="px-3 py-2 cursor-pointer hover:bg-brand-50 flex flex-col gap-0.5"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-semibold text-brand-800">{p.sku}</span>
+                    <span className="text-brand-600 font-semibold">{fmtMoney(p.current_price)} บ</span>
+                  </div>
+                  <div className="text-muted truncate">{p.description}</div>
+                  {p.dept && (
+                    <div className="text-[10px] text-muted">
+                      {p.dept}{p.vendor_name ? ` · ${p.vendor_name}` : ""}
+                    </div>
+                  )}
+                </li>
+              ))
+            )}
+          </ul>
+        );
+      })()}
     </div>
   );
 }

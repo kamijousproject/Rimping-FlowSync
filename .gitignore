@@ -49,3 +49,10 @@ next-env.d.ts
 
 # os
 Thumbs.db
+
+# Google Service Account credentials (sensitive — never commit)
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!jsconfig.json

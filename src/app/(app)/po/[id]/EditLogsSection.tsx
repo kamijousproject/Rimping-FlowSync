@@ -10,6 +10,7 @@ type Log = {
   summary: string;
   changes: string;
   created_at: string | Date;
+  logType?: "po" | "cn";
 };
 
 type PoSnapshot = {
@@ -125,12 +126,13 @@ function SnapshotPanel({
 function LogRow({ log }: { log: Log }) {
   const [open, setOpen] = useState(false);
   const diff = parseChanges(log.changes);
+  const isCn = log.logType === "cn";
   return (
-    <div className="border border-border rounded-lg">
+    <div className={`border rounded-lg ${isCn ? "border-orange-200" : "border-border"}`}>
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-2 p-3 hover:bg-brand-50 text-left"
+        className={`w-full flex items-center gap-2 p-3 text-left ${isCn ? "hover:bg-orange-50/50" : "hover:bg-brand-50"}`}
       >
         {open ? (
           <ChevronDown className="w-4 h-4 text-muted" />
@@ -138,7 +140,10 @@ function LogRow({ log }: { log: Log }) {
           <ChevronRight className="w-4 h-4 text-muted" />
         )}
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium">{log.summary}</div>
+          <div className="text-sm font-medium flex items-center gap-1.5">
+            {isCn && <span className="text-[10px] bg-orange-100 text-orange-700 border border-orange-300 px-1.5 py-0.5 rounded-full font-semibold shrink-0">ใบลดหนี้</span>}
+            {log.summary}
+          </div>
           <div className="text-xs text-muted">
             {new Date(log.created_at).toLocaleString("th-TH")} · โดย{" "}
             {log.editor_name}

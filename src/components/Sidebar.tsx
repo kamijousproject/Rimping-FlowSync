@@ -8,6 +8,7 @@ import {
   Package,
   PlusCircle,
   BookOpen,
+  UsersRound,
   type LucideIcon,
 } from "lucide-react";
 
@@ -55,6 +56,19 @@ export function Sidebar({
             </Link>
           );
         })}
+        {user.role === "super_admin" && (
+          <Link
+            href="/users"
+            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition ${
+              path.startsWith("/users")
+                ? "bg-brand-600 text-white"
+                : "text-foreground hover:bg-brand-50 hover:text-brand-700"
+            }`}
+          >
+            <UsersRound className="w-4 h-4" />
+            <span>ผู้ใช้ในระบบ</span>
+          </Link>
+        )}
       </nav>
       <div className="p-3 border-t border-border">
         <div className="text-xs text-muted">เข้าใช้ในชื่อ</div>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPo, listPoEditLogs } from "@/backend/services/po";
 import { listPayments } from "@/backend/services/payments";
+import { listCreditNotes, listCreditNoteLogs } from "@/backend/services/credit-notes";
 import {
   PaymentBadge,
   StatusBadge,
@@ -24,9 +25,11 @@ export default async function PoDetailPage({
   const data = await getPo(Number(id));
   if (!data) notFound();
   const { po, items } = data;
-  const [payments, editLogs] = await Promise.all([
+  const [payments, editLogs, creditNotes, cnLogs] = await Promise.all([
     listPayments(Number(id)),
     listPoEditLogs(Number(id)),
+    listCreditNotes(Number(id)),
+    listCreditNoteLogs(Number(id)),
   ]);
   const isPaid = po.payment_status === "paid";
 
@@ -96,29 +99,49 @@ export default async function PoDetailPage({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="card p-5">
-          <div className="text-xs text-muted">ยอดรวม PO</div>
-          <div className="text-2xl font-bold text-brand-800">
-            {fmtMoney(po.total)} ฿
+      {(() => {
+        const activeCnDiff = creditNotes
+          .filter((cn) => cn.status === "active")
+          .reduce((s, cn) => s + Number(cn.total_diff), 0);
+        const itemsTotal = items.reduce((s, it) => s + Number(it.line_total), 0);
+        const netTotal = itemsTotal - activeCnDiff;
+        const netRemaining = netTotal - Number(po.paid_amount);
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="card p-5">
+              <div className="text-xs text-muted">ยอดรวม PO</div>
+              <div className="text-2xl font-bold text-brand-800">
+                {fmtMoney(netTotal)} ฿
+              </div>
+              {activeCnDiff > 0 && (
+                <div className="text-xs text-orange-600 mt-1">
+                  {fmtMoney(itemsTotal)} (ยอดเต็ม) − {fmtMoney(activeCnDiff)} (ใบลดหนี้)
+                </div>
+              )}
+            </div>
+            <div className="card p-5">
+              <div className="text-xs text-muted">ชำระแล้ว</div>
+              <div className="text-2xl font-bold text-brand-700">
+                {fmtMoney(po.paid_amount)} ฿
+              </div>
+              <div className="text-xs text-muted mt-1">
+                {payments.length} ครั้ง
+              </div>
+            </div>
+            <div className="card p-5">
+              <div className="text-xs text-muted">คงค้าง</div>
+              <div className="text-2xl font-bold text-red-600">
+                {fmtMoney(Math.max(0, netRemaining))} ฿
+              </div>
+              {activeCnDiff > 0 && (
+                <div className="text-xs text-orange-600 mt-1">
+                  {fmtMoney(netTotal)} − ชำระแล้ว {fmtMoney(po.paid_amount)}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-        <div className="card p-5">
-          <div className="text-xs text-muted">ชำระแล้ว</div>
-          <div className="text-2xl font-bold text-brand-700">
-            {fmtMoney(po.paid_amount)} ฿
-          </div>
-          <div className="text-xs text-muted mt-1">
-            {payments.length} ครั้ง
-          </div>
-        </div>
-        <div className="card p-5">
-          <div className="text-xs text-muted">คงค้าง</div>
-          <div className="text-2xl font-bold text-red-600">
-            {fmtMoney(po.remaining_amount)} ฿
-          </div>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* Workflow & Actions */}
       <PoActions
@@ -128,6 +151,23 @@ export default async function PoDetailPage({
         remaining={Number(po.remaining_amount)}
         signed_doc_path={po.signed_doc_path}
         tax_invoice_number={po.tax_invoice_number}
+        items={items.map((it) => ({
+          id: it.id,
+          product_name: it.product_name,
+          description: it.description ?? null,
+          quantity: Number(it.quantity),
+          unit: it.unit ?? "",
+          unit_price: Number(it.unit_price),
+        }))}
+        customerId={po.customer_id}
+        creditNotes={creditNotes.map((cn) => ({
+          id: cn.id,
+          cn_number: cn.cn_number,
+          total_diff: Number(cn.total_diff),
+          status: cn.status,
+          created_at: cn.created_at,
+          creator_name: cn.creator_name,
+        }))}
       />
 
       {/* Items */}
@@ -165,7 +205,7 @@ export default async function PoDetailPage({
                   รวมทั้งหมด
                 </td>
                 <td className="p-2 text-right text-brand-700 text-lg">
-                  {fmtMoney(po.total)} ฿
+                  {fmtMoney(items.reduce((s, it) => s + Number(it.line_total), 0))} ฿
                 </td>
               </tr>
             </tbody>
@@ -250,8 +290,23 @@ export default async function PoDetailPage({
         </div>
       </div>
 
-      {/* Edit history */}
-      <EditLogsSection logs={editLogs} />
+      {/* Edit history (includes CN logs) */}
+      <EditLogsSection
+        logs={[
+          ...editLogs.map((l) => ({ ...l, logType: "po" as const })),
+          ...cnLogs.map((l) => ({
+            id: l.id + 1000000,
+            edited_by: l.performed_by,
+            editor_name: l.performer_name ?? "—",
+            summary: `[ใบลดหนี้ ${l.cn_number}] ${l.summary ?? ""}`,
+            changes: "{}",
+            created_at: l.created_at,
+            logType: "cn" as const,
+          })),
+        ].sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )}
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { query, exec, withTx } from "../db";
-import { getCustomerOutstanding } from "./customers";
+import { getCustomerOutstanding, getEffectiveCreditLimit } from "./customers";
 
 export type PoItemInput = {
   product_name: string;
@@ -91,17 +91,16 @@ export async function createPo(input: {
   );
   const total = subtotal;
 
-  // Credit check
+  // Credit check (uses effective limit = base + active temp credit)
   const outstanding = await getCustomerOutstanding(input.customer_id);
-  const cust = await query<{ credit_limit: number; name: string }>(
-    "SELECT credit_limit, name FROM customers WHERE id=?",
-    [input.customer_id]
-  );
-  if (!cust[0]) throw new Error("Customer not found");
-  const limit = Number(cust[0].credit_limit);
-  if (outstanding + total > limit) {
+  const { effective_limit, base_limit, temp_extra } = await getEffectiveCreditLimit(input.customer_id);
+  if (!effective_limit && effective_limit !== 0) throw new Error("Customer not found");
+  if (outstanding + total > effective_limit) {
+    const limitDesc = temp_extra > 0
+      ? `${base_limit.toLocaleString()} + วงเงินชั่วคราว ${temp_extra.toLocaleString()} = ${effective_limit.toLocaleString()}`
+      : effective_limit.toLocaleString();
     throw new Error(
-      `เกินวงเงินสินเชื่อ: ลูกค้ามีหนี้คงค้าง ${outstanding.toLocaleString()} + PO นี้ ${total.toLocaleString()} > วงเงิน ${limit.toLocaleString()}`
+      `เกินวงเงินสินเชื่อ: ลูกค้ามีหนี้คงค้าง ${outstanding.toLocaleString()} + PO นี้ ${total.toLocaleString()} > วงเงิน ${limitDesc}`
     );
   }
 
@@ -319,15 +318,14 @@ export async function updatePo(input: {
   const otherOutstanding =
     (await getCustomerOutstanding(existing.po.customer_id)) -
     Number(existing.po.remaining_amount);
-  const cust = await query<{ credit_limit: number }>(
-    "SELECT credit_limit FROM customers WHERE id=?",
-    [existing.po.customer_id]
-  );
-  if (cust[0]) {
-    const limit = Number(cust[0].credit_limit);
-    if (otherOutstanding + newRemaining > limit) {
+  const { effective_limit: effLimit, base_limit: baseLimit, temp_extra: tempExtra } = await getEffectiveCreditLimit(existing.po.customer_id);
+  if (effLimit !== undefined) {
+    if (otherOutstanding + newRemaining > effLimit) {
+      const limitDesc = tempExtra > 0
+        ? `${baseLimit.toLocaleString()} + วงเงินชั่วคราว ${tempExtra.toLocaleString()} = ${effLimit.toLocaleString()}`
+        : effLimit.toLocaleString();
       throw new Error(
-        `เกินวงเงินสินเชื่อ: คงค้างอื่น ${otherOutstanding.toLocaleString()} + PO นี้ ${newRemaining.toLocaleString()} > วงเงิน ${limit.toLocaleString()}`
+        `เกินวงเงินสินเชื่อ: คงค้างอื่น ${otherOutstanding.toLocaleString()} + PO นี้ ${newRemaining.toLocaleString()} > วงเงิน ${limitDesc}`
       );
     }
   }
