@@ -1,7 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { DeleteCustomerButton } from "../DeleteCustomerButton";
 
 type FormState = {
   code: string;
@@ -53,6 +54,8 @@ export function EditCustomerForm({ id, initial }: Props) {
   const [tempReason, setTempReason] = useState("");
   const [tempLoading, setTempLoading] = useState(false);
   const [tempMsg, setTempMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [activeTempCredits, setActiveTempCredits] = useState<any[]>([]);
+  const [deactivateLoading, setDeactivateLoading] = useState<number | null>(null);
 
   // Upload files
   const [files, setFiles] = useState<File[]>([]);
@@ -61,6 +64,11 @@ export function EditCustomerForm({ id, initial }: Props) {
 
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Load temp credits on component mount
+  useEffect(() => {
+    loadTempCredits();
+  }, []);
 
   function set<K extends keyof FormState>(k: K, v: FormState[K]) {
     setForm({ ...form, [k]: v });
@@ -138,6 +146,41 @@ export function EditCustomerForm({ id, initial }: Props) {
     setTempEnd("");
     setTempReason("");
     setTempMsg({ type: "ok", text: "บันทึกวงเงินชั่วคราวสำเร็จ" });
+    await loadTempCredits(); // โหลดข้อมูลใหม่
+  }
+
+  async function loadTempCredits() {
+    try {
+      const r = await fetch(`/api/customers/${id}/credit`);
+      if (r.ok) {
+        const data = await r.json();
+        setActiveTempCredits(data.temps || []);
+      }
+    } catch (error) {
+      console.error('Failed to load temp credits:', error);
+    }
+  }
+
+  async function deactivateTempCredit(tempId: number) {
+    setDeactivateLoading(tempId);
+    try {
+      const r = await fetch(`/api/customers/${id}/credit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "deactivate_temp", temp_id: tempId }),
+      });
+      if (r.ok) {
+        await loadTempCredits(); // โหลดข้อมูลใหม่
+        setTempMsg({ type: "ok", text: "ยกเลิกวงเงินชั่วคราวสำเร็จ" });
+      } else {
+        const d = await r.json().catch(() => ({}));
+        setTempMsg({ type: "err", text: d.error || "ยกเลิกวงเงินชั่วคราวไม่สำเร็จ" });
+      }
+    } catch (error) {
+      setTempMsg({ type: "err", text: "เกิดข้อผิดพลาด" });
+    } finally {
+      setDeactivateLoading(null);
+    }
   }
 
   async function uploadFiles() {
@@ -352,6 +395,36 @@ export function EditCustomerForm({ id, initial }: Props) {
         {tempMsg && (
           <p className={`text-sm ${tempMsg.type === "ok" ? "text-green-700" : "text-red-600"}`}>{tempMsg.text}</p>
         )}
+        
+        {/* แสดงวงเงินชั่วคราวที่มีอยู่ */}
+        {activeTempCredits.length > 0 && (
+          <div className="mt-4 space-y-2">
+            <h3 className="text-sm font-semibold text-brand-800">วงเงินชั่วคราวที่ใช้งานอยู่</h3>
+            {activeTempCredits.map((temp) => (
+              <div key={temp.id} className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-3">
+                <div className="text-sm">
+                  <div className="font-semibold text-green-800">
+                    +{Number(temp.extra_amount).toLocaleString()} บาท
+                  </div>
+                  <div className="text-green-600">
+                    {temp.start_date} ถึง {temp.end_date}
+                  </div>
+                  {temp.reason && (
+                    <div className="text-xs text-green-600 mt-1">เหตุผล: {temp.reason}</div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="btn-danger text-sm px-3 py-1"
+                  disabled={deactivateLoading === temp.id}
+                  onClick={() => deactivateTempCredit(temp.id)}
+                >
+                  {deactivateLoading === temp.id ? "กำลังยกเลิก..." : "ยกเลิก"}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── File Upload ───────────────────────────────────────────────── */}
@@ -385,6 +458,22 @@ export function EditCustomerForm({ id, initial }: Props) {
         {fileMsg && (
           <p className={`text-sm ${fileMsg.type === "ok" ? "text-green-700" : "text-red-600"}`}>{fileMsg.text}</p>
         )}
+      </div>
+
+      {/* ── Danger Zone ───────────────────────────────────────────────── */}
+      <div className="card p-6 border-2 border-red-200 bg-red-50">
+        <h2 className="font-semibold text-red-800 mb-4">⚠️ บริเวณอันตราย</h2>
+        <div className="space-y-3">
+          <p className="text-sm text-red-700">
+            การลบลูกค้าจะเป็นการถาวรและไม่สามารถย้อนกลับได้ ข้อมูลทั้งหมดจะถูกลบออกจากระบบ
+          </p>
+          <div className="flex items-center gap-4">
+            <DeleteCustomerButton 
+              customerId={id} 
+              customerName={initial.name} 
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

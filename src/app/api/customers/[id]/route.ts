@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireUser, requireRole, badRequest, serverError } from "../../_helpers";
-import { getCustomer, updateCustomerWithLog, getEffectiveCreditLimit } from "@/backend/services/customers";
+import { getCustomer, updateCustomerWithLog, getEffectiveCreditLimit, deleteCustomer } from "@/backend/services/customers";
 import { listPos } from "@/backend/services/po";
 import { listAllPaymentsForCustomer } from "@/backend/services/payments";
 
@@ -37,6 +37,21 @@ export async function PATCH(
   if (!body || typeof body !== "object") return badRequest("body ไม่ถูกต้อง");
   try {
     await updateCustomerWithLog(Number(id), body, auth.user.id);
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return serverError(e);
+  }
+}
+
+export async function DELETE(
+  req: Request,
+  ctx: { params: Promise<{ id: string }> }
+) {
+  const auth = await requireRole("super_admin");
+  if (!auth.ok) return auth.res;
+  const { id } = await ctx.params;
+  try {
+    await deleteCustomer(Number(id));
     return NextResponse.json({ ok: true });
   } catch (e) {
     return serverError(e);

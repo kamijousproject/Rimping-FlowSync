@@ -1,4 +1,5 @@
 import { query, exec, withTx } from "../db";
+import { sendLineNotification } from "./notifications";
 
 export type Customer = {
   id: number;
@@ -108,7 +109,23 @@ export async function createCustomer(input: {
       input.notes || null,
     ]
   );
-  return res.insertId;
+  
+  const customerId = res.insertId;
+  
+  // ส่ง LINE notification เมื่อมีลูกค้าใหม่
+  try {
+    await sendLineNotification('new_customer', {
+      id: customerId,
+      code: input.code || `C${customerId.toString().padStart(3, '0')}`,
+      name: input.name,
+      phone: input.phone,
+      credit_limit: input.credit_limit,
+    });
+  } catch (error) {
+    console.error('Failed to send LINE notification for new customer:', error);
+  }
+  
+  return customerId;
 }
 
 export async function updateCustomer(
@@ -130,9 +147,49 @@ export async function updateCustomer(
 ) {
   const fields = Object.keys(input);
   if (fields.length === 0) return;
+  
+  // ตรวจสอบว่ามีการแก้ไข credit_limit หรือไม่
+  const hasCreditLimitChange = 'credit_limit' in input;
+  let oldLimit = 0;
+  let newLimit = 0;
+  
+  if (hasCreditLimitChange) {
+    const [customers] = await query<any[]>(
+      "SELECT credit_limit FROM customers WHERE id = ?",
+      [id]
+    );
+    if (customers.length > 0) {
+      oldLimit = customers[0].credit_limit;
+      newLimit = input.credit_limit!;
+    }
+  }
+  
   const set = fields.map((f) => `${f} = ?`).join(", ");
   const values = fields.map((f) => (input as Record<string, unknown>)[f]);
   await exec(`UPDATE customers SET ${set} WHERE id = ?`, [...values, id]);
+  
+  // ส่ง LINE notification เมื่อแก้ไขวงเงิน
+  if (hasCreditLimitChange && oldLimit !== newLimit) {
+    try {
+      const [customers] = await query<any[]>(
+        "SELECT name, code FROM customers WHERE id = ?",
+        [id]
+      );
+      
+      if (customers.length > 0) {
+        await sendLineNotification('credit_limit_change', {
+          customer_id: id,
+          customer_name: customers[0].name,
+          customer_code: customers[0].code,
+          old_limit: oldLimit,
+          new_limit: newLimit,
+          updated_by: 'System', // ควรดึงจาก session จริงๆ
+        });
+      }
+    } catch (error) {
+      console.error('Failed to send LINE notification for credit limit change:', error);
+    }
+  }
 }
 
 export async function getCustomerOutstanding(id: number): Promise<number> {
@@ -203,15 +260,32 @@ export type CustomerEditLog = {
   created_at: Date;
 };
 
-export async function listCustomerEditLogs(customerId: number): Promise<CustomerEditLog[]> {
-  return query<CustomerEditLog>(
+export async function listCustomerEditLogs(
+  customerId: number, 
+  page: number = 1, 
+  limit: number = 10
+): Promise<{ logs: CustomerEditLog[]; total: number }> {
+  const offset = (page - 1) * limit;
+  
+  // Get total count
+  const countResult = await query<{ total: number }>(
+    "SELECT COUNT(*) as total FROM customer_edit_logs WHERE customer_id = ?",
+    [customerId]
+  );
+  const total = Number(countResult[0]?.total || 0);
+  
+  // Get logs with pagination
+  const logs = await query<CustomerEditLog>(
     `SELECT l.*, u.full_name AS editor_name
      FROM customer_edit_logs l
      JOIN users u ON u.id = l.edited_by
      WHERE l.customer_id = ?
-     ORDER BY l.created_at DESC`,
-    [customerId]
+     ORDER BY l.created_at DESC
+     LIMIT ? OFFSET ?`,
+    [customerId, limit, offset]
   );
+  
+  return { logs, total };
 }
 
 /**
@@ -304,9 +378,9 @@ export async function adjustCreditLimit(
 ): Promise<number> {
   return withTx(async (conn) => {
     const [rows] = (await conn.query(
-      "SELECT id, credit_limit, name FROM customers WHERE id = ? FOR UPDATE",
+      "SELECT id, credit_limit, name, code FROM customers WHERE id = ? FOR UPDATE",
       [customerId]
-    )) as unknown as [{id: number; credit_limit: number; name: string}[]];
+    )) as unknown as [{id: number; credit_limit: number; name: string; code: string}[]];
     const cust = rows[0];
     if (!cust) throw new Error("ไม่พบลูกค้า");
     const newLimit = Number(cust.credit_limit) + delta;
@@ -327,6 +401,26 @@ export async function adjustCreditLimit(
         JSON.stringify({ type: "credit_limit_adjustment", delta, old_limit: Number(cust.credit_limit), new_limit: newLimit, reason: reason || null }),
       ]
     );
+
+    // ส่ง LINE notification เมื่อแก้ไขวงเงิน
+    try {
+      const [users] = await conn.query(
+        "SELECT full_name FROM users WHERE id = ?",
+        [adjustedBy]
+      ) as unknown as [{full_name: string}[]];
+      
+      await sendLineNotification('credit_limit_change', {
+        customer_id: customerId,
+        customer_name: cust.name,
+        customer_code: cust.code,
+        old_limit: Number(cust.credit_limit),
+        new_limit: newLimit,
+        updated_by: users[0]?.full_name || 'Unknown',
+      });
+    } catch (error) {
+      console.error('Failed to send LINE notification for credit limit adjustment:', error);
+    }
+
     return newLimit;
   });
 }
@@ -351,7 +445,7 @@ export async function listTempCreditLimits(customerId: number): Promise<TempCred
     `SELECT t.*, u.full_name AS creator_name
      FROM temp_credit_limits t
      JOIN users u ON u.id = t.created_by
-     WHERE t.customer_id = ?
+     WHERE t.customer_id = ? AND t.is_active = 1
      ORDER BY t.created_at DESC`,
     [customerId]
   );
@@ -380,6 +474,20 @@ export async function createTempCreditLimit(input: {
   reason?: string;
   created_by: number;
 }): Promise<number> {
+  // ตรวจสอบว่ามีวงเงินชั่วคราวที่ active อยู่แล้วหรือไม่
+  const existingTemps = await query<any[]>(
+    `SELECT id, extra_amount, start_date, end_date 
+     FROM temp_credit_limits 
+     WHERE customer_id = ? AND is_active = 1 
+     AND start_date <= CURDATE() AND end_date >= CURDATE()`,
+    [input.customer_id]
+  );
+  
+  if (existingTemps && existingTemps.length > 0) {
+    const existing = existingTemps[0] as any;
+    throw new Error(`ลูกค้ามีวงเงินชั่วคราวที่ยังใช้งานอยู่: +${Number(existing.extra_amount).toLocaleString()} บาท (${existing.start_date} ถึง ${existing.end_date}) ต้องยกเลิกอันเก่าก่อน`);
+  }
+
   const res = await exec(
     `INSERT INTO temp_credit_limits
        (customer_id, extra_amount, start_date, end_date, reason, created_by)
@@ -396,11 +504,186 @@ export async function createTempCreditLimit(input: {
       JSON.stringify({ type: "temp_credit_limit", ...input }),
     ]
   );
+
+  // ส่ง LINE notification เมื่อขอเพิ่มวงเงินชั่วคราว
+  try {
+    const customers = await query<any[]>(
+      "SELECT name, code, credit_limit FROM customers WHERE id = ?",
+      [input.customer_id]
+    );
+    
+    if (customers && customers.length > 0) {
+      const users = await query<any[]>(
+        "SELECT full_name FROM users WHERE id = ?",
+        [input.created_by]
+      );
+      
+      const customer = customers[0] as any;
+      
+      await sendLineNotification('temporary_credit_increase', {
+        customer_id: input.customer_id,
+        customer_name: customer.name,
+        customer_code: customer.code,
+        old_limit: customer.credit_limit,
+        extra_amount: input.extra_amount,
+        new_limit: customer.credit_limit + input.extra_amount,
+        start_date: input.start_date,
+        end_date: input.end_date,
+        reason: input.reason || '',
+        requested_by: (users && users.length > 0) ? (users[0] as any)?.full_name || 'Unknown' : 'Unknown',
+      });
+    }
+  } catch (error) {
+    console.error('Failed to send LINE notification for temporary credit limit:', error);
+  }
+
   return res.insertId;
 }
 
-export async function deactivateTempCreditLimit(id: number): Promise<void> {
+export async function deactivateTempCreditLimit(id: number, deactivatedBy?: number): Promise<void> {
+  // ดึงข้อมูล temp credit limit ก่อนยกเลิก
+  const tempLimits = await query<any[]>(
+    `SELECT t.*, c.name as customer_name, c.code as customer_code, c.credit_limit
+     FROM temp_credit_limits t
+     JOIN customers c ON t.customer_id = c.id
+     WHERE t.id = ? AND t.is_active = 1`,
+    [id]
+  );
+  
+  if (!tempLimits || tempLimits.length === 0) {
+    throw new Error("ไม่พบวงเงินชั่วคราวที่ต้องการยกเลิก หรือถูกยกเลิกไปแล้ว");
+  }
+  
+  const tempLimit = tempLimits[0] as any;
+  
+  // ยกเลิกวงเงินชั่วคราว
   await exec("UPDATE temp_credit_limits SET is_active = 0 WHERE id = ?", [id]);
+  
+  // บันทึก audit log
+  if (deactivatedBy) {
+    await exec(
+      `INSERT INTO customer_edit_logs (customer_id, edited_by, summary, changes)
+       VALUES (?,?,?,?)`,
+      [
+        tempLimit.customer_id,
+        deactivatedBy,
+        `ยกเลิกวงเงินชั่วคราว +${Number(tempLimit.extra_amount).toLocaleString()} บาท`,
+        JSON.stringify({ 
+          type: "temp_credit_limit_deactivate", 
+          temp_id: id,
+          extra_amount: tempLimit.extra_amount,
+          deactivated_at: new Date().toISOString()
+        }),
+      ]
+    );
+  }
+
+  // ส่ง LINE notification เมื่อยกเลิกวงเงินชั่วคราว
+  try {
+    if (deactivatedBy) {
+      const users = await query<any[]>(
+        "SELECT full_name FROM users WHERE id = ?",
+        [deactivatedBy]
+      );
+      
+      await sendLineNotification('temporary_credit_deactivate', {
+        customer_id: tempLimit.customer_id,
+        customer_name: tempLimit.customer_name,
+        customer_code: tempLimit.customer_code,
+        extra_amount: tempLimit.extra_amount,
+        base_limit: tempLimit.credit_limit,
+        deactivated_by: (users && users.length > 0) ? (users[0] as any)?.full_name || 'Unknown' : 'Unknown',
+        deactivated_at: new Date().toISOString(),
+      });
+    }
+  } catch (error) {
+    console.error('Failed to send LINE notification for temp credit deactivation:', error);
+  }
+}
+
+export async function deleteCustomer(id: number): Promise<void> {
+  return withTx(async (conn) => {
+    // ดึงข้อมูลลูกค้าก่อนลบเพื่อส่ง notification
+    const [customers] = await conn.query(
+      "SELECT code, name, contact_person FROM customers WHERE id = ?",
+      [id]
+    );
+    const customer = (customers as any[])[0];
+    if (!customer) {
+      throw new Error("ไม่พบข้อมูลลูกค้า");
+    }
+
+    // ตรวจสอบว่ามี PO ที่ยังไม่ได้ชำระหรือไม่
+    const [unpaidPos] = await conn.query(
+      "SELECT COUNT(*) as count FROM purchase_orders WHERE customer_id = ? AND payment_status != 'paid'",
+      [id]
+    );
+    
+    if ((unpaidPos as any[])[0].count > 0) {
+      throw new Error("ไม่สามารถลบลูกค้าได้ เนื่องจากมี Purchase Order ที่ยังไม่ได้ชำระเงิน กรุณาชำระเงินให้ครบทุก PO ก่อน");
+    }
+
+    // ถ้า PO ทั้งหมดชำระครบแล้ว สามารถลบลูกค้าได้
+
+    // ลบข้อมูลที่เกี่ยวข้องทั้งหมด
+    try {
+      await conn.query("DELETE FROM temp_credit_limits WHERE customer_id = ?", [id]);
+    } catch (e) {
+      console.error('Error deleting temp_credit_limits:', e);
+      throw e;
+    }
+    
+    try {
+      await conn.query("DELETE FROM credit_limit_adjustments WHERE customer_id = ?", [id]);
+    } catch (e) {
+      console.error('Error deleting credit_limit_adjustments:', e);
+      throw e;
+    }
+    
+    try {
+      await conn.query("DELETE FROM customer_edit_logs WHERE customer_id = ?", [id]);
+    } catch (e) {
+      console.error('Error deleting customer_edit_logs:', e);
+      throw e;
+    }
+    
+    try {
+      await conn.query("DELETE FROM customer_files WHERE customer_id = ?", [id]);
+    } catch (e) {
+      console.error('Error deleting customer_files:', e);
+      throw e;
+    }
+    
+    // ลบ PO ที่ชำระครบแล้วก่อน ถึงจะลบลูกค้าได้ (foreign key constraint)
+    try {
+      await conn.query("DELETE FROM purchase_orders WHERE customer_id = ? AND payment_status = 'paid'", [id]);
+    } catch (e) {
+      console.error('Error deleting purchase_orders:', e);
+      throw e;
+    }
+    
+    // ลบลูกค้า
+    try {
+      await conn.query("DELETE FROM customers WHERE id = ?", [id]);
+    } catch (e) {
+      console.error('Error deleting customers:', e);
+      throw e;
+    }
+
+    // ส่ง LINE notification ว่าลบลูกค้าสำเร็จ
+    try {
+      await sendLineNotification('customer_deleted', {
+        customer_id: id,
+        customer_name: customer.name,
+        customer_code: customer.code,
+        contact_person: customer.contact_person,
+        deleted_by: 'System', // สามารถส่ง user ที่ลบได้ถ้ามี context
+        deleted_at: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('Failed to send LINE notification for customer deletion:', error);
+    }
+  });
 }
 
 /** Effective credit limit = base + active temp (if any) */

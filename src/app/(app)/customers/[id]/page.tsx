@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import {
   getCustomer,
   listCustomerFiles,
-  listCustomerEditLogs,
   getEffectiveCreditLimit,
 } from "@/backend/services/customers";
 import { listPos } from "@/backend/services/po";
@@ -29,12 +28,11 @@ export default async function CustomerDetailPage({
   const cid = Number(id);
   const c = await getCustomer(cid);
   if (!c) notFound();
-  const [pos, payments, user, files, editLogs, effective] = await Promise.all([
+  const [pos, payments, user, files, effective] = await Promise.all([
     listPos({ customer_id: cid }),
     listAllPaymentsForCustomer(cid),
     getCurrentUser(),
     listCustomerFiles(cid),
-    listCustomerEditLogs(cid),
     getEffectiveCreditLimit(cid),
   ]);
   const canEdit = isSuperAdmin(user);
@@ -276,12 +274,7 @@ export default async function CustomerDetailPage({
         </div>
       </div>
 
-      <CustomerEditLogsSection
-        logs={editLogs.map((l) => ({
-          ...l,
-          created_at: l.created_at instanceof Date ? l.created_at.toISOString() : String(l.created_at),
-        }))}
-      />
+      <CustomerEditLogsSection customerId={cid} />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type Log = {
   id: number;
@@ -7,6 +7,11 @@ type Log = {
   summary: string;
   changes: string;
   created_at: string;
+};
+
+type LogsResponse = {
+  logs: Log[];
+  total: number;
 };
 
 function DiffView({ changes }: { changes: string }) {
@@ -94,10 +99,122 @@ function DiffView({ changes }: { changes: string }) {
   );
 }
 
-export function CustomerEditLogsSection({ logs }: { logs: Log[] }) {
-  const [expanded, setExpanded] = useState<number | null>(null);
+// Pagination component
+function Pagination({ currentPage, totalPages, onPageChange }: {
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}) {
+  if (totalPages <= 1) return null;
 
-  if (!logs.length) {
+  const pages = [];
+  const maxVisible = 5;
+  let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+  let end = Math.min(totalPages, start + maxVisible - 1);
+  
+  if (end - start + 1 < maxVisible) {
+    start = Math.max(1, end - maxVisible + 1);
+  }
+
+  for (let i = start; i <= end; i++) {
+    pages.push(i);
+  }
+
+  return (
+    <div className="flex items-center justify-center gap-1 mt-4">
+      <button
+        className="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        onClick={() => onPageChange(currentPage - 1)}
+        disabled={currentPage === 1}
+      >
+        ก่อนหน้า
+      </button>
+      
+      {start > 1 && (
+        <>
+          <button
+            className="px-3 py-1 text-sm border rounded hover:bg-gray-50"
+            onClick={() => onPageChange(1)}
+          >
+            1
+          </button>
+          {start > 2 && <span className="px-2 text-gray-400">...</span>}
+        </>
+      )}
+      
+      {pages.map(page => (
+        <button
+          key={page}
+          className={`px-3 py-1 text-sm border rounded hover:bg-gray-50 ${
+            page === currentPage ? 'bg-brand-500 text-white border-brand-500' : ''
+          }`}
+          onClick={() => onPageChange(page)}
+        >
+          {page}
+        </button>
+      ))}
+      
+      {end < totalPages && (
+        <>
+          {end < totalPages - 1 && <span className="px-2 text-gray-400">...</span>}
+          <button
+            className="px-3 py-1 text-sm border rounded hover:bg-gray-50"
+            onClick={() => onPageChange(totalPages)}
+          >
+            {totalPages}
+          </button>
+        </>
+      )}
+      
+      <button
+        className="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        onClick={() => onPageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+      >
+        ถัดไป
+      </button>
+    </div>
+  );
+}
+
+export function CustomerEditLogsSection({ customerId }: { customerId: number }) {
+  const [logs, setLogs] = useState<Log[]>([]);
+  const [total, setTotal] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const limit = 5;
+
+  const fetchLogs = async (page: number) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/customers/${customerId}/logs?page=${page}&limit=${limit}`);
+      const data: LogsResponse = await response.json();
+      setLogs(data.logs);
+      setTotal(data.total);
+    } catch (error) {
+      console.error('Failed to fetch logs:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLogs(currentPage);
+  }, [customerId, currentPage]);
+
+  const totalPages = Math.ceil(total / limit);
+
+  if (loading && currentPage === 1) {
+    return (
+      <div className="card p-5">
+        <h3 className="font-semibold mb-2">ประวัติการแก้ไข</h3>
+        <p className="text-sm text-muted">กำลังโหลด...</p>
+      </div>
+    );
+  }
+
+  if (!logs.length && !loading) {
     return (
       <div className="card p-5">
         <h3 className="font-semibold mb-2">ประวัติการแก้ไข</h3>
@@ -108,7 +225,10 @@ export function CustomerEditLogsSection({ logs }: { logs: Log[] }) {
 
   return (
     <div className="card p-5">
-      <h3 className="font-semibold mb-3">ประวัติการแก้ไข ({logs.length})</h3>
+      <h3 className="font-semibold mb-3">
+        ประวัติการแก้ไข ({total.toLocaleString()} รายการ)
+      </h3>
+      
       <div className="space-y-2">
         {logs.map((log) => (
           <div key={log.id} className="border rounded-lg overflow-hidden">
@@ -132,6 +252,18 @@ export function CustomerEditLogsSection({ logs }: { logs: Log[] }) {
           </div>
         ))}
       </div>
+
+      {loading && (
+        <div className="text-center py-2 text-sm text-muted">
+          กำลังโหลด...
+        </div>
+      )}
+
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
+      />
     </div>
   );
 }

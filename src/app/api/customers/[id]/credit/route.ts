@@ -82,7 +82,7 @@ export async function POST(
       return NextResponse.json({ ok: true, id: tempId }, { status: 201 });
     }
     if (parsed.data.action === "deactivate_temp") {
-      await deactivateTempCreditLimit(parsed.data.temp_id);
+      await deactivateTempCreditLimit(parsed.data.temp_id, auth.user.id);
       return NextResponse.json({ ok: true });
     }
   } catch (e) {

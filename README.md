@@ -9,6 +9,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)](https://www.typescriptlang.org)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-38bdf8?logo=tailwindcss)](https://tailwindcss.com)
 [![MySQL](https://img.shields.io/badge/MySQL-8-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com)
+[![LINE Bot](https://img.shields.io/badge/LINE%20Bot-00C300?logo=line)](https://developers.line.biz)
 [![License](https://img.shields.io/badge/license-Internal-green.svg)](#)
 
 </div>
@@ -18,16 +19,18 @@
 ## 📖 ภาพรวม
 
 **FlowSync** คือระบบหลังบ้านสำหรับติดตามและจัดการ **Purchase Order (PO)**
-ที่ขายสินค้าให้ลูกค้าแบบสินเชื่อ ครอบคลุมตั้งแต่:
+ที่ขายสินเชื่อสินค้าให้ลูกค้า ครอบคลุมฟีเจอร์ครบวงจร:
 
 - 📝 **ออก PO** ตรวจวงเงินก่อนออกอัตโนมัติ
 - 📦 **ติดตามขั้นตอน** draft → confirmed → packed → checked → delivered → received
 - 💵 **ออก Invoice** + บันทึกการชำระบางส่วน/เต็มจำนวน + แนบสลิป (พร้อม preview รูป)
 - ✏️ **แก้ไข PO ได้** ตราบที่ยังไม่ชำระครบ + บันทึก audit log ทุกครั้ง
 - 🔐 **Permission 2 ระดับ** — `admin` / `super_admin` (เพิ่ม/แก้ไขลูกค้าเฉพาะ super_admin)
-- 📊 **Dashboard** สรุปลูกหนี้คงค้าง, วงเงิน, PO เกินกำหนด
+- 📊 **Dashboard** สรุปลูกหนี้คงค้าง, วงเงิน, PO เกินกำหนด (พร้อม Progress Bars)
+- 🤖 **LINE Notifications** แจ้งเตือนอัตโนมัติ (ลูกค้าเลยกำหนด, ลูกค้าใหม่, วงเงิน) - รองรับ Single User และ Broadcast Mode
 - 🖨️ **พิมพ์ใบเสนอราคา / ใบแจ้งหนี้** A4 พร้อมส่งออก PDF (Ctrl+P)
 - 📖 **คู่มือการใช้งาน** ภาษาไทยที่ [`/manual`](http://localhost:3000/manual) (export PDF ได้)
+- ⏰ **Cron Jobs** ตรวจสอบลูกค้าเลยกำหนดชำระอัตโนมัติ
 - 🤖 **เตรียม field** Credit Score (0–1000) ไว้รองรับ AI ประเมินภายหลัง
 
 ---
@@ -40,6 +43,7 @@
 | **Backend** | Next.js API Routes · `mysql2` (pool + transactions) |
 | **Database** | MySQL 8 (XAMPP @ `/opt/lampp`) |
 | **Auth** | bcryptjs + JWT (httpOnly cookie via `jose`) |
+| **Notifications** | LINE Bot API (@line/bot-sdk) · Cron Jobs |
 | **Validation** | zod |
 | **UI Icons** | lucide-react |
 | **Mobile** | Bottom-tab nav (app-like) + responsive cards |
@@ -66,6 +70,8 @@ flowsync/
 │   │       ├── customers/{,[id]}/
 │   │       ├── po/{,[id],[id]/{status,sign,payments,invoice}}/
 │   │       ├── dashboard/
+│   │       ├── notifications/{test}/
+│   │       ├── cron/check-overdue/
 │   │       └── files/[category]/[name]/   # serve uploaded slips/docs
 │   │
 │   ├── backend/                      # ⚙️ BACKEND ONLY (private)
@@ -73,12 +79,15 @@ flowsync/
 │   │   ├── auth.ts                   # bcrypt + JWT cookie
 │   │   ├── upload.ts                 # multipart file upload
 │   │   ├── services/
-│   │   │   ├── customers.ts
+│   │   │   ├── customers.ts          # + LINE notifications
 │   │   │   ├── po.ts
 │   │   │   ├── payments.ts
-│   │   │   └── dashboard.ts
+│   │   │   ├── dashboard.ts          # + overdue data
+│   │   │   └── notifications.ts      # LINE Bot API service
 │   │   ├── schema.sql                # โครงตาราง
-│   │   └── seed-mock.sql             # ข้อมูลตัวอย่างครบทุก status
+│   │   ├── seed-mock.sql             # ข้อมูลตัวอย่างครบทุก status
+│   │   ├── seed-mock-runner.js       # Node.js script สำหรับ seed data
+│   │   └── sync_products.py          # Python script สำหรับ sync ข้อมูลสินค้า
 │   │
 │   ├── components/                   # 🎨 shared UI
 │   │   ├── Brand.tsx
@@ -89,48 +98,108 @@ flowsync/
 │   │
 │   └── proxy.ts                      # auth middleware (Next.js 16)
 │
+├── scripts/                          # 📜 Scripts สำหรับ Cron Jobs
+│   └── check-overdue.sh              # ตรวจสอบลูกค้าเลยกำหนดชำระ
+│
+├── docs/                             # 📚 เอกสาร
+│   ├── LINE_NOTIFICATION_SETUP.md    # คู่มือตั้งค่า LINE
+│   └── ENVIRONMENT_VARIABLES.md      # ตัวอย่าง env variables
+│
 ├── public/uploads/                   # uploaded files (gitignored)
-├── .env.local                        # DB / JWT_SECRET / UPLOAD_DIR
+├── .env.local                        # DB / JWT_SECRET / LINE settings
 └── README.md
 ```
 
 ---
 
-## 🚀 เริ่มใช้งาน
+## 🚀 การติดตั้งระบบ (Full Setup)
 
-### 1. ติดตั้ง dependencies
+### 1. ติดตั้ง Dependencies
 
 ```bash
 npm install
 ```
 
-### 2. ตั้งค่า environment
+### 2. ตั้งค่า Environment Variables
 
-`.env.local` (มีไฟล์ตัวอย่างให้แล้ว):
+สร้างไฟล์ `.env.local` (ดูตัวอย่างใน `docs/ENVIRONMENT_VARIABLES.md`):
 
 ```env
+# Database Configuration
 DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_USER=root
-DB_PASSWORD=
+DB_PASSWORD=root
 DB_NAME=flowsync
-JWT_SECRET=change-me-in-production-please-use-a-long-random-string
-UPLOAD_DIR=public/uploads
+
+# JWT Secret
+JWT_SECRET=dev-secret-change-me
+
+# Upload Directory
+UPLOAD_DIR=uploads
+
+# LINE Notification Settings
+LINE_CHANNEL_ACCESS_TOKEN=your_channel_access_token_here
+LINE_ADMIN_USER_ID=your_admin_user_id_here
+
+# Cron Job Security
+CRON_SECRET=flowsync-cron-secret-2024
+
+# Base URL for links in notifications
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
 ```
 
-### 3. สร้าง database
+### 3. ติดตั้งและตั้งค่าฐานข้อมูล
 
 ```bash
-# ใช้ MySQL ของ XAMPP
+# สร้างฐานข้อมูล
 sudo /opt/lampp/bin/mysql -uroot < src/backend/schema.sql
 
-# (ทางเลือก) seed mock data ครบทุก status
-node -e "const m=require('mysql2/promise'),f=require('fs');\
-m.createConnection({host:'127.0.0.1',user:'root',database:'flowsync',multipleStatements:true})\
-.then(c=>c.query(f.readFileSync('src/backend/seed-mock.sql','utf8')).then(()=>c.end()))"
+# ทางเลือกที่ 1: Seed mock data ครบทุก status (แนะนำ)
+node src/backend/seed-mock-runner.js
+
+# ทางเลือกที่ 2: Seed แบบ manual
+mysql -uroot flowsync < src/backend/seed-mock.sql
 ```
 
-### 4. รัน
+### 4. ตั้งค่า LINE Official Account (สำคัญ!)
+
+ดูคู่มือที่ `docs/LINE_NOTIFICATION_SETUP.md`:
+
+1. **สร้าง LINE Official Account** ที่ [LINE Developers Console](https://developers.line.biz/)
+2. **หา Channel Access Token**:
+   - ไปที่แท็บ "Messaging API"
+   - คลิก "Issue" ถ้ายังไม่มี
+   - คัดลอก token (ขึ้นต้นด้วย `eyJ...`)
+3. **หา Admin User ID**:
+   ```bash
+   curl -X GET https://api.line.me/v2/bot/info \
+   -H "Authorization: Bearer YOUR_CHANNEL_ACCESS_TOKEN"
+   ```
+4. **เพิ่มใน `.env.local`**
+
+### 5. ตั้งค่า Cron Jobs (Ubuntu 24.04)
+
+```bash
+# ทำให้สคริปต์ executeable
+chmod +x scripts/check-overdue.sh
+
+# ตั้งค่า cron job
+crontab -e
+```
+
+เพิ่มบรรทัดเหล่านี้:
+
+```bash
+# FlowSync Cron Jobs
+# Check overdue customers twice daily at 8:00 AM and 2:00 PM
+0 8,14 * * * /home/aiadmin/FlowSync/flowsync/scripts/check-overdue.sh
+
+# Sync products data daily at 3:00 AM (existing)
+0 3 * * * cd /home/aiadmin/FlowSync/flowsync && python3 src/backend/sync_products.py >> /var/log/flowsync-sync.log 2>&1
+```
+
+### 6. รันแอปพลิเคชัน
 
 ```bash
 npm run dev          # → http://localhost:3000
@@ -138,7 +207,20 @@ npm run dev          # → http://localhost:3000
 npm run build && npm start
 ```
 
-### 5. เข้าสู่ระบบ
+### 7. ทดสอบระบบ
+
+```bash
+# ทดสอบ LINE notification
+curl -X POST http://localhost:3000/api/notifications/test
+
+# ทดสอบ overdue check
+curl -X GET http://localhost:3000/api/cron/check-overdue
+
+# ทดสอบ health check
+curl -X GET http://localhost:3000/api/health
+```
+
+### 8. เข้าสู่ระบบ
 
 | Username     | Password         | Role          | สิทธิ์                                       |
 |--------------|------------------|---------------|----------------------------------------------|
@@ -147,6 +229,35 @@ npm run build && npm start
 
 > 🔐 ระบบ**ไม่มี**การลงทะเบียนสำหรับลูกค้า เป็นระบบหลังบ้านอย่างเดียว
 > ใช้ `/register` (เข้าจาก /login) สร้างบัญชีพนักงานเพิ่มเติม
+
+---
+
+## 🤖 LINE Notification System
+
+ระบบแจ้งเตือนอัตโนมัติผ่าน LINE Official Account:
+
+### 🚨 **ประเภทการแจ้งเตือน:**
+
+1. **ลูกค้าเลยกำหนดชำระ** (3, 7, 14, 30 วัน)
+   - แสดง PO number, ชื่อลูกค้า, ยอดค้าง, วันที่เลยกำหนด
+   - มีลิงก์ตรงไปดูรายละเอียด PO
+
+2. **ลูกค้าใหม่**
+   - แจ้งทันทีเมื่อมีการสร้างลูกค้าใหม่
+   - แสดงชื่อ, รหัส, วงเงิน, เบอร์โทรศัพท์
+
+3. **ขอเพิ่มวงเงินชั่วคราว**
+   - แจ้งเมื่อมีการขอเพิ่มวงเงินชั่วคราว
+   - แสดงวงเงินเดิม, เพิ่ม, รวม, เหตุผล
+
+4. **แก้ไขวงเงินลูกค้า**
+   - แจ้งเมื่อมีการแก้ไขวงเงิน (เพิ่ม/ลด)
+   - แสดงวงเงินเดิม, ใหม่, ผู้แก้ไข
+
+### ⏰ **Cron Job Schedule:**
+- **ทำงานวันละ 2 ครั้ง** (08:00 และ 14:00)
+- **Log บันทึก** ที่ `/var/log/flowsync-overdue.log`
+- **Security** ด้วย `CRON_SECRET`
 
 ---
 
@@ -211,7 +322,15 @@ npm run build && npm start
 ### Dashboard
 | Method | Path              | คำอธิบาย                 |
 |--------|-------------------|--------------------------|
-| GET    | `/api/dashboard`  | สถิติ + 10 PO ล่าสุด     |
+| GET    | `/api/dashboard`  | สถิติ + 10 PO ล่าสุด + PO เลยกำหนดชำระ |
+
+### Notifications & Cron
+| Method | Path                           | คำอธิบาย                           |
+|--------|--------------------------------|------------------------------------|
+| POST   | `/api/notifications/test`      | ทดสอบ LINE notification           |
+| GET    | `/api/cron/check-overdue`       | ทดสอบตรวจสอบลูกค้าเลยกำหนดชำระ    |
+| POST   | `/api/cron/check-overdue`       | Cron job endpoint (ต้องมี auth)   |
+| GET    | `/api/health`                   | Health check                       |
 
 ---
 
@@ -266,14 +385,53 @@ quotations          (id, quote_number, po_id, generated_at)
 
 ---
 
-## 🛠️ Scripts
+## 🛠️ Scripts & Tools
 
+### Development Scripts
 ```bash
 npm run dev      # dev server (http://localhost:3000)
 npm run build    # production build
 npm start        # serve production
 npm run lint     # next lint
 ```
+
+### Database Scripts
+```bash
+# Seed mock data ครบทุก status
+node src/backend/seed-mock-runner.js
+
+# Sync products data (cron job)
+python3 src/backend/sync_products.py
+```
+
+### Cron Job Scripts
+```bash
+# ตรวจสอบลูกค้าเลยกำหนดชำระ (อัตโนมัติ)
+./scripts/check-overdue.sh
+
+# ตรวจสอบสถานะ cron jobs
+crontab -l
+cat /var/log/flowsync-overdue.log
+```
+
+---
+
+## 🔧 การแก้ไขปัญหา
+
+### LINE Notification ไม่ทำงาน
+1. ตรวจสอบว่า `LINE_CHANNEL_ACCESS_TOKEN` และ `LINE_ADMIN_USER_ID` ถูกต้อง
+2. ทดสอบด้วย `curl -X POST http://localhost:3000/api/notifications/test`
+3. ตรวจสอบ logs ใน console
+
+### Cron Job ไม่ทำงาน
+1. ตรวจสอบว่า `CRON_SECRET` ถูกต้อง
+2. ตรวจสอบ cron jobs: `crontab -l`
+3. ดู logs: `cat /var/log/flowsync-overdue.log`
+
+### Database Connection Error
+1. ตรวจสอบว่า XAMPP MySQL ทำงาน: `sudo /opt/lampp/lampp status`
+2. ตรวจสอบ credentials ใน `.env.local`
+3. ตรวจสอบว่า database `flowsync` มีอยู่
 
 ---
 
@@ -291,6 +449,13 @@ http://localhost:3000/manual
 
 ---
 
-## 📝 License
+## � เอกสารเพิ่มเติม
+
+- **[`docs/LINE_NOTIFICATION_SETUP.md`](docs/LINE_NOTIFICATION_SETUP.md)** - คู่มือตั้งค่า LINE Official Account
+- **[`docs/ENVIRONMENT_VARIABLES.md`](docs/ENVIRONMENT_VARIABLES.md)** - ตัวอย่าง environment variables
+
+---
+
+## �� License
 
 Internal use — Rimping FlowSync project
