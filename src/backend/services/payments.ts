@@ -93,9 +93,10 @@ export async function recordPayment(input: {
 
     await conn.query(
       `UPDATE purchase_orders
-       SET paid_amount=?, remaining_amount=?, payment_status=?
+       SET paid_amount=?, remaining_amount=?, payment_status=?,
+           fully_paid_at = CASE WHEN ? = 'paid' THEN NOW() ELSE fully_paid_at END
        WHERE id=?`,
-      [newPaid, Math.max(remaining, 0), payment_status, input.po_id]
+      [newPaid, Math.max(remaining, 0), payment_status, payment_status, input.po_id]
     );
 
     return { payment_id, remaining: Math.max(remaining, 0), payment_status };

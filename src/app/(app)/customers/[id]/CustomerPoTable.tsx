@@ -14,9 +14,26 @@ type Po = {
   status: string;
   payment_status: string;
   due_date: string | null;
+  fully_paid_at: string | null;
   created_at: string;
   tax_invoice_number: string | null;
 };
+
+function OverdueBadge({ p }: { p: Po }) {
+  if (!p.due_date) return null;
+  const due = new Date(p.due_date);
+  const settledAt = p.fully_paid_at ? new Date(p.fully_paid_at) : null;
+  const compareDate = settledAt ?? new Date();
+  const diffDays = Math.floor((compareDate.getTime() - due.getTime()) / 86400000);
+  if (p.payment_status === "paid" && settledAt) {
+    if (diffDays <= 0)
+      return <span className="text-[10px] text-green-700 bg-green-50 border border-green-200 rounded px-1">ตรงเวลา</span>;
+    return <span className="text-[10px] text-orange-700 bg-orange-50 border border-orange-200 rounded px-1">ล่าช้า {diffDays} วัน</span>;
+  }
+  if (p.payment_status !== "paid" && diffDays > 0)
+    return <span className="text-[10px] text-red-700 bg-red-50 border border-red-200 rounded px-1">เกิน {diffDays} วัน</span>;
+  return null;
+}
 
 export function CustomerPoTable({
   customerId,
@@ -140,7 +157,7 @@ export function CustomerPoTable({
               <th className="text-right">คงค้าง</th>
               <th>สถานะ</th>
               <th>ชำระ</th>
-              <th>กำหนดชำระ</th>
+              <th>กำหนดชำระ / สถานะ</th>
             </tr>
           </thead>
           <tbody>
@@ -166,7 +183,8 @@ export function CustomerPoTable({
                 <td className="text-center"><StatusBadge status={p.status} /></td>
                 <td className="text-center"><PaymentBadge status={p.payment_status} /></td>
                 <td className="text-center text-xs">
-                  {p.due_date ? new Date(p.due_date).toLocaleDateString("th-TH") : "-"}
+                  <div>{p.due_date ? new Date(p.due_date).toLocaleDateString("th-TH") : "-"}</div>
+                  <OverdueBadge p={p} />
                 </td>
               </tr>
             ))}

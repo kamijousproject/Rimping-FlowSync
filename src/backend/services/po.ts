@@ -38,6 +38,7 @@ export type PurchaseOrder = {
   signed_at: Date | null;
   tax_invoice_number: string | null;
   due_date: Date | null;
+  fully_paid_at: Date | null;
   notes: string | null;
   created_by: number;
   created_at: Date;

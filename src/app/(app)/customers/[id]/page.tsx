@@ -209,6 +209,7 @@ export default async function CustomerDetailPage({
           status: p.status,
           payment_status: p.payment_status,
           due_date: p.due_date ? (p.due_date instanceof Date ? p.due_date.toISOString().slice(0, 10) : String(p.due_date).slice(0, 10)) : null,
+          fully_paid_at: p.fully_paid_at ? (p.fully_paid_at instanceof Date ? p.fully_paid_at.toISOString() : String(p.fully_paid_at)) : null,
           created_at: p.created_at instanceof Date ? p.created_at.toISOString() : String(p.created_at),
           tax_invoice_number: p.tax_invoice_number ?? null,
         }))}

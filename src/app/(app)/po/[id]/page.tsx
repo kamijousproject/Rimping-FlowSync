@@ -68,10 +68,38 @@ export default async function PoDetailPage({
           <div className="text-xs text-muted">
             เครดิต {po.credit_term_days} วัน
             {po.due_date &&
-              ` · กำหนดชำระ ${new Date(po.due_date).toLocaleDateString(
-                "th-TH"
-              )}`}
+              ` · กำหนดชำระ ${new Date(po.due_date).toLocaleDateString("th-TH")}`}
           </div>
+          {/* Overdue / paid-on-time indicator */}
+          {(() => {
+            if (!po.due_date) return null;
+            const due = new Date(po.due_date);
+            const settledAt = po.fully_paid_at ? new Date(po.fully_paid_at) : null;
+            const compareDate = settledAt ?? new Date();
+            const diffDays = Math.floor((compareDate.getTime() - due.getTime()) / 86400000);
+            if (po.payment_status === "paid" && settledAt) {
+              if (diffDays <= 0) {
+                return (
+                  <div className="text-xs text-green-700 bg-green-50 border border-green-200 rounded px-2 py-0.5">
+                    ✓ ชำระตรงเวลา ({Math.abs(diffDays)} วันก่อนครบกำหนด)
+                  </div>
+                );
+              }
+              return (
+                <div className="text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded px-2 py-0.5">
+                  ⚠ ชำระล่าช้า {diffDays} วัน
+                </div>
+              );
+            }
+            if (po.payment_status !== "paid" && diffDays > 0) {
+              return (
+                <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-0.5">
+                  ⚠ เกินกำหนด {diffDays} วัน
+                </div>
+              );
+            }
+            return null;
+          })()}
           <div className="flex gap-2">
             {isPaid ? (
               <button
