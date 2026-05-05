@@ -17,7 +17,6 @@ const NAV: { href: string; label: string; Icon: LucideIcon }[] = [
   { href: "/customers", label: "ลูกค้า", Icon: Users },
   { href: "/po", label: "Purchase Orders", Icon: Package },
   { href: "/po/new", label: "สร้าง PO ใหม่", Icon: PlusCircle },
-  { href: "/manual", label: "คู่มือการใช้งาน", Icon: BookOpen },
 ];
 
 export function Sidebar({
@@ -70,18 +69,31 @@ export function Sidebar({
           </Link>
         )}
       </nav>
-      <div className="p-3 border-t border-border">
-        <div className="text-xs text-muted">เข้าใช้ในชื่อ</div>
-        <div className="text-sm font-medium">{user.full_name}</div>
-        <div className="text-xs text-muted">
-          @{user.username} · {user.role}
+      <div className="p-3 border-t border-border space-y-3">
+        <div>
+          <div className="text-xs text-muted">เข้าใช้ในชื่อ</div>
+          <div className="text-sm font-medium">{user.full_name}</div>
+          <div className="text-xs text-muted">
+            @{user.username} · {user.role}
+          </div>
         </div>
+        
+        <button
+          onClick={() => {
+            window.open("/manual", "_blank");
+          }}
+          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition text-foreground hover:bg-brand-50 hover:text-brand-700 w-full"
+        >
+          <BookOpen className="w-4 h-4" />
+          <span>คู่มือการใช้งาน</span>
+        </button>
+        
         <button
           onClick={async () => {
             await fetch("/api/auth/logout", { method: "POST" });
             window.location.href = "/login";
           }}
-          className="btn-secondary w-full mt-3 text-xs"
+          className="btn-secondary w-full text-xs"
         >
           ออกจากระบบ
         </button>
