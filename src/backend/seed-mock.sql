@@ -165,6 +165,93 @@ SET @po9 := LAST_INSERT_ID();
 INSERT INTO po_items (po_id, product_name, description, quantity, unit, unit_price, line_total) VALUES
   (@po9,'น้ำมันพืช 5L',NULL,8,'แกลลอน',300,2400);
 
+-- (10) delivered / unpaid overdue — ส่งของแล้วแต่เลยกำหนดชำระ
+INSERT INTO purchase_orders
+  (po_number, customer_id, status, payment_status, credit_term_days,
+   subtotal, total, paid_amount, remaining_amount,
+   due_date, notes, created_by, created_at)
+VALUES
+  ('PO202603-0010', 2, 'delivered', 'unpaid', 15, 5500, 5500, 0, 5500,
+   DATE_SUB(CURDATE(), INTERVAL 12 DAY),
+   '⚠ ส่งของแล้ว แต่เลยกำหนดชำระ 12 วัน — รอการชำระ', 1, NOW() - INTERVAL 20 DAY);
+SET @po10 := LAST_INSERT_ID();
+INSERT INTO po_items (po_id, product_name, description, quantity, unit, unit_price, line_total) VALUES
+  (@po10,'สบู่เหลว 1L','ตราพอน',20,'ขวด',120,2400),
+  (@po10,'แชมพู 500ml','ตราซันซิล',30,'ขวด',70,2100),
+  (@po10,'ครีมนวด 100ml','ตรามิสติน',50,'หลอด',20,1000);
+
+-- (11) received / unpaid overdue — รับของแล้วแต่ยังไม่จ่ายเลยกำหนด
+INSERT INTO purchase_orders
+  (po_number, customer_id, status, payment_status, credit_term_days,
+   subtotal, total, paid_amount, remaining_amount,
+   signed_doc_path, signed_at, due_date, notes, created_by, created_at)
+VALUES
+  ('PO202603-0011', 5, 'received', 'unpaid', 30, 12000, 12000, 0, 12000,
+   '/api/files/signed/sample-signed.pdf', NOW() - INTERVAL 35 DAY,
+   DATE_SUB(CURDATE(), INTERVAL 5 DAY),
+   '⚠ รับของแล้ว 35 วัน เลยกำหนดชำระ 5 วัน — เร่งด่วน!', 1, NOW() - INTERVAL 40 DAY);
+SET @po11 := LAST_INSERT_ID();
+INSERT INTO po_items (po_id, product_name, description, quantity, unit, unit_price, line_total) VALUES
+  (@po11,'กระดาษ A4 (รีม 500 แผ่น)',NULL,20,'รีม',200,4000),
+  (@po11,'ปากกาลูกลื่น',NULL,200,'ด้าม',15,3000),
+  (@po11,'สมุดไดอารี่',NULL,50,'เล่ม',100,5000);
+
+-- (12) received / paid overdue — จ่ายแล้วแต่จ่ายล่าช้ากว่ากำหนด
+INSERT INTO purchase_orders
+  (po_number, customer_id, status, payment_status, credit_term_days,
+   subtotal, total, paid_amount, remaining_amount,
+   signed_doc_path, signed_at, due_date, fully_paid_at, notes, created_by, created_at)
+VALUES
+  ('PO202603-0012', 1, 'received', 'paid', 30, 7500, 7500, 7500, 0,
+   '/api/files/signed/sample-signed.pdf', NOW() - INTERVAL 25 DAY,
+   DATE_SUB(CURDATE(), INTERVAL 15 DAY),
+   NOW() - INTERVAL 2 DAY,
+   'จ่ายล่าช้า 13 วัน — จ่ายครบแล้ว', 1, NOW() - INTERVAL 30 DAY);
+SET @po12 := LAST_INSERT_ID();
+INSERT INTO po_items (po_id, product_name, description, quantity, unit, unit_price, line_total) VALUES
+  (@po12,'กะทิ 400ml','ตราทีนี่',30,'ขวด',45,1350),
+  (@po12,'น้ำมันมะพร้าว 1L','ตรามะพร้าว',40,'ขวด',55,2200),
+  (@po12,'แป้งทอดกรอบ 1kg','ตราเอส',50,'ถุง',79,3950);
+INSERT INTO payments (po_id, amount, paid_at, method, reference, recorded_by, notes) VALUES
+  (@po12, 7500, NOW() - INTERVAL 2 DAY, 'transfer', 'TF20260503-001', 1, 'จ่ายล่าช้า');
+INSERT INTO invoices (invoice_number, po_id, amount, generated_by, generated_at) VALUES
+  ('INV202603-0001', @po12, 7500, 1, NOW() - INTERVAL 28 DAY);
+
+-- (13) confirmed / partially paid (ไม่ควรมีแต่ทดสอบ edge case)
+INSERT INTO purchase_orders
+  (po_number, customer_id, status, payment_status, credit_term_days,
+   subtotal, total, paid_amount, remaining_amount,
+   notes, created_by, created_at)
+VALUES
+  ('PO202604-0013', 3, 'confirmed', 'partial', 60, 8000, 8000, 2000, 6000,
+   'ลูกค้าโอนมัดจำล่วงหน้า — ยังไม่ได้แพ็ค', 1, NOW() - INTERVAL 1 DAY);
+SET @po13 := LAST_INSERT_ID();
+INSERT INTO po_items (po_id, product_name, description, quantity, unit, unit_price, line_total) VALUES
+  (@po13,'ไข่ไก่ 30 ฟอง',NULL,50,'ลัง',120,6000),
+  (@po13,'น้ำผึ้ง 1kg','ตราผึ้งทอง',20, 'ขวด',100,2000);
+INSERT INTO payments (po_id, amount, paid_at, method, reference, recorded_by, notes) VALUES
+  (@po13, 2000, NOW() - INTERVAL 1 DAY, 'transfer', 'TF20260505-001', 1, 'มัดจำล่วงหน้า');
+
+-- (14) draft / partially paid (ไม่ควรมีแต่ทดสอบ edge case)
+INSERT INTO purchase_orders
+  (po_number, customer_id, status, payment_status, credit_term_days,
+   subtotal, total, paid_amount, remaining_amount,
+   notes, created_by, created_at)
+VALUES
+  ('PO202604-0014', 4, 'draft', 'partial', 7, 3000, 3000, 1000, 2000,
+   'ลูกค้าโอนมัดจำแต่ PO ยังเป็นร่าง', 1, NOW() - INTERVAL 3 HOUR);
+SET @po14 := LAST_INSERT_ID();
+INSERT INTO po_items (po_id, product_name, description, quantity, unit, unit_price, line_total) VALUES
+  (@po14,'ขนมปังขาว',NULL,50,'ถุง',30,1500),
+  (@po14,'เนยแข็ง',NULL,20,'ก้อน',75,1500);
+INSERT INTO payments (po_id, amount, paid_at, method, reference, recorded_by, notes) VALUES
+  (@po14, 1000, NOW() - INTERVAL 2 HOUR, 'cash', 'CS20260505-001', 1, 'มัดจำก่อนทำ PO');
+
 -- สรุป
-SELECT po_number, status, payment_status, total, paid_amount, remaining_amount, due_date
+SELECT po_number, status, payment_status, total, paid_amount, remaining_amount, due_date, 
+       CASE 
+         WHEN due_date IS NOT NULL AND payment_status != 'paid' AND due_date < CURDATE() THEN 'OVERDUE'
+         WHEN due_date IS NOT NULL AND payment_status = 'paid' AND fully_paid_at > due_date THEN 'PAID_LATE'
+         ELSE 'ON_TIME'
+       END as payment_timing
 FROM purchase_orders ORDER BY id;

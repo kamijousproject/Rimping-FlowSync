@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getDashboardStats } from "@/backend/services/dashboard";
 import { listCustomers } from "@/backend/services/customers";
 import { PaymentBadge, StatusBadge, fmtMoney } from "@/components/StatusBadge";
+import { AlertTriangle, Clock, TrendingUp } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -91,29 +92,61 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="card p-5">
-          <h3 className="font-semibold mb-3">สถานะ PO ทั้งหมด</h3>
-          <div className="space-y-2">
-            {STATUS_LIST.map((s) => (
-              <div key={s} className="flex items-center justify-between text-sm">
-                <StatusBadge status={s} />
-                <span className="font-medium">
-                  {stats.pos_by_status[s] || 0}
-                </span>
-              </div>
-            ))}
+          <div className="flex items-center gap-2 mb-3">
+            <TrendingUp className="w-4 h-4 text-brand-600" />
+            <h3 className="font-semibold">สถานะ PO ทั้งหมด</h3>
+          </div>
+          <div className="space-y-3">
+            {STATUS_LIST.map((s) => {
+              const count = stats.pos_by_status[s] || 0;
+              const total = Object.values(stats.pos_by_status).reduce((sum, c) => sum + c, 0);
+              const percentage = total > 0 ? (count / total) * 100 : 0;
+              return (
+                <div key={s} className="space-y-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <StatusBadge status={s} />
+                    <span className="font-medium text-brand-700">{count}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-brand-400 to-brand-600 transition-all duration-500"
+                      style={{ width: `${percentage}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
         <div className="card p-5">
-          <h3 className="font-semibold mb-3">สถานะการชำระเงิน</h3>
-          <div className="space-y-2">
-            {(["unpaid", "partial", "paid"] as const).map((s) => (
-              <div key={s} className="flex items-center justify-between text-sm">
-                <PaymentBadge status={s} />
-                <span className="font-medium">
-                  {stats.pos_by_payment[s] || 0}
-                </span>
-              </div>
-            ))}
+          <div className="flex items-center gap-2 mb-3">
+            <Clock className="w-4 h-4 text-brand-600" />
+            <h3 className="font-semibold">สถานะการชำระเงิน</h3>
+          </div>
+          <div className="space-y-3">
+            {(["unpaid", "partial", "paid"] as const).map((s) => {
+              const count = stats.pos_by_payment[s] || 0;
+              const total = Object.values(stats.pos_by_payment).reduce((sum, c) => sum + c, 0);
+              const percentage = total > 0 ? (count / total) * 100 : 0;
+              return (
+                <div key={s} className="space-y-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <PaymentBadge status={s} />
+                    <span className="font-medium text-brand-700">{count}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                    <div 
+                      className={`h-full transition-all duration-500 ${
+                        s === 'paid' ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' :
+                        s === 'partial' ? 'bg-gradient-to-r from-amber-400 to-amber-600' :
+                        'bg-gradient-to-r from-red-400 to-red-600'
+                      }`}
+                      style={{ width: `${percentage}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
         <div className="card p-5">
@@ -155,6 +188,55 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* PO ที่เลยกำหนดชำระ */}
+      {stats.overdue_pos.length > 0 && (
+        <div className="card p-5 border-red-200 bg-red-50/30">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle className="w-5 h-5 text-red-600" />
+            <h3 className="font-semibold text-red-800">PO ที่เลยกำหนดชำระ</h3>
+            <span className="bg-red-600 text-white text-xs px-2 py-1 rounded-full">
+              {stats.overdue_pos.length} รายการ
+            </span>
+          </div>
+          <div className="space-y-2">
+            {stats.overdue_pos.map((po) => (
+              <Link
+                key={po.id}
+                href={`/po/${po.id}`}
+                className="block bg-white rounded-lg p-3 border border-red-200 hover:border-red-300 hover:shadow-sm transition-all"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-red-800">{po.po_number}</span>
+                      <StatusBadge status={po.status} />
+                      <PaymentBadge status={po.payment_status} />
+                    </div>
+                    <div className="text-sm text-red-600 mt-1">
+                      {po.customer_name} · เลยกำหนด {po.days_overdue} วัน
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-semibold text-red-800">
+                      {fmtMoney(po.remaining_amount)}
+                    </div>
+                    <div className="text-xs text-red-600">คงเหลือ</div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+          <div className="mt-3 pt-3 border-t border-red-200 flex items-center justify-between">
+            <span className="text-sm font-medium text-red-800">
+              รวมยอดเลยกำหนด:
+            </span>
+            <span className="font-bold text-red-800 text-lg">
+              {fmtMoney(stats.overdue_amount)}
+            </span>
+          </div>
+        </div>
+      )}
 
       <div>
         <div className="flex items-center justify-between mb-3">

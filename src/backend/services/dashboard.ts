@@ -10,6 +10,16 @@ export type DashboardStats = {
   pos_by_payment: Record<string, number>;
   overdue_count: number;
   overdue_amount: number;
+  overdue_pos: Array<{
+    id: number;
+    po_number: string;
+    customer_name: string;
+    total: number;
+    remaining_amount: number;
+    days_overdue: number;
+    status: string;
+    payment_status: string;
+  }>;
 };
 
 export async function getDashboardStats(): Promise<DashboardStats> {
@@ -37,6 +47,26 @@ export async function getDashboardStats(): Promise<DashboardStats> {
        AND due_date IS NOT NULL AND due_date < CURDATE()`
   );
 
+  const overduePos = await query<{
+    id: number;
+    po_number: string;
+    customer_name: string;
+    total: number;
+    remaining_amount: number;
+    days_overdue: number;
+    status: string;
+    payment_status: string;
+  }>(
+    `SELECT po.id, po.po_number, c.name AS customer_name, po.total, po.remaining_amount,
+            DATEDIFF(CURDATE(), po.due_date) AS days_overdue, po.status, po.payment_status
+     FROM purchase_orders po
+     JOIN customers c ON c.id = po.customer_id
+     WHERE po.status <> 'cancelled' AND po.payment_status <> 'paid'
+       AND po.due_date IS NOT NULL AND po.due_date < CURDATE()
+     ORDER BY po.due_date ASC
+     LIMIT 10`
+  );
+
   const pos_by_status: Record<string, number> = {};
   for (const r of statusRows) pos_by_status[r.status] = Number(r.c);
   const pos_by_payment: Record<string, number> = {};
@@ -52,6 +82,12 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     pos_by_payment,
     overdue_count: Number(overdue?.c || 0),
     overdue_amount: Number(overdue?.a || 0),
+    overdue_pos: overduePos.map(po => ({
+      ...po,
+      total: Number(po.total),
+      remaining_amount: Number(po.remaining_amount),
+      days_overdue: Number(po.days_overdue)
+    })),
   };
 }
 
