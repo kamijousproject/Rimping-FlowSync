@@ -2,18 +2,27 @@ import Link from "next/link";
 import { listCustomers } from "@/backend/services/customers";
 import { fmtMoney } from "@/components/StatusBadge";
 import { getCurrentUser, isSuperAdmin } from "@/backend/auth";
+import CustomerSearch from "@/components/CustomerSearch";
 
 export const dynamic = "force-dynamic";
 
 export default async function CustomersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ denied?: string }>;
+  searchParams: Promise<{ denied?: string; search?: string }>;
 }) {
   const customers = await listCustomers();
   const user = await getCurrentUser();
   const canCreate = isSuperAdmin(user);
   const sp = await searchParams;
+  
+  // Filter customers based on search term
+  const filteredCustomers = sp.search
+    ? customers.filter((c) => 
+        c.name.toLowerCase().includes(sp.search!.toLowerCase()) ||
+        (c.code && c.code.toLowerCase().includes(sp.search!.toLowerCase()))
+      )
+    : customers;
   return (
     <div className="space-y-4">
       {sp.denied && (
@@ -21,25 +30,28 @@ export default async function CustomersPage({
           ไม่มีสิทธิ์เพิ่มลูกค้าใหม่ — ต้องเป็น super admin เท่านั้น
         </div>
       )}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-brand-800">
             ลูกค้าทั้งหมด
           </h1>
           <p className="text-xs md:text-sm text-muted">
-            {customers.length} ราย · จัดการวงเงิน · ลูกหนี้คงค้าง
+            {filteredCustomers.length} รายจาก {customers.length} รายทั้งหมด · จัดการวงเงิน · ลูกหนี้คงค้าง
           </p>
         </div>
-        {canCreate && (
-          <Link href="/customers/new" className="btn-primary text-sm">
-            + เพิ่มลูกค้า
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          <CustomerSearch />
+          {canCreate && (
+            <Link href="/customers/new" className="btn-primary text-sm">
+              + เพิ่มลูกค้า
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Mobile cards */}
       <div className="md:hidden space-y-2">
-        {customers.map((c) => {
+        {filteredCustomers.map((c) => {
           const hasTemp = Number(c.temp_extra) > 0;
           const usedPct = c.effective_limit
             ? (Number(c.outstanding) / Number(c.effective_limit)) * 100
@@ -118,9 +130,9 @@ export default async function CustomersPage({
             </Link>
           );
         })}
-        {customers.length === 0 && (
+        {filteredCustomers.length === 0 && (
           <div className="card p-8 text-center text-muted text-sm">
-            ยังไม่มีลูกค้า
+            {sp.search ? `ไม่พบลูกค้าที่ค้นหา: "${sp.search!}"` : "ยังไม่มีลูกค้า"}
           </div>
         )}
       </div>
@@ -141,7 +153,7 @@ export default async function CustomersPage({
             </tr>
           </thead>
           <tbody>
-            {customers.map((c) => {
+            {filteredCustomers.map((c) => {
               const hasTemp = Number(c.temp_extra) > 0;
               const usedPct = c.effective_limit
                 ? (Number(c.outstanding) / Number(c.effective_limit)) * 100
@@ -200,10 +212,10 @@ export default async function CustomersPage({
                 </tr>
               );
             })}
-            {customers.length === 0 && (
+            {filteredCustomers.length === 0 && (
               <tr>
                 <td colSpan={8} className="text-center py-8 text-muted">
-                  ยังไม่มีลูกค้า
+                  {sp.search ? `ไม่พบลูกค้าที่ค้นหา: "${sp.search!}"` : "ยังไม่มีลูกค้า"}
                 </td>
               </tr>
             )}

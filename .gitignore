@@ -56,3 +56,11 @@ Thumbs.db
 !package-lock.json
 !tsconfig.json
 !jsconfig.json
+
+# TestSprite - Test artifacts and temporary files
+testsprite_tests/
+.testsprite/
+*.testsprite.json
+testsprite-mcp-test-report.md
+testsprite_*.log
+testsprite_cache/

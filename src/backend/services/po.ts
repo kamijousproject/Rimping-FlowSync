@@ -302,6 +302,15 @@ export async function updatePo(input: {
     throw new Error("PO นี้ชำระครบแล้ว ไม่สามารถแก้ไขได้");
   }
 
+  // Check if PO has credit notes (which reference po_items)
+  const creditNotes = await query(
+    "SELECT id FROM credit_notes WHERE po_id = ?",
+    [input.id]
+  );
+  if (creditNotes.length > 0) {
+    throw new Error("ไม่สามารถแก้ไข PO ที่มีใบลดหนี้แล้ว กรุณายกเลิกใบลดหนี้ก่อนแก้ไข");
+  }
+
   const newSubtotal = input.items.reduce(
     (s, it) => s + Number(it.quantity) * Number(it.unit_price),
     0
