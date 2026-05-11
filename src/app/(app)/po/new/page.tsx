@@ -71,6 +71,7 @@ function NewPoInner() {
   const [items, setItems] = useState<Item[]>([newItem()]);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
     fetch("/api/customers")
@@ -174,17 +175,30 @@ function NewPoInner() {
     setItems(items.filter((_, i) => i !== idx));
   }
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setErr(null);
+  // Validation function
+  function validateForm(): boolean {
     if (!customerId) {
       setErr("กรุณาเลือกลูกค้า");
-      return;
+      return false;
     }
     if (items.length === 0 || items.some((it) => !it.product_name)) {
       setErr("กรุณากรอกรายการสินค้าให้ครบ");
-      return;
+      return false;
     }
+    return true;
+  }
+
+  // Show confirmation modal
+  function handleSubmitClick(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    if (!validateForm()) return;
+    setShowConfirm(true);
+  }
+
+  // Actual submit after confirmation
+  async function confirmSubmit() {
+    setShowConfirm(false);
     setLoading(true);
     const cleanItems = items.map(({ _prodQuery: _q, _prodOpen: _o, _prodHits: _h, ...rest }) => rest);
     const r = await fetch("/api/po", {
@@ -207,6 +221,12 @@ function NewPoInner() {
     router.push(`/po/${data.po?.id ?? data.id}`);
   }
 
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    // Legacy - redirect to handleSubmitClick
+    handleSubmitClick(e);
+  }
+
   return (
     <div className="space-y-4">
       <div>
@@ -218,7 +238,7 @@ function NewPoInner() {
         </h1>
       </div>
 
-      <form onSubmit={submit} className="space-y-4">
+      <form onSubmit={handleSubmitClick} className="space-y-4">
         <div className="card p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="md:col-span-2 relative">
             <label className="label">ลูกค้า *</label>
@@ -480,6 +500,64 @@ function NewPoInner() {
           </Link>
         </div>
       </form>
+
+      {/* Confirmation Modal */}
+      {showConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <h2 className="text-lg font-semibold text-brand-800 flex items-center gap-2">
+              <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              ยืนยันการสร้าง PO
+            </h2>
+            
+            <div className="space-y-3 text-sm">
+              <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted">ลูกค้า:</span>
+                  <span className="font-medium">{custQuery}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted">จำนวนรายการ:</span>
+                  <span className="font-medium">{items.length} รายการ</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted">ยอดรวม:</span>
+                  <span className="font-medium text-brand-700">
+                    {fmtMoney(items.reduce((sum, it) => sum + it.quantity * it.unit_price, 0))} บาท
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted">เครดิต:</span>
+                  <span className="font-medium">{creditTerm} วัน</span>
+                </div>
+              </div>
+              
+              <p className="text-muted text-center">
+                ต้องการสร้าง PO นี้ใช่หรือไม่?
+              </p>
+            </div>
+            
+            <div className="flex gap-2 justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setShowConfirm(false)}
+                className="btn-secondary"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={confirmSubmit}
+                className="btn-primary"
+              >
+                ยืนยัน สร้าง PO
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Fixed-position product dropdown — renders outside overflow containers */}
       {openIdx !== null && dropdownPos && (() => {
