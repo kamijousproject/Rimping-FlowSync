@@ -101,9 +101,27 @@ CREATE TABLE IF NOT EXISTS invoices (
   amount DECIMAL(14,2) NOT NULL,
   generated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   generated_by INT NOT NULL,
+  download_count INT NOT NULL DEFAULT 0,
   CONSTRAINT fk_inv_po FOREIGN KEY (po_id) REFERENCES purchase_orders(id) ON DELETE CASCADE,
   CONSTRAINT fk_inv_user FOREIGN KEY (generated_by) REFERENCES users(id),
   INDEX idx_inv_po (po_id)
+) ENGINE=InnoDB;
+
+-- Invoice logs (creation and download tracking)
+CREATE TABLE IF NOT EXISTS invoice_logs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  invoice_id INT NOT NULL,
+  action ENUM('created', 'downloaded', 'printed', 'viewed') NOT NULL DEFAULT 'viewed',
+  user_id INT NOT NULL,
+  user_name VARCHAR(128) NOT NULL,
+  ip_address VARCHAR(45) DEFAULT NULL,
+  user_agent VARCHAR(255) DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_il_invoice FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE,
+  CONSTRAINT fk_il_user FOREIGN KEY (user_id) REFERENCES users(id),
+  INDEX idx_il_invoice (invoice_id),
+  INDEX idx_il_user (user_id),
+  INDEX idx_il_created (created_at)
 ) ENGINE=InnoDB;
 
 -- Audit log of PO edits

@@ -2,13 +2,75 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import { getPo } from "@/backend/services/po";
 import { getCustomer } from "@/backend/services/customers";
-import { getInvoice } from "@/backend/services/payments";
+import { getInvoiceWithLogs, type InvoiceLog } from "@/backend/services/payments";
 import { fmtMoney } from "@/components/StatusBadge";
 import { bahtText } from "@/lib/bahtText";
 import { InvoicePrintBar } from "./InvoicePrintBar";
 import { getUserById } from "@/backend/auth";
+import { Download, Eye, Printer, FileText } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+
+// Helper to format action
+function formatAction(action: string): string {
+  const actions: Record<string, string> = {
+    created: "สร้าง",
+    downloaded: "ดาวน์โหลด",
+    printed: "พิมพ์",
+    viewed: "ดู",
+  };
+  return actions[action] || action;
+}
+
+// Helper to get action icon
+function ActionIcon({ action }: { action: string }) {
+  switch (action) {
+    case "created":
+      return <FileText className="w-3 h-3" />;
+    case "downloaded":
+      return <Download className="w-3 h-3" />;
+    case "printed":
+      return <Printer className="w-3 h-3" />;
+    case "viewed":
+      return <Eye className="w-3 h-3" />;
+    default:
+      return <Eye className="w-3 h-3" />;
+  }
+}
+
+// Download logs component
+function DownloadLogs({ logs }: { logs: InvoiceLog[] }) {
+  if (!logs || logs.length === 0) return null;
+
+  return (
+    <div className="mt-6 print:hidden">
+      <h3 className="text-sm font-medium text-brand-800 mb-3 flex items-center gap-2">
+        <Download className="w-4 h-4" />
+        ประวัติการดาวน์โหลด ({logs.filter(l => l.action === "downloaded").length} ครั้ง)
+      </h3>
+      <div className="bg-gray-50 rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
+        {logs.map((log) => (
+          <div
+            key={log.id}
+            className="flex items-center justify-between text-xs py-1 border-b border-gray-200 last:border-0"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-muted">
+                <ActionIcon action={log.action} />
+              </span>
+              <span className="font-medium">{formatAction(log.action)}</span>
+              <span className="text-muted">โดย</span>
+              <span>{log.user_name}</span>
+            </div>
+            <span className="text-muted">
+              {new Date(log.created_at).toLocaleString("th-TH")}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default async function InvoicePage({
   params,
@@ -27,7 +89,16 @@ export default async function InvoicePage({
     getUserById(po.created_by),
   ]);
 
-  const invoice = inv ? await getInvoice(Number(inv)) : null;
+  let invoice = null;
+  let logs: InvoiceLog[] = [];
+  let downloadCount = 0;
+
+  if (inv) {
+    const result = await getInvoiceWithLogs(Number(inv));
+    invoice = result.invoice;
+    logs = result.logs;
+    downloadCount = result.download_count;
+  }
   const invNo =
     invoice?.invoice_number ||
     `INV-${po.po_number.replace("PO", "")}-PREVIEW`;
@@ -48,7 +119,7 @@ export default async function InvoicePage({
 
   return (
     <div className="max-w-[820px] mx-auto">
-      <InvoicePrintBar />
+      <InvoicePrintBar invoiceId={invoice?.id} />
       <div
         className="bg-white border border-border shadow rounded-lg p-10 print:shadow-none print:border-0 print:rounded-none print:p-8"
         id="invoice-doc"
@@ -329,6 +400,9 @@ export default async function InvoicePage({
           </div>
         </div>
       </div>
+
+      {/* Download Logs */}
+      <DownloadLogs logs={logs} />
     </div>
   );
 }

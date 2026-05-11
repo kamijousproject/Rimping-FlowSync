@@ -21,11 +21,20 @@ export async function POST(
       ? Number(body.amount)
       : Number(data.po.remaining_amount);
     if (amount <= 0) return badRequest("ยอด invoice ต้องมากกว่า 0");
+
+    // Get client info for logging
+    const headers = req.headers;
+    const userAgent = headers.get("user-agent") || undefined;
+    const ipAddress = headers.get("x-forwarded-for") || headers.get("x-real-ip") || undefined;
+
     const invoice = await generateInvoice({
       po_id: Number(id),
       po_number: data.po.po_number,
       amount,
       generated_by: auth.user.id,
+      user_name: auth.user.full_name || auth.user.username,
+      ip_address: ipAddress || undefined,
+      user_agent: userAgent || undefined,
     });
     return NextResponse.json({ invoice }, { status: 201 });
   } catch (e) {

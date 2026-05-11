@@ -21,6 +21,7 @@ export type Invoice = {
   amount: number;
   generated_at: Date;
   generated_by: number;
+  download_count: number;
 };
 
 export async function listPayments(po_id: number): Promise<Payment[]> {
@@ -108,6 +109,9 @@ export async function generateInvoice(input: {
   po_number: string;
   amount: number;
   generated_by: number;
+  user_name?: string;
+  ip_address?: string;
+  user_agent?: string;
 }): Promise<Invoice> {
   // Idempotent — return existing invoice if one already exists for this PO
   const existing = await query<Invoice>(
@@ -117,11 +121,23 @@ export async function generateInvoice(input: {
   if (existing[0]) return existing[0];
 
   const invoice_number = invoiceNumberFromPo(input.po_number);
+  let invoiceId: number;
   try {
-    await exec(
+    const result = await exec(
       `INSERT INTO invoices (invoice_number, po_id, amount, generated_by)
        VALUES (?,?,?,?)`,
       [invoice_number, input.po_id, input.amount, input.generated_by]
+    );
+    invoiceId = (result as { insertId: number }).insertId;
+
+    // Log invoice creation
+    await logInvoiceAction(
+      invoiceId,
+      "created",
+      input.generated_by,
+      input.user_name || "Unknown",
+      input.ip_address,
+      input.user_agent
     );
   } catch (e: unknown) {
     // If duplicate invoice_number, return whichever invoice exists for this po
@@ -144,4 +160,56 @@ export async function generateInvoice(input: {
 export async function getInvoice(id: number): Promise<Invoice | null> {
   const rows = await query<Invoice>("SELECT * FROM invoices WHERE id=?", [id]);
   return rows[0] ?? null;
+}
+
+export type InvoiceLog = {
+  id: number;
+  invoice_id: number;
+  action: "created" | "downloaded" | "printed" | "viewed";
+  user_id: number;
+  user_name: string;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: Date;
+};
+
+export async function logInvoiceAction(
+  invoice_id: number,
+  action: "created" | "downloaded" | "printed" | "viewed",
+  user_id: number,
+  user_name: string,
+  ip_address?: string,
+  user_agent?: string
+): Promise<void> {
+  await exec(
+    `INSERT INTO invoice_logs (invoice_id, action, user_id, user_name, ip_address, user_agent)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [invoice_id, action, user_id, user_name, ip_address || null, user_agent || null]
+  );
+
+  // Update download count if action is downloaded
+  if (action === "downloaded") {
+    await exec(
+      `UPDATE invoices SET download_count = download_count + 1 WHERE id = ?`,
+      [invoice_id]
+    );
+  }
+}
+
+export async function getInvoiceLogs(invoice_id: number): Promise<InvoiceLog[]> {
+  return query<InvoiceLog>(
+    `SELECT * FROM invoice_logs WHERE invoice_id = ? ORDER BY created_at DESC`,
+    [invoice_id]
+  );
+}
+
+export async function getInvoiceWithLogs(
+  id: number
+): Promise<{ invoice: Invoice | null; logs: InvoiceLog[]; download_count: number }> {
+  const invoice = await getInvoice(id);
+  if (!invoice) {
+    return { invoice: null, logs: [], download_count: 0 };
+  }
+  const logs = await getInvoiceLogs(id);
+  return { invoice, logs, download_count: invoice.download_count || 0 };
 }

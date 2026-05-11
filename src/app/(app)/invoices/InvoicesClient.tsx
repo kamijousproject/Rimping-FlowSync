@@ -177,9 +177,19 @@ export default function InvoicesClient() {
   };
 
   // Download single invoice
-  const handleDownload = (invoice: InvoiceWithDetails) => {
-    // Navigate to PO page with download trigger
-    router.push(`/po/${invoice.po_id}?download=invoice`);
+  const handleDownload = async (invoice: InvoiceWithDetails) => {
+    // Log the download action
+    try {
+      await fetch(`/api/invoices/${invoice.id}/logs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "downloaded" }),
+      });
+    } catch (e) {
+      console.error("Failed to log download:", e);
+    }
+    // Navigate to PO invoice page
+    router.push(`/po/${invoice.po_id}/invoice?inv=${invoice.id}`);
   };
 
   // Create billing note from selected
@@ -442,6 +452,9 @@ export default function InvoicesClient() {
                     <th className="px-4 py-3 text-center text-xs font-medium text-muted uppercase">
                       ดาวน์โหลด
                     </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-muted uppercase">
+                      จำนวนครั้ง
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -501,6 +514,11 @@ export default function InvoicesClient() {
                         >
                           <Download className="w-4 h-4 text-muted hover:text-brand-600" />
                         </button>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="text-sm text-muted">
+                          {invoice.download_count || 0} ครั้ง
+                        </span>
                       </td>
                     </tr>
                   ))}

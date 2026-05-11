@@ -15,6 +15,7 @@ export type InvoiceWithDetails = {
   generated_at: string;
   generated_by: number;
   generator_name: string;
+  download_count: number;
 };
 
 export async function GET(req: Request) {
@@ -105,7 +106,8 @@ export async function GET(req: Request) {
         po.created_at as po_date,
         po.created_at as generated_at,
         po.created_by as generated_by,
-        u.full_name as generator_name
+        u.full_name as generator_name,
+        0 as download_count
       FROM purchase_orders po
       JOIN customers c ON po.customer_id = c.id
       LEFT JOIN users u ON po.created_by = u.id
