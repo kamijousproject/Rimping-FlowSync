@@ -127,11 +127,11 @@ export function Sidebar({
 }) {
   const path = usePathname();
   return (
-    <aside className="hidden md:flex print:hidden w-60 bg-white border-r border-border min-h-screen flex-col">
+    <aside className="hidden md:flex print:hidden w-60 bg-white border-r border-border h-screen sticky top-0 flex-col overflow-hidden">
       <div className="p-4 border-b border-border">
         <Brand size={40} />
       </div>
-      <nav className="flex-1 p-2 space-y-1">
+      <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
         {/* Single Menu Items */}
         {SINGLE_NAV.map((n) => {
           const isCreatePage = n.href.endsWith("/new");

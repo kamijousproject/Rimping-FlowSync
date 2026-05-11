@@ -150,16 +150,30 @@ export async function createPo(input: {
 
 export async function listPos(filter?: {
   customer_id?: number;
+  customer_name?: string;
+  po_number?: string;
   status?: string;
   payment_status?: string;
   start_date?: string;
   end_date?: string;
-}): Promise<PurchaseOrder[]> {
+  min_amount?: string;
+  max_amount?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{ pos: PurchaseOrder[]; total: number }> {
   const where: string[] = [];
   const params: unknown[] = [];
   if (filter?.customer_id) {
     where.push("po.customer_id = ?");
     params.push(filter.customer_id);
+  }
+  if (filter?.customer_name) {
+    where.push("c.name LIKE ?");
+    params.push(`%${filter.customer_name}%`);
+  }
+  if (filter?.po_number) {
+    where.push("po.po_number LIKE ?");
+    params.push(`%${filter.po_number}%`);
   }
   if (filter?.status) {
     where.push("po.status = ?");
@@ -177,12 +191,39 @@ export async function listPos(filter?: {
     where.push("po.created_at < DATE_ADD(?, INTERVAL 1 DAY)");
     params.push(filter.end_date);
   }
+  if (filter?.min_amount) {
+    where.push("po.total >= ?");
+    params.push(filter.min_amount);
+  }
+  if (filter?.max_amount) {
+    where.push("po.total <= ?");
+    params.push(filter.max_amount);
+  }
+
+  const whereClause = where.length ? "WHERE " + where.join(" AND ") : "";
+
+  // Count total (need JOIN if filtering by customer name)
+  const needCustomerJoin = filter?.customer_name;
+  const countSql = needCustomerJoin
+    ? `SELECT COUNT(*) as total FROM purchase_orders po JOIN customers c ON c.id = po.customer_id ${whereClause}`
+    : `SELECT COUNT(*) as total FROM purchase_orders po ${whereClause}`;
+  const countResult = await query<{ total: number }>(countSql, params);
+  const total = Number(countResult[0]?.total || 0);
+
+  // Fetch paginated results
+  const page = filter?.page || 1;
+  const limit = filter?.limit || 10;
+  const offset = (page - 1) * limit;
+
   const sql = `SELECT po.*, c.name AS customer_name
                FROM purchase_orders po
                JOIN customers c ON c.id = po.customer_id
-               ${where.length ? "WHERE " + where.join(" AND ") : ""}
-               ORDER BY po.created_at DESC`;
-  return query<PurchaseOrder>(sql, params);
+               ${whereClause}
+               ORDER BY po.created_at DESC
+               LIMIT ? OFFSET ?`;
+  const pos = await query<PurchaseOrder>(sql, [...params, limit, offset]);
+
+  return { pos, total };
 }
 
 export async function getPo(
