@@ -28,8 +28,8 @@ export default async function CustomerDetailPage({
   const cid = Number(id);
   const c = await getCustomer(cid);
   if (!c) notFound();
-  const [pos, payments, user, files, effective] = await Promise.all([
-    listPos({ customer_id: cid }),
+  const [{ pos }, payments, user, files, effective] = await Promise.all([
+    listPos({ customer_id: cid, limit: 999 }),
     listAllPaymentsForCustomer(cid),
     getCurrentUser(),
     listCustomerFiles(cid),

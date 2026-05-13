@@ -34,7 +34,7 @@ export type PurchaseOrder = {
   total: number;
   paid_amount: number;
   remaining_amount: number;
-  signed_doc_path: string | null;
+  signed_doc_path: string | null;  // JSON array string or single path (legacy)
   signed_at: Date | null;
   tax_invoice_number: string | null;
   due_date: Date | null;
@@ -474,9 +474,44 @@ export async function updatePo(input: {
   });
 }
 
-export async function setSignedDoc(id: number, path: string) {
+/** Parse signed_doc_path: supports legacy single-path and new JSON array */
+export function parseSignedDocs(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {
+    // legacy single path
+  }
+  return [raw];
+}
+
+export async function appendSignedDocs(id: number, newPaths: string[]) {
+  const rows = await query<{ signed_doc_path: string | null }>(
+    "SELECT signed_doc_path FROM purchase_orders WHERE id=?",
+    [id]
+  );
+  const existing = parseSignedDocs(rows[0]?.signed_doc_path ?? null);
+  const merged = [...existing, ...newPaths];
   await exec(
     "UPDATE purchase_orders SET signed_doc_path=?, signed_at=NOW(), status=CASE WHEN status IN ('delivered','checked','packed','confirmed') THEN 'received' ELSE status END WHERE id=?",
-    [path, id]
+    [JSON.stringify(merged), id]
   );
+}
+
+export async function removeSignedDoc(id: number, pathToRemove: string) {
+  const rows = await query<{ signed_doc_path: string | null }>(
+    "SELECT signed_doc_path FROM purchase_orders WHERE id=?",
+    [id]
+  );
+  const existing = parseSignedDocs(rows[0]?.signed_doc_path ?? null);
+  const filtered = existing.filter((p) => p !== pathToRemove);
+  await exec(
+    "UPDATE purchase_orders SET signed_doc_path=? WHERE id=?",
+    [filtered.length > 0 ? JSON.stringify(filtered) : null, id]
+  );
+}
+
+export async function setSignedDoc(id: number, path: string) {
+  await appendSignedDocs(id, [path]);
 }

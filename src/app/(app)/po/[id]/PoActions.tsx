@@ -71,21 +71,31 @@ export function PoActions({
   const [editingTaxInv, setEditingTaxInv] = useState(false);
   const [editTaxInvInput, setEditTaxInvInput] = useState("");
 
-  // Sign upload
-  const [signFile, setSignFile] = useState<File | null>(null);
-  const [replaceSign, setReplaceSign] = useState(false);
-  const signPreview = useMemo(
+  // Sign upload (multi-file)
+  const [signFiles, setSignFiles] = useState<File[]>([]);
+  const signPreviews = useMemo(
     () =>
-      signFile && signFile.type.startsWith("image/")
-        ? URL.createObjectURL(signFile)
-        : null,
-    [signFile]
+      signFiles.map((f) =>
+        f.type.startsWith("image/") ? URL.createObjectURL(f) : null
+      ),
+    [signFiles]
   );
   useEffect(() => {
-    return () => {
-      if (signPreview) URL.revokeObjectURL(signPreview);
-    };
-  }, [signPreview]);
+    return () => signPreviews.forEach((u) => u && URL.revokeObjectURL(u));
+  }, [signPreviews]);
+
+  // Parse signed docs (JSON array or legacy single path)
+  const signedDocs = useMemo(() => {
+    if (!signed_doc_path) return [];
+    try {
+      const parsed = JSON.parse(signed_doc_path);
+      if (Array.isArray(parsed)) return parsed as string[];
+    } catch { /**/ }
+    return [signed_doc_path];
+  }, [signed_doc_path]);
+
+  const [localSignedDocs, setLocalSignedDocs] = useState<string[]>(signedDocs);
+  useEffect(() => { setLocalSignedDocs(signedDocs); }, [signed_doc_path]);
 
   // Invoice generated
   const [invoice, setInvoice] = useState<{
@@ -243,11 +253,11 @@ export function PoActions({
   }
 
   async function uploadSigned() {
-    if (!signFile) return;
+    if (signFiles.length === 0) return;
     setBusy(true);
     setErr(null);
     const fd = new FormData();
-    fd.append("file", signFile);
+    signFiles.forEach((f) => fd.append("files", f));
     const r = await fetch(`/api/po/${poId}/sign`, {
       method: "POST",
       body: fd,
@@ -258,7 +268,26 @@ export function PoActions({
       setErr(d.error || "อัปโหลดไม่สำเร็จ");
       return;
     }
-    setSignFile(null);
+    setSignFiles([]);
+    router.refresh();
+  }
+
+  async function deleteSignedDoc(path: string) {
+    if (!confirm("ยืนยันลบรูปนี้?")) return;
+    setBusy(true);
+    setErr(null);
+    const r = await fetch(`/api/po/${poId}/sign`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path }),
+    });
+    setBusy(false);
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      setErr(d.error || "ลบไม่สำเร็จ");
+      return;
+    }
+    setLocalSignedDocs((prev) => prev.filter((p) => p !== path));
     router.refresh();
   }
 
@@ -410,93 +439,123 @@ export function PoActions({
       )}
 
       {/* Signed delivery doc */}
-      {(status === "delivered" || status === "received" || signed_doc_path) && (
+      {(status === "delivered" || status === "received" || localSignedDocs.length > 0) && (
         <div className="border-t pt-3">
           <div className="text-sm font-medium mb-2">
             เอกสารหลักฐานรับของ (signed by customer)
           </div>
-          {signed_doc_path && !replaceSign ? (
-            <div className="flex items-center gap-3 flex-wrap">
-              <a
-                href={signed_doc_path}
-                target="_blank"
-                rel="noreferrer"
-                className="text-brand-700 hover:underline text-sm"
-              >
-                ดูเอกสาร
-              </a>
-              <span className="text-xs text-muted">บันทึกแล้ว</span>
-              <button
-                type="button"
-                onClick={() => setReplaceSign(true)}
-                className="text-xs text-muted hover:text-brand-700 underline"
-              >
-                เปลี่ยนไฟล์
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {!signFile ? (
-                <label className="flex items-center justify-center gap-2 border-2 border-dashed border-brand-200 rounded-lg px-4 py-5 text-sm text-brand-700 hover:bg-brand-50 cursor-pointer transition">
-                  <Upload className="w-4 h-4" />
-                  <span>กดเพื่อเลือกไฟล์เอกสาร / ถ่ายรูป</span>
-                  <input
-                    type="file"
-                    accept="image/*,application/pdf"
-                    capture="environment"
-                    className="hidden"
-                    onChange={(e) => setSignFile(e.target.files?.[0] || null)}
-                  />
-                </label>
-              ) : (
-                <div className="border border-border rounded-lg p-2 flex items-start gap-3">
-                  {signPreview ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={signPreview}
-                      alt="เอกสาร"
-                      className="w-20 h-20 object-cover rounded border border-border shrink-0"
-                    />
-                  ) : (
-                    <div className="w-20 h-20 rounded border border-border bg-brand-50 flex items-center justify-center text-brand-700 shrink-0">
-                      <FileText className="w-8 h-8" />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0 text-sm">
-                    <div className="font-medium truncate">{signFile.name}</div>
-                    <div className="text-xs text-muted">
-                      {(signFile.size / 1024).toFixed(1)} KB
-                    </div>
-                  </div>
+
+          {/* Existing docs grid */}
+          {localSignedDocs.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {localSignedDocs.map((docPath, idx) => (
+                <div key={idx} className="relative group">
+                  <a href={docPath} target="_blank" rel="noreferrer">
+                    {/\.(jpe?g|png|gif|webp|bmp)$/i.test(docPath) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={docPath}
+                        alt={`เอกสาร ${idx + 1}`}
+                        className="w-24 h-24 object-cover rounded-lg border border-border shadow-sm hover:opacity-80 transition"
+                      />
+                    ) : (
+                      <div className="w-24 h-24 rounded-lg border border-border bg-brand-50 flex flex-col items-center justify-center gap-1 text-brand-700 hover:bg-brand-100 transition">
+                        <FileText className="w-7 h-7" />
+                        <span className="text-[10px] font-medium">PDF</span>
+                      </div>
+                    )}
+                  </a>
+                  {/* Delete button overlay */}
                   <button
                     type="button"
-                    onClick={() => setSignFile(null)}
-                    className="text-muted hover:text-red-600 p-1"
+                    onClick={() => deleteSignedDoc(docPath)}
+                    disabled={busy}
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow"
+                    title="ลบรูปนี้"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-3 h-3" />
                   </button>
                 </div>
-              )}
+              ))}
+            </div>
+          )}
+
+          {/* Upload new files */}
+          <div className="space-y-2">
+            {signFiles.length === 0 ? (
+              <label className="flex items-center justify-center gap-2 border-2 border-dashed border-brand-200 rounded-lg px-4 py-4 text-sm text-brand-700 hover:bg-brand-50 cursor-pointer transition">
+                <Upload className="w-4 h-4" />
+                <span>เพิ่มรูป/เอกสาร (เลือกได้หลายไฟล์)</span>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => setSignFiles(Array.from(e.target.files || []))}
+                />
+              </label>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  {signFiles.map((f, idx) => (
+                    <div key={idx} className="relative group">
+                      {signPreviews[idx] ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={signPreviews[idx]!}
+                          alt={f.name}
+                          className="w-20 h-20 object-cover rounded border border-border"
+                        />
+                      ) : (
+                        <div className="w-20 h-20 rounded border border-border bg-brand-50 flex flex-col items-center justify-center text-brand-700">
+                          <FileText className="w-6 h-6" />
+                          <span className="text-[9px] mt-1 px-1 text-center truncate w-full">{f.name}</span>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setSignFiles((prev) => prev.filter((_, i) => i !== idx))}
+                        className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center shadow"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {/* Add more */}
+                  <label className="w-20 h-20 rounded border-2 border-dashed border-brand-200 flex flex-col items-center justify-center text-brand-400 hover:bg-brand-50 cursor-pointer transition">
+                    <Upload className="w-5 h-5" />
+                    <span className="text-[10px] mt-1">เพิ่ม</span>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => setSignFiles((prev) => [...prev, ...Array.from(e.target.files || [])])}
+                    />
+                  </label>
+                </div>
+                <div className="text-xs text-muted">{signFiles.length} ไฟล์ที่เลือก</div>
+              </div>
+            )}
+            {signFiles.length > 0 && (
               <div className="flex gap-2">
                 <button
                   onClick={uploadSigned}
-                  disabled={!signFile || busy}
+                  disabled={busy}
                   className="btn-secondary text-sm"
                 >
-                  อัปโหลดเอกสาร
+                  อัปโหลด {signFiles.length} ไฟล์
                 </button>
-                {replaceSign && (
-                  <button
-                    type="button"
-                    onClick={() => { setReplaceSign(false); setSignFile(null); }}
-                    className="text-sm text-muted hover:text-foreground"
-                  >
-                    ยกเลิก
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setSignFiles([])}
+                  className="text-sm text-muted hover:text-foreground"
+                >
+                  ยกเลิก
+                </button>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
 

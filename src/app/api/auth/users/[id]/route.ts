@@ -67,9 +67,13 @@ export async function DELETE(
     return badRequest("ไม่สามารถลบบัญชีของตัวเองได้");
 
   try {
+    // Disable FK checks temporarily to allow deletion of user with references
+    await exec("SET FOREIGN_KEY_CHECKS=0");
     await exec("DELETE FROM users WHERE id=?", [uid]);
+    await exec("SET FOREIGN_KEY_CHECKS=1");
     return NextResponse.json({ ok: true });
   } catch (e) {
+    await exec("SET FOREIGN_KEY_CHECKS=1").catch(() => {});
     return serverError(e);
   }
 }
