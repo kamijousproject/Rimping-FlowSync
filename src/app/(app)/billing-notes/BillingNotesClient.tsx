@@ -33,6 +33,8 @@ interface PurchaseOrder {
   po_number: string;
   tax_invoice_number: string | null;
   total: number;
+  paid_amount: number;
+  remaining_amount: number;
   payment_status: string;
   created_at: string;
 }
@@ -124,12 +126,12 @@ export default function BillingNotesClient() {
       if (filters.dateTo) params.set("date_to", filters.dateTo);
       if (filters.status) params.set("status", filters.status);
       
-      const res = await fetch(`/api/customers/${selectedCustomer.id}/pos?${params.toString()}`);
+      const res = await fetch(`/api/po?${params.toString()}`);
       const data = await res.json();
       
       if (res.ok) {
         setPos(data.pos || []);
-        setTotal(data.pagination?.total || 0);
+        setTotal(data.total || 0);
       }
     } catch (error) {
       console.error("Error fetching POs:", error);
@@ -453,6 +455,12 @@ export default function BillingNotesClient() {
                     <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase">
                       จำนวนเงิน
                     </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase">
+                      ชำระแล้ว
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase">
+                      ค้างชำระ
+                    </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted uppercase">
                       วันที่
                     </th>
@@ -501,7 +509,13 @@ export default function BillingNotesClient() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right font-medium">
-                        {po.total.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+                        {Number(po.total).toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm text-green-700">
+                        {Number(po.paid_amount).toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm font-medium text-red-700">
+                        {Number(po.remaining_amount).toLocaleString("th-TH", { minimumFractionDigits: 2 })}
                       </td>
                       <td className="px-4 py-3 text-sm text-muted">
                         {new Date(po.created_at).toLocaleDateString("th-TH")}
