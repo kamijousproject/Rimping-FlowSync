@@ -3,11 +3,13 @@ import { z } from "zod";
 import { requireUser, requireRole, badRequest, serverError } from "../_helpers";
 import { createCustomer, listCustomers } from "@/backend/services/customers";
 
-export async function GET() {
+export async function GET(req: Request) {
   const auth = await requireUser();
   if (!auth.ok) return auth.res;
+  const { searchParams } = new URL(req.url);
+  const search = searchParams.get("search") || undefined;
   try {
-    const customers = await listCustomers();
+    const customers = await listCustomers(search);
     return NextResponse.json({ customers });
   } catch (e) {
     return serverError(e);

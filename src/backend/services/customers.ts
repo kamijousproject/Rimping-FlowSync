@@ -57,11 +57,17 @@ const CUSTOMER_SELECT = `
   LEFT JOIN purchase_orders po
     ON po.customer_id = c.id AND po.status <> 'cancelled'`;
 
-export async function listCustomers(): Promise<CustomerWithCredit[]> {
+export async function listCustomers(search?: string): Promise<CustomerWithCredit[]> {
+  const where = search
+    ? `WHERE (c.name LIKE ? OR c.code LIKE ? OR c.contact_person LIKE ?)`
+    : "";
+  const params = search ? [`%${search}%`, `%${search}%`, `%${search}%`] : [];
   return query<CustomerWithCredit>(
     `${CUSTOMER_SELECT}
+     ${where}
      GROUP BY c.id
-     ORDER BY c.created_at DESC`
+     ORDER BY c.created_at DESC`,
+    params
   );
 }
 
