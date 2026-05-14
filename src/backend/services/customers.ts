@@ -14,6 +14,7 @@ export type Customer = {
   credit_score: number | null;
   credit_score_notes: string | null;
   default_credit_term_days: number;
+  billing_note_due_days: number;
   notes: string | null;
   created_at: Date;
   updated_at: Date;
@@ -93,13 +94,14 @@ export async function createCustomer(input: {
   credit_score?: number | null;
   credit_score_notes?: string | null;
   default_credit_term_days?: number;
+  billing_note_due_days?: number;
   notes?: string;
 }): Promise<number> {
   const res = await exec(
     `INSERT INTO customers
        (code, name, contact_person, phone, email, tax_id, address,
-        credit_limit, credit_score, credit_score_notes, default_credit_term_days, notes)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+        credit_limit, credit_score, credit_score_notes, default_credit_term_days, billing_note_due_days, notes)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       input.code || null,
       input.name,
@@ -112,6 +114,7 @@ export async function createCustomer(input: {
       input.credit_score ?? null,
       input.credit_score_notes ?? null,
       input.default_credit_term_days ?? 30,
+      input.billing_note_due_days ?? 5,
       input.notes || null,
     ]
   );
@@ -148,6 +151,7 @@ export async function updateCustomer(
     credit_score: number | null;
     credit_score_notes: string | null;
     default_credit_term_days: number;
+    billing_note_due_days: number;
     notes: string;
   }>
 ) {
@@ -311,6 +315,7 @@ export async function updateCustomerWithLog(
     credit_score: number | null;
     credit_score_notes: string | null;
     default_credit_term_days: number;
+    billing_note_due_days: number;
     notes: string;
   }>,
   editedBy: number

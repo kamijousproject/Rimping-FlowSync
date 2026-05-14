@@ -1,4 +1,5 @@
 import { query, exec, withTx } from "../db";
+import { getCustomer } from "./customers";
 
 export type BillingNote = {
   id: number;
@@ -101,6 +102,18 @@ export async function createBillingNote(input: CreateBillingNoteInput): Promise<
         [bnId, it.po_id, it.po_number, it.po_date, it.tax_invoice_number || null, it.amount]
       );
     }
+
+    // อัปเดต due_date ให้ทุก PO = issued_date + credit_term_days ของลูกค้า
+    const customer = await getCustomer(input.customer_id);
+    if (customer) {
+      for (const it of input.items) {
+        await conn.query(
+          `UPDATE purchase_orders SET due_date = DATE_ADD(?, INTERVAL ? DAY) WHERE id = ?`,
+          [input.issued_date, customer.default_credit_term_days, it.po_id]
+        );
+      }
+    }
+
     return bnId;
   });
 }

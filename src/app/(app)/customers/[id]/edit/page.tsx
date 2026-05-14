@@ -28,6 +28,7 @@ export default async function EditCustomerPage({
         credit_score: c.credit_score == null ? "" : String(c.credit_score),
         credit_score_notes: c.credit_score_notes ?? "",
         default_credit_term_days: c.default_credit_term_days,
+        billing_note_due_days: c.billing_note_due_days ?? 5,
         notes: c.notes ?? "",
       }}
     />

@@ -17,6 +17,7 @@ export default function NewCustomerPage() {
     credit_score: "",
     credit_score_notes: "",
     default_credit_term_days: 30,
+    billing_note_due_days: 5,
     notes: "",
   });
   const [err, setErr] = useState<string | null>(null);
@@ -176,7 +177,20 @@ export default function NewCustomerPage() {
                 onChange={(e) => set("credit_score", e.target.value)}
               />
             </div>
-            <div className="col-span-3">
+            <div>
+              <label className="label">วันครบกำหนดใบวางบิล (วัน)</label>
+              <input
+                type="number"
+                min="1"
+                max="90"
+                className="input"
+                value={form.billing_note_due_days}
+                onChange={(e) => set("billing_note_due_days", Number(e.target.value))}
+                placeholder="5"
+              />
+              <p className="text-[11px] text-muted mt-1">ใช้คำนวณวันครบกำหนดใบวางบิลอัตโนมัติ</p>
+            </div>
+            <div className="col-span-2">
               <label className="label">หมายเหตุ Credit Score</label>
               <input
                 className="input"

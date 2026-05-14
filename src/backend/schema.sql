@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS customers (
   credit_score INT DEFAULT NULL,           -- placeholder, AI later
   credit_score_notes TEXT DEFAULT NULL,    -- placeholder
   default_credit_term_days INT DEFAULT 30,
+  billing_note_due_days INT DEFAULT 5,
   notes TEXT,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP

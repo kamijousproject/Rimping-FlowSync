@@ -15,12 +15,13 @@ type FormState = {
   credit_score: string;
   credit_score_notes: string;
   default_credit_term_days: number;
+  billing_note_due_days: number;
   notes: string;
 };
 
 type Props = {
   id: number;
-  initial: FormState & { credit_limit: number };
+  initial: FormState & { credit_limit: number; billing_note_due_days: number };
 };
 
 export function EditCustomerForm({ id, initial }: Props) {
@@ -36,6 +37,7 @@ export function EditCustomerForm({ id, initial }: Props) {
     credit_score: initial.credit_score,
     credit_score_notes: initial.credit_score_notes,
     default_credit_term_days: initial.default_credit_term_days,
+    billing_note_due_days: initial.billing_note_due_days ?? 5,
     notes: initial.notes,
   });
 
@@ -276,6 +278,19 @@ export function EditCustomerForm({ id, initial }: Props) {
                 value={form.credit_score}
                 onChange={(e) => set("credit_score", e.target.value)}
               />
+            </div>
+            <div>
+              <label className="label">วันครบกำหนดใบวางบิล (วัน)</label>
+              <input
+                type="number"
+                min="1"
+                max="90"
+                className="input"
+                value={form.billing_note_due_days}
+                onChange={(e) => set("billing_note_due_days", Number(e.target.value))}
+                placeholder="5"
+              />
+              <p className="text-[11px] text-muted mt-1">ใช้คำนวณวันครบกำหนดใบวางบิลอัตโนมัติ</p>
             </div>
             <div className="col-span-3">
               <label className="label">หมายเหตุ Credit Score</label>

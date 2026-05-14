@@ -14,6 +14,13 @@ interface PoDetail {
   created_at: string;
 }
 
+interface Customer {
+  id: number;
+  name: string;
+  default_credit_term_days: number;
+  billing_note_due_days: number;
+}
+
 export default function NewBillingNotePage() {
   const router = useRouter();
   const params = useParams();
@@ -22,6 +29,7 @@ export default function NewBillingNotePage() {
   const poIdsParam = searchParams.get("po_ids") || "";
 
   const [pos, setPos] = useState<PoDetail[]>([]);
+  const [customer, setCustomer] = useState<Customer | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -30,7 +38,22 @@ export default function NewBillingNotePage() {
   const [dueDate, setDueDate] = useState("");
   const [notes, setNotes] = useState("");
 
+  // Auto calculate due date based on customer billing_note_due_days
   useEffect(() => {
+    if (customer && issuedDate) {
+      const d = new Date(issuedDate);
+      d.setDate(d.getDate() + (customer.billing_note_due_days ?? 5));
+      setDueDate(d.toISOString().slice(0, 10));
+    }
+  }, [customer, issuedDate]);
+
+  useEffect(() => {
+    // Load customer data
+    fetch(`/api/customers/${customerId}`)
+      .then(r => r.json())
+      .then(d => setCustomer(d.customer))
+      .catch(() => setErr("โหลดข้อมูลลูกค้าไม่สำเร็จ"));
+
     if (!poIdsParam) { setLoading(false); return; }
     const ids = poIdsParam.split(",").filter(Boolean);
     Promise.all(
@@ -43,7 +66,7 @@ export default function NewBillingNotePage() {
       .then((results) => setPos(results.filter(Boolean)))
       .catch(() => setErr("โหลดข้อมูล PO ไม่สำเร็จ"))
       .finally(() => setLoading(false));
-  }, [poIdsParam]);
+  }, [poIdsParam, customerId]);
 
   async function handleSubmit() {
     if (pos.length === 0) return;
@@ -92,8 +115,8 @@ export default function NewBillingNotePage() {
         <div className="text-center py-12 text-muted">กำลังโหลด...</div>
       ) : (
         <div className="space-y-4">
-          {/* PO Summary */}
-          <div className="card p-4">
+          {/* PO Summary with Notes */}
+          <div className="card p-4 space-y-4">
             <h2 className="font-medium mb-3 text-sm">รายการ PO ที่เลือก ({pos.length} รายการ)</h2>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -125,9 +148,20 @@ export default function NewBillingNotePage() {
                 </tfoot>
               </table>
             </div>
+            {/* Notes moved here */}
+            <div className="pt-3 border-t">
+              <label className="label text-sm">หมายเหตุ</label>
+              <textarea
+                className="input"
+                rows={2}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)"
+              />
+            </div>
           </div>
 
-          {/* Form */}
+          {/* Form - Document Info */}
           <div className="card p-4 space-y-3">
             <h2 className="font-medium text-sm">ข้อมูลเอกสาร</h2>
             <div className="grid grid-cols-2 gap-3">
@@ -144,21 +178,17 @@ export default function NewBillingNotePage() {
                 <label className="label">กำหนดชำระ</label>
                 <input
                   type="date"
-                  className="input"
+                  className="input bg-gray-50"
                   value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
+                  readOnly
+                  tabIndex={-1}
                 />
+                {customer && (
+                  <p className="text-[11px] text-muted mt-1">
+                    วันที่ออก + {customer.billing_note_due_days ?? 5} วัน (สำหรับใบวางบิล)
+                  </p>
+                )}
               </div>
-            </div>
-            <div>
-              <label className="label">หมายเหตุ</label>
-              <textarea
-                className="input"
-                rows={2}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)"
-              />
             </div>
           </div>
 

@@ -268,7 +268,6 @@ export async function setPoStatus(
       `UPDATE purchase_orders
        SET status=?,
            tax_invoice_number = COALESCE(?, tax_invoice_number),
-           due_date = DATE_ADD(CURDATE(), INTERVAL credit_term_days DAY),
            signed_at = CASE WHEN ?='received' THEN COALESCE(signed_at, NOW()) ELSE signed_at END
        WHERE id=?`,
       [status, opts?.tax_invoice_number ?? null, status, id]

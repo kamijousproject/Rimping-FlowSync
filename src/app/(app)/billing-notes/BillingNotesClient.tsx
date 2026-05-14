@@ -17,6 +17,7 @@ import {
   PlusCircle,
   AlertCircle,
   FilePlus,
+  Calendar,
 } from "lucide-react";
 
 interface Customer {
@@ -51,7 +52,7 @@ interface FilterState {
 
 export default function BillingNotesClient() {
   const router = useRouter();
-  const [step, setStep] = useState<"select-customer" | "select-pos">("select-customer");
+  const [step, setStep] = useState<"select-customer" | "select-date-range" | "select-pos">("select-customer");
   
   // Step 1: Select Customer
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -59,7 +60,10 @@ export default function BillingNotesClient() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [loadingCustomers, setLoadingCustomers] = useState(false);
   
-  // Step 2: Select POs
+  // Step 2: Date Range Selection
+  const [dateRange, setDateRange] = useState({ from: "", to: "" });
+
+  // Step 3: Select POs
   const [pos, setPos] = useState<PurchaseOrder[]>([]);
   const [loadingPos, setLoadingPos] = useState(false);
   const [selectedPoIds, setSelectedPoIds] = useState<Set<number>>(new Set());
@@ -146,12 +150,89 @@ export default function BillingNotesClient() {
     }
   }, [fetchPos, step, selectedCustomer]);
 
+  // Date range shortcuts
+  const setDateRangeShortcut = (type: "today" | "thisWeek" | "thisMonth" | "lastMonth" | "last3Days" | "last7Days") => {
+    const today = new Date();
+    const formatDate = (d: Date) => d.toISOString().slice(0, 10);
+    
+    switch (type) {
+      case "today":
+        setDateRange({ from: formatDate(today), to: formatDate(today) });
+        break;
+      case "last3Days":
+        const d3 = new Date(today);
+        d3.setDate(d3.getDate() - 3);
+        setDateRange({ from: formatDate(d3), to: formatDate(today) });
+        break;
+      case "last7Days":
+        const d7 = new Date(today);
+        d7.setDate(d7.getDate() - 7);
+        setDateRange({ from: formatDate(d7), to: formatDate(today) });
+        break;
+      case "thisWeek":
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay());
+        setDateRange({ from: formatDate(startOfWeek), to: formatDate(today) });
+        break;
+      case "thisMonth":
+        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        setDateRange({ from: formatDate(startOfMonth), to: formatDate(today) });
+        break;
+      case "lastMonth":
+        const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+        setDateRange({ from: formatDate(startOfLastMonth), to: formatDate(endOfLastMonth) });
+        break;
+    }
+  };
+
   // Handle customer selection
   const handleSelectCustomer = (customer: Customer) => {
     setSelectedCustomer(customer);
-    setStep("select-pos");
+    setStep("select-date-range");
     setPage(1);
     setSelectedPoIds(new Set());
+    // รีเซ็ต date range
+    setDateRange({ from: "", to: "" });
+  };
+
+  // Handle date range selection - auto fetch POs
+  const handleSelectDateRange = async () => {
+    if (!dateRange.from || !dateRange.to) {
+      alert("กรุณาเลือกช่วงวันที่");
+      return;
+    }
+    if (!selectedCustomer) return;
+
+    setLoadingPos(true);
+    setStep("select-pos");
+    try {
+      const params = new URLSearchParams();
+      params.set("customer_id", selectedCustomer.id.toString());
+      params.set("page", "1");
+      params.set("limit", "100"); // โหลดมากพอสำหรับ auto select
+      
+      // กรองเฉพาะ PO ที่ status = received และมีค้างชำระ
+      params.set("status", "received");
+      params.set("date_from", dateRange.from);
+      params.set("date_to", dateRange.to);
+      
+      const res = await fetch(`/api/po?${params.toString()}`);
+      const data = await res.json();
+      
+      if (res.ok) {
+        // กรองเฉพาะ PO ที่มี remaining_amount > 0
+        const outstandingPos = (data.pos || []).filter((p: PurchaseOrder) => Number(p.remaining_amount) > 0);
+        setPos(outstandingPos);
+        setTotal(outstandingPos.length);
+        // Auto select ทั้งหมด
+        setSelectedPoIds(new Set(outstandingPos.map((p: PurchaseOrder) => p.id)));
+      }
+    } catch (error) {
+      console.error("Error fetching POs:", error);
+    } finally {
+      setLoadingPos(false);
+    }
   };
 
   // Handle PO toggle
@@ -272,13 +353,136 @@ export default function BillingNotesClient() {
     );
   }
 
-  // STEP 2: Select POs
+  // STEP 2: Select Date Range
+  if (step === "select-date-range") {
+    return (
+      <div className="p-6 max-w-2xl mx-auto">
+        {/* Header */}
+        <div className="mb-6">
+          <button
+            onClick={() => setStep("select-customer")}
+            className="flex items-center gap-2 text-sm text-muted hover:text-foreground mb-4"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            กลับไปเลือกลูกค้า
+          </button>
+          <h1 className="text-xl font-semibold flex items-center gap-2">
+            <FileSpreadsheet className="w-5 h-5" />
+            สร้างใบวางบิล
+          </h1>
+          <p className="text-sm text-muted mt-1">
+            ขั้นตอนที่ 2: เลือกช่วงวันที่ PO (ลูกค้า: {selectedCustomer?.name})
+          </p>
+        </div>
+
+        <div className="card p-6 space-y-6">
+          <div className="text-sm text-gray-600 bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p className="font-medium text-blue-800 mb-1">ระบบจะค้นหา PO อัตโนมัติ:</p>
+            <ul className="list-disc list-inside space-y-1 text-blue-700">
+              <li>สถานะ &quot;รับของแล้ว&quot; (Received)</li>
+              <li>มีค้างชำระ (ยอดคงเหลือ {'>'} 0)</li>
+              <li>อยู่ในช่วงวันที่ที่เลือก</li>
+            </ul>
+          </div>
+
+          {/* Date Shortcuts */}
+          <div>
+            <label className="label flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              เลือกช่วงวันที่เร็ว ๆ
+            </label>
+            <div className="flex flex-wrap gap-2 mt-2">
+              <button
+                onClick={() => setDateRangeShortcut("today")}
+                className={`px-3 py-1.5 rounded-full text-sm transition ${
+                  dateRange.from === new Date().toISOString().slice(0, 10) && dateRange.to === new Date().toISOString().slice(0, 10)
+                    ? "bg-brand-600 text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                วันนี้
+              </button>
+              <button
+                onClick={() => setDateRangeShortcut("last3Days")}
+                className="px-3 py-1.5 rounded-full text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 transition"
+              >
+                3 วันล่าสุด
+              </button>
+              <button
+                onClick={() => setDateRangeShortcut("last7Days")}
+                className="px-3 py-1.5 rounded-full text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 transition"
+              >
+                7 วันล่าสุด
+              </button>
+              <button
+                onClick={() => setDateRangeShortcut("thisWeek")}
+                className="px-3 py-1.5 rounded-full text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 transition"
+              >
+                สัปดาห์นี้
+              </button>
+              <button
+                onClick={() => setDateRangeShortcut("thisMonth")}
+                className="px-3 py-1.5 rounded-full text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 transition"
+              >
+                เดือนนี้
+              </button>
+              <button
+                onClick={() => setDateRangeShortcut("lastMonth")}
+                className="px-3 py-1.5 rounded-full text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 transition"
+              >
+                เดือนที่แล้ว
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">วันที่เริ่มต้น *</label>
+              <input
+                type="date"
+                className="input"
+                value={dateRange.from}
+                onChange={(e) => setDateRange(prev => ({ ...prev, from: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="label">วันที่สิ้นสุด *</label>
+              <input
+                type="date"
+                className="input"
+                value={dateRange.to}
+                onChange={(e) => setDateRange(prev => ({ ...prev, to: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => setStep("select-customer")}
+              className="btn-secondary flex-1"
+            >
+              ยกเลิก
+            </button>
+            <button
+              onClick={handleSelectDateRange}
+              disabled={!dateRange.from || !dateRange.to || loadingPos}
+              className="btn-primary flex-1"
+            >
+              {loadingPos ? "กำลังค้นหา..." : "ค้นหา PO อัตโนมัติ"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // STEP 3: Select POs
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
         <button
-          onClick={() => setStep("select-customer")}
+          onClick={() => setStep("select-date-range")}
           className="p-2 hover:bg-gray-100 rounded-lg transition"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -289,7 +493,7 @@ export default function BillingNotesClient() {
             สร้างใบวางบิล
           </h1>
           <p className="text-sm text-muted">
-            ขั้นตอนที่ 2: เลือก PO ของ {selectedCustomer?.name} ({selectedCustomer?.code})
+            ขั้นตอนที่ 3: ตรวจสอบ PO ของ {selectedCustomer?.name} ({selectedCustomer?.code})
           </p>
         </div>
       </div>

@@ -28,6 +28,7 @@ const Schema = z.object({
   credit_score: z.coerce.number().int().min(0).max(1000).nullable().optional(),
   credit_score_notes: z.string().nullable().optional(),
   default_credit_term_days: z.coerce.number().int().min(0).max(365).optional(),
+  billing_note_due_days: z.coerce.number().int().min(1).max(90).optional(),
   notes: z.string().optional(),
 });
 

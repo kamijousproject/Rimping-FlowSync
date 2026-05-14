@@ -1,5 +1,6 @@
 import { query, exec, withTx } from "../db";
 import { invoiceNumberFromPo } from "./po";
+import { getCustomer } from "./customers";
 
 export type Payment = {
   id: number;
@@ -129,6 +130,21 @@ export async function generateInvoice(input: {
       [invoice_number, input.po_id, input.amount, input.generated_by]
     );
     invoiceId = (result as { insertId: number }).insertId;
+
+    // อัปเดต due_date ของ PO = วันที่สร้าง invoice + credit_term_days ของลูกค้า
+    const [poRows] = await query<{ customer_id: number }>(
+      "SELECT customer_id FROM purchase_orders WHERE id = ?",
+      [input.po_id]
+    );
+    if (poRows) {
+      const customer = await getCustomer(poRows.customer_id);
+      if (customer) {
+        await exec(
+          `UPDATE purchase_orders SET due_date = DATE_ADD(CURDATE(), INTERVAL ? DAY) WHERE id = ?`,
+          [customer.default_credit_term_days, input.po_id]
+        );
+      }
+    }
 
     // Log invoice creation
     await logInvoiceAction(
