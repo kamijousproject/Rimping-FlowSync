@@ -36,6 +36,9 @@ export async function POST(
     let notes: string | undefined;
     let slip_path: string | undefined;
 
+    let overpay_handling: "keep_as_credit" | "refund_to_customer" | undefined;
+    let customer_id: number | undefined;
+
     if (ct.includes("multipart/form-data")) {
       const form = await req.formData();
       amount = Number(form.get("amount") || 0);
@@ -44,6 +47,11 @@ export async function POST(
       method = String(form.get("method") || "transfer");
       reference = (form.get("reference") as string) || undefined;
       notes = (form.get("notes") as string) || undefined;
+      const oph = form.get("overpay_handling");
+      if (oph === "keep_as_credit" || oph === "refund_to_customer") {
+        overpay_handling = oph;
+      }
+      customer_id = Number(form.get("customer_id") || 0) || undefined;
       const file = form.get("slip");
       if (file instanceof File && file.size > 0) {
         slip_path = await saveUpload("slips", file);
@@ -56,6 +64,8 @@ export async function POST(
       method = body.method || "transfer";
       reference = body.reference;
       notes = body.notes;
+      overpay_handling = body.overpay_handling;
+      customer_id = body.customer_id;
     }
     if (!amount || amount <= 0) return badRequest("amount ต้องมากกว่า 0");
 
@@ -68,6 +78,8 @@ export async function POST(
       notes,
       slip_path,
       recorded_by: auth.user.id,
+      overpay_handling,
+      customer_id,
     });
     return NextResponse.json(result, { status: 201 });
   } catch (e) {

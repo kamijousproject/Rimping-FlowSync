@@ -23,9 +23,10 @@ export type Customer = {
 export type CustomerWithCredit = Customer & {
   outstanding: number;
   credit_used: number;
-  credit_available: number; // based on effective (base + temp) limit
+  credit_available: number; // based on effective (base + temp) limit + credit notes
   effective_limit: number;  // base + active temp credit (if any today)
   temp_extra: number;       // 0 if no active temp credit
+  credit_notes_balance: number; // available credit from overpayments
   total_pos: number;
   open_pos: number;
 };
@@ -46,12 +47,25 @@ const CUSTOMER_SELECT = `
         AND CURDATE() BETWEEN t.start_date AND t.end_date
       ORDER BY t.extra_amount DESC LIMIT 1
     ), 0)) AS effective_limit,
+    COALESCE((
+      SELECT SUM(ccn.amount - ccn.used_amount) 
+      FROM customer_credit_notes ccn 
+      WHERE ccn.customer_id = c.id 
+        AND ccn.status = 'active' 
+        AND (ccn.expires_at IS NULL OR ccn.expires_at >= CURDATE())
+    ), 0) AS credit_notes_balance,
     (c.credit_limit + COALESCE((
       SELECT t.extra_amount FROM temp_credit_limits t
       WHERE t.customer_id = c.id AND t.is_active = 1
         AND CURDATE() BETWEEN t.start_date AND t.end_date
       ORDER BY t.extra_amount DESC LIMIT 1
-    ), 0) - COALESCE(SUM(po.remaining_amount),0)) AS credit_available,
+    ), 0) - COALESCE(SUM(po.remaining_amount),0) + COALESCE((
+      SELECT SUM(ccn.amount - ccn.used_amount) 
+      FROM customer_credit_notes ccn 
+      WHERE ccn.customer_id = c.id 
+        AND ccn.status = 'active' 
+        AND (ccn.expires_at IS NULL OR ccn.expires_at >= CURDATE())
+    ), 0)) AS credit_available,
     COUNT(po.id) AS total_pos,
     SUM(CASE WHEN po.payment_status <> 'paid' AND po.status <> 'cancelled' THEN 1 ELSE 0 END) AS open_pos
   FROM customers c

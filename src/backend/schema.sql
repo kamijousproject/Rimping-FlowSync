@@ -257,6 +257,48 @@ CREATE TABLE IF NOT EXISTS credit_note_logs (
   INDEX idx_cnl_cn (credit_note_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Customer credit notes (เครดิตโน๊ตจากการชำระเกิน) — can be used for future purchases
+CREATE TABLE IF NOT EXISTS customer_credit_notes (
+  id                INT AUTO_INCREMENT PRIMARY KEY,
+  ccn_number        VARCHAR(32) UNIQUE NOT NULL,          -- เลขที่เครดิตโน๊ต เช่น CCN202605-0001
+  customer_id       INT NOT NULL,
+  po_id             INT NOT NULL,                         -- อ้างอิง PO ที่ชำระเกิน
+  payment_id        INT NOT NULL,                         -- อ้างอิง payment ที่เกิด overpayment
+  amount            DECIMAL(14,2) NOT NULL,               -- ยอดชำระเกิน
+  status            ENUM('active','used','refunded','expired') NOT NULL DEFAULT 'active',
+  usage_type        ENUM('keep_as_credit','refund_to_customer') NOT NULL DEFAULT 'keep_as_credit', -- เก็บเป็นเครดิตหรือโอนคืน
+  used_amount       DECIMAL(14,2) NOT NULL DEFAULT 0,     -- ยอดที่ใช้ไปแล้ว
+  refunded_at       DATETIME,                             -- วันที่โอนคืน (ถ้าเลือก refund)
+  notes             VARCHAR(500),
+  created_by        INT NOT NULL,
+  created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  expires_at        DATE,                                 -- วันหมดอายุ (null = ไม่หมดอายุ)
+  CONSTRAINT fk_ccn_customer FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+  CONSTRAINT fk_ccn_po       FOREIGN KEY (po_id)       REFERENCES purchase_orders(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_ccn_payment  FOREIGN KEY (payment_id)  REFERENCES payments(id) ON DELETE CASCADE,
+  CONSTRAINT fk_ccn_user     FOREIGN KEY (created_by)  REFERENCES users(id),
+  INDEX idx_ccn_customer (customer_id),
+  INDEX idx_ccn_po (po_id),
+  INDEX idx_ccn_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Customer credit note usage log (track การใช้เครดิตโน๊ต)
+CREATE TABLE IF NOT EXISTS customer_credit_note_usages (
+  id                INT AUTO_INCREMENT PRIMARY KEY,
+  ccn_id            INT NOT NULL,
+  po_id             INT,                                  -- ใช้กับ PO ไหน (null ถ้าเป็นการ refund)
+  amount_used       DECIMAL(14,2) NOT NULL,               -- ยอดที่ใช้/คืน
+  usage_type        ENUM('applied_to_po','refunded') NOT NULL,
+  notes             VARCHAR(255),
+  created_by        INT NOT NULL,
+  created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_ccnu_ccn   FOREIGN KEY (ccn_id)   REFERENCES customer_credit_notes(id) ON DELETE CASCADE,
+  CONSTRAINT fk_ccnu_po    FOREIGN KEY (po_id)    REFERENCES purchase_orders(id) ON DELETE SET NULL,
+  CONSTRAINT fk_ccnu_user FOREIGN KEY (created_by) REFERENCES users(id),
+  INDEX idx_ccnu_ccn (ccn_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Products / price catalog (synced from store CSV, refreshed daily at 02:00)
 CREATE TABLE IF NOT EXISTS products (
   id            INT AUTO_INCREMENT PRIMARY KEY,

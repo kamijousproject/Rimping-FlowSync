@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, FileMinus, Upload, Wallet, X } from "lucide-react";
+import { FileText, FileMinus, Upload, Wallet, X, AlertCircle } from "lucide-react";
 import { fmtMoney } from "@/components/StatusBadge";
 
 const FLOW: { from: string; to: string; label: string }[] = [
@@ -51,6 +51,11 @@ export function PoActions({
   const [payRef, setPayRef] = useState("");
   const [payNotes, setPayNotes] = useState("");
   const [paySlip, setPaySlip] = useState<File | null>(null);
+  
+  // Overpayment handling
+  const [overpayHandling, setOverpayHandling] = useState<"keep_as_credit" | "refund_to_customer" | null>(null);
+  const [showOverpayOptions, setShowOverpayOptions] = useState(false);
+  
   const paySlipPreview = useMemo(
     () =>
       paySlip && paySlip.type.startsWith("image/")
@@ -312,6 +317,19 @@ export function PoActions({
 
   async function submitPayment(e: React.FormEvent) {
     e.preventDefault();
+    if (!paySlip) {
+      setErr("กรุณาแนบสลิปการชำระเงิน");
+      return;
+    }
+    
+    // Check for overpayment
+    const overpayment = payAmount > remaining ? payAmount - remaining : 0;
+    if (overpayment > 0 && !overpayHandling) {
+      setShowOverpayOptions(true);
+      setErr(`ชำระเกินวงเงินคงค้าง ${overpayment.toLocaleString()} บาท กรุณาเลือกวิธีจัดการเงินที่เกิน`);
+      return;
+    }
+    
     setBusy(true);
     setErr(null);
     const fd = new FormData();
@@ -320,7 +338,11 @@ export function PoActions({
     fd.append("method", payMethod);
     if (payRef) fd.append("reference", payRef);
     if (payNotes) fd.append("notes", payNotes);
-    if (paySlip) fd.append("slip", paySlip);
+    fd.append("slip", paySlip);
+    fd.append("customer_id", String(customerId));
+    if (overpayment > 0 && overpayHandling) {
+      fd.append("overpay_handling", overpayHandling);
+    }
     const r = await fetch(`/api/po/${poId}/payments`, {
       method: "POST",
       body: fd,
@@ -332,6 +354,8 @@ export function PoActions({
       return;
     }
     setShowPay(false);
+    setOverpayHandling(null);
+    setShowOverpayOptions(false);
     router.refresh();
   }
 
@@ -827,14 +851,13 @@ export function PoActions({
                 type="number"
                 step="0.01"
                 min="0.01"
-                max={remaining}
                 className="input"
                 required
                 value={payAmount}
                 onChange={(e) => setPayAmount(Number(e.target.value))}
               />
               <div className="text-xs text-muted mt-1">
-                สามารถชำระบางส่วนได้ ระบบจะคำนวณคงค้างให้อัตโนมัติ
+                สามารถชำระบางส่วนหรือเกินจำนวนได้ หากเกินจะสร้างเครดิตโน๊ตอัตโนมัติ
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -855,9 +878,8 @@ export function PoActions({
                   onChange={(e) => setPayMethod(e.target.value)}
                 >
                   <option value="transfer">โอนเงิน</option>
-                  <option value="cash">เงินสด</option>
+                  <option value="credit_card">บัตรเครดิต</option>
                   <option value="cheque">เช็ค</option>
-                  <option value="other">อื่นๆ</option>
                 </select>
               </div>
             </div>
@@ -872,6 +894,7 @@ export function PoActions({
             <div>
               <label className="label">
                 สลิปการชำระเงิน{" "}
+                <span className="text-red-600">*</span>{" "}
                 <span className="text-muted font-normal">
                   (แนบรูปหรือไฟล์ PDF)
                 </span>
@@ -930,6 +953,56 @@ export function PoActions({
                 onChange={(e) => setPayNotes(e.target.value)}
               />
             </div>
+            
+            {/* Overpayment handling options */}
+            {payAmount > remaining && (
+              <div className="border-2 border-orange-200 rounded-lg p-4 bg-orange-50">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertCircle className="w-5 h-5 text-orange-600" />
+                  <span className="font-semibold text-orange-800">
+                    ชำระเกินวงเงินคงค้าง {(payAmount - remaining).toLocaleString()} บาท
+                  </span>
+                </div>
+                <div className="text-sm text-orange-700 mb-3">
+                  กรุณาเลือกวิธีจัดการเงินที่เกิน:
+                </div>
+                <div className="space-y-2">
+                  <label className="flex items-start gap-3 p-3 border rounded-lg bg-white cursor-pointer hover:border-orange-300 transition">
+                    <input
+                      type="radio"
+                      name="overpay_handling"
+                      value="keep_as_credit"
+                      checked={overpayHandling === "keep_as_credit"}
+                      onChange={(e) => setOverpayHandling(e.target.value as "keep_as_credit")}
+                      className="mt-1"
+                    />
+                    <div>
+                      <div className="font-medium text-sm">เก็บเป็นเครดิตโน๊ต</div>
+                      <div className="text-xs text-muted">
+                        เก็บเงินที่เกินไว้เป็นเครดิตสำหรับการสั่งซื้อครั้งต่อไป
+                      </div>
+                    </div>
+                  </label>
+                  <label className="flex items-start gap-3 p-3 border rounded-lg bg-white cursor-pointer hover:border-orange-300 transition">
+                    <input
+                      type="radio"
+                      name="overpay_handling"
+                      value="refund_to_customer"
+                      checked={overpayHandling === "refund_to_customer"}
+                      onChange={(e) => setOverpayHandling(e.target.value as "refund_to_customer")}
+                      className="mt-1"
+                    />
+                    <div>
+                      <div className="font-medium text-sm">โอนคืนลูกค้า</div>
+                      <div className="text-xs text-muted">
+                        โอนเงินที่เกินคืนให้ลูกค้า (ระบบจะบันทึกไว้ว่าโอนคืนแล้ว)
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            )}
+            
             {err && (
               <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
                 {err}

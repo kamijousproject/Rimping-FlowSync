@@ -21,6 +21,7 @@ type Customer = {
   credit_available: number;
   effective_limit: number;
   temp_extra: number;
+  credit_notes_balance: number;
   default_credit_term_days: number;
 };
 
@@ -312,7 +313,7 @@ function NewPoInner() {
                   🔵 <strong>วงเงินชั่วคราวใช้งานอยู่:</strong> +{fmtMoney(selected.temp_extra)} (วงเงินรวม {fmtMoney(selected.effective_limit)})
                 </div>
               )}
-              <div className="grid grid-cols-3 gap-3 text-sm bg-brand-50 rounded-lg p-3">
+              <div className="grid grid-cols-4 gap-3 text-sm bg-brand-50 rounded-lg p-3">
                 <div>
                   <div className="text-xs text-muted">วงเงิน (effective)</div>
                   <div className="font-semibold">
@@ -327,6 +328,13 @@ function NewPoInner() {
                   <div className="font-semibold text-red-600">
                     {fmtMoney(selected.outstanding)} บ
                   </div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted">เครดิตโน๊ต</div>
+                  <div className="font-semibold text-green-600">
+                    {fmtMoney(selected.credit_notes_balance)} บ
+                  </div>
+                  <div className="text-[10px] text-muted">ใช้ก่อนเสมอ</div>
                 </div>
                 <div>
                   <div className="text-xs text-muted">วงเงินคงเหลือ</div>

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getPo, listPoEditLogs } from "@/backend/services/po";
 import { listPayments } from "@/backend/services/payments";
 import { listCreditNotes, listCreditNoteLogs } from "@/backend/services/credit-notes";
+import { getCreditNoteUsagesForPo } from "@/backend/services/customer-credit-notes";
 import {
   PaymentBadge,
   StatusBadge,
@@ -10,6 +11,7 @@ import {
 } from "@/components/StatusBadge";
 import { PoActions } from "./PoActions";
 import { EditLogsSection } from "./EditLogsSection";
+import { PaymentsSection } from "./PaymentsSection";
 
 export const dynamic = "force-dynamic";
 
@@ -25,11 +27,12 @@ export default async function PoDetailPage({
   const data = await getPo(Number(id));
   if (!data) notFound();
   const { po, items } = data;
-  const [payments, editLogs, creditNotes, cnLogs] = await Promise.all([
+  const [payments, editLogs, creditNotes, cnLogs, customerCreditUsages] = await Promise.all([
     listPayments(Number(id)),
     listPoEditLogs(Number(id)),
     listCreditNotes(Number(id)),
     listCreditNoteLogs(Number(id)),
+    getCreditNoteUsagesForPo(Number(id)),
   ]);
   const isPaid = po.payment_status === "paid";
 
@@ -266,75 +269,46 @@ export default async function PoDetailPage({
       </div>
 
       {/* Payments history */}
-      <div className="card p-5">
-        <h3 className="font-semibold mb-3">ประวัติการชำระเงิน</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-xs text-muted border-b">
-              <tr>
-                <th className="text-left p-2">วันที่</th>
-                <th className="text-right">ยอด</th>
-                <th>วิธี</th>
-                <th>อ้างอิง</th>
-                <th>สลิป</th>
-                <th>หมายเหตุ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {payments.map((p) => (
-                <tr key={p.id} className="border-b last:border-0">
-                  <td className="p-2">
-                    {new Date(p.paid_at).toLocaleString("th-TH")}
-                  </td>
-                  <td className="text-right text-brand-700 font-medium">
-                    {fmtMoney(p.amount)}
-                  </td>
-                  <td className="text-center text-xs">{p.method}</td>
-                  <td className="text-xs">{p.reference || "-"}</td>
-                  <td className="text-center">
-                    {p.slip_path ? (
-                      /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(p.slip_path) ? (
-                        <a
-                          href={p.slip_path}
-                          target="_blank"
-                          rel="noreferrer"
-                          title="คลิกเพื่อดูเต็ม"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={p.slip_path}
-                            alt="สลิป"
-                            className="w-12 h-12 object-cover rounded border border-border inline-block hover:ring-2 hover:ring-brand-400 transition"
-                          />
-                        </a>
-                      ) : (
-                        <a
-                          href={p.slip_path}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-brand-700 hover:underline text-xs"
-                        >
-                          ดูไฟล์ (PDF)
-                        </a>
-                      )
-                    ) : (
-                      <span className="text-muted text-xs">-</span>
-                    )}
-                  </td>
-                  <td className="text-xs text-muted">{p.notes || "-"}</td>
-                </tr>
-              ))}
-              {payments.length === 0 && (
+      <PaymentsSection payments={payments} poId={po.id} />
+
+      {/* Customer Credit Notes applied to this PO */}
+      {customerCreditUsages.length > 0 && (
+        <div className="card p-5">
+          <h3 className="font-semibold mb-3">เครดิตโน๊ตที่ใช้กับ PO นี้</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-xs text-muted border-b">
                 <tr>
-                  <td colSpan={6} className="text-center py-6 text-muted">
-                    ยังไม่มีการชำระเงิน
-                  </td>
+                  <th className="text-left p-2">เลขที่เครดิตโน๊ต</th>
+                  <th className="text-right">ยอดที่ใช้</th>
+                  <th className="text-left">หมายเหตุ</th>
+                  <th className="text-left">วันที่ใช้</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {customerCreditUsages.map((usage) => (
+                  <tr key={usage.id} className="border-b last:border-0">
+                    <td className="p-2 font-mono text-xs">{usage.ccn_number}</td>
+                    <td className="text-right text-green-600 font-medium">
+                      {fmtMoney(usage.amount_used)}
+                    </td>
+                    <td className="text-xs">{usage.notes || "-"}</td>
+                    <td className="text-xs text-muted">
+                      {new Date(usage.created_at).toLocaleDateString("th-TH")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-3 text-sm">
+            <span className="text-muted">รวมเครดิตโน๊ตที่ใช้: </span>
+            <span className="font-bold text-green-600">
+              {fmtMoney(customerCreditUsages.reduce((sum, u) => sum + Number(u.amount_used), 0))} บาท
+            </span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Edit history (includes CN logs) */}
       <EditLogsSection

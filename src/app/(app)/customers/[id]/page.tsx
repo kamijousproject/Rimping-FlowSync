@@ -16,6 +16,7 @@ import {
 import { CustomerFilesModal } from "./CustomerFilesModal";
 import { CustomerEditLogsSection } from "./CustomerEditLogsSection";
 import { CustomerPoTable } from "./CustomerPoTable";
+import { CustomerCreditNotesSection } from "./CustomerCreditNotesSection";
 
 export const dynamic = "force-dynamic";
 
@@ -116,7 +117,7 @@ export default async function CustomerDetailPage({
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="card p-5">
           <div className="text-xs text-muted">วงเงินสินเชื่อ</div>
           <div className="text-2xl font-bold text-brand-800">
@@ -153,9 +154,18 @@ export default async function CustomerDetailPage({
           </div>
         </div>
         <div className="card p-5">
-          <div className="text-xs text-muted">วงเงินคงเหลือ (effective)</div>
+          <div className="text-xs text-muted">เครดิตโน๊ต (จากชำระเกิน)</div>
+          <div className="text-2xl font-bold text-green-600">
+            {fmtMoney(c.credit_notes_balance)}
+          </div>
+          <div className="text-xs text-green-600 mt-1">
+            ใช้ก่อนเครดิตทั่วไปเสมอ
+          </div>
+        </div>
+        <div className="card p-5">
+          <div className="text-xs text-muted">วงเงินคงเหลือรวม</div>
           <div className="text-2xl font-bold text-brand-700">
-            {fmtMoney(Math.max(0, effective.effective_limit - Number(c.outstanding)))}
+            {fmtMoney(Math.max(0, c.credit_available))}
           </div>
           <div className="text-xs text-muted mt-1">
             Credit Score:{" "}
@@ -273,6 +283,8 @@ export default async function CustomerDetailPage({
           </table>
         </div>
       </div>
+
+      <CustomerCreditNotesSection customerId={cid} />
 
       <CustomerEditLogsSection customerId={cid} />
     </div>
