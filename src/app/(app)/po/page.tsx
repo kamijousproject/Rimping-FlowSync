@@ -307,7 +307,9 @@ export default function PoListPage() {
                 <div className="text-base font-bold">
                   {fmtMoney(p.total)} ฿
                 </div>
-                {Number(p.remaining_amount) > 0 ? (
+                {p.status === "cancelled" ? (
+                  <div className="text-xs text-red-600">ยกเลิก</div>
+                ) : Number(p.remaining_amount) > 0 ? (
                   <div className="text-xs text-red-600">
                     คงค้าง {fmtMoney(p.remaining_amount)}
                   </div>
@@ -403,13 +405,15 @@ export default function PoListPage() {
                   {fmtMoney(p.paid_amount)}
                 </td>
                 <td className="text-right text-red-600">
-                  {fmtMoney(p.remaining_amount)}
+                  {p.status === "cancelled" ? <span className="text-muted">0.00</span> : fmtMoney(p.remaining_amount)}
                 </td>
                 <td className="text-center">
                   <StatusBadge status={p.status} />
                 </td>
                 <td className="text-center">
-                  <PaymentBadge status={p.payment_status} />
+                  {p.status === "cancelled"
+                    ? <span className="badge bg-red-100 text-red-700">ยกเลิก</span>
+                    : <PaymentBadge status={p.payment_status} />}
                 </td>
                 <td className="text-center text-xs">{p.credit_term_days}d</td>
                 <td className="text-center text-xs">

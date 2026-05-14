@@ -144,6 +144,16 @@ export async function createPo(input: {
       );
     }
 
+    await conn.query(
+      `INSERT INTO po_edit_logs (po_id, edited_by, summary, changes) VALUES (?,?,?,?)`,
+      [
+        poId,
+        input.created_by,
+        `เปิด PO ใหม่: ${po_number} (${input.items.length} รายการ, รวม ${total.toLocaleString()} บาท)`,
+        JSON.stringify({ type: "create", po_number, total, items: input.items.length }),
+      ]
+    );
+
     return { id: poId, po_number, total };
   });
 }

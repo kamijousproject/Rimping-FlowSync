@@ -297,16 +297,13 @@ function NewPoInner() {
           </div>
           <div>
             <label className="label">เครดิต (วัน) *</label>
-            <select
-              className="input"
-              value={creditTerm}
-              onChange={(e) => setCreditTerm(Number(e.target.value))}
-            >
-              <option value={7}>7 วัน</option>
-              <option value={15}>15 วัน</option>
-              <option value={30}>30 วัน</option>
-              <option value={60}>60 วัน</option>
-            </select>
+            <input
+              className="input bg-gray-50 text-muted cursor-not-allowed"
+              value={creditTerm ? `${creditTerm} วัน` : "—"}
+              readOnly
+              tabIndex={-1}
+            />
+            <p className="text-[11px] text-muted mt-0.5">ตามเครดิตเริ่มต้นของร้าน</p>
           </div>
           {selected && (
             <div className="md:col-span-3 space-y-2">

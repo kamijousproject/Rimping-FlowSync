@@ -158,13 +158,22 @@ export default async function PoDetailPage({
             </div>
             <div className="card p-5">
               <div className="text-xs text-muted">คงค้าง</div>
-              <div className="text-2xl font-bold text-red-600">
-                {fmtMoney(Math.max(0, netRemaining))} ฿
-              </div>
-              {activeCnDiff > 0 && (
-                <div className="text-xs text-orange-600 mt-1">
-                  {fmtMoney(netTotal)} − ชำระแล้ว {fmtMoney(po.paid_amount)}
-                </div>
+              {po.status === "cancelled" ? (
+                <>
+                  <div className="text-2xl font-bold text-red-600">{fmtMoney(0)} ฿</div>
+                  <div className="text-xs text-red-600 mt-1">PO ถูกยกเลิก</div>
+                </>
+              ) : (
+                <>
+                  <div className="text-2xl font-bold text-red-600">
+                    {fmtMoney(Math.max(0, netRemaining))} ฿
+                  </div>
+                  {activeCnDiff > 0 && (
+                    <div className="text-xs text-orange-600 mt-1">
+                      {fmtMoney(netTotal)} − ชำระแล้ว {fmtMoney(po.paid_amount)}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -233,7 +242,16 @@ export default async function PoDetailPage({
                   รวมทั้งหมด
                 </td>
                 <td className="p-2 text-right text-brand-700 text-lg">
-                  {fmtMoney(items.reduce((s, it) => s + Number(it.line_total), 0))} ฿
+                  {po.status === "cancelled" ? (
+                    <>
+                      <span className="line-through text-muted">{fmtMoney(items.reduce((s, it) => s + Number(it.line_total), 0))}</span>
+                      <span className="mx-1">-</span>
+                      <span className="text-red-600">{fmtMoney(items.reduce((s, it) => s + Number(it.line_total), 0))}</span>
+                      <span className="ml-1">฿</span>
+                    </>
+                  ) : (
+                    `${fmtMoney(items.reduce((s, it) => s + Number(it.line_total), 0))} ฿`
+                  )}
                 </td>
               </tr>
             </tbody>
