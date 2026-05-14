@@ -48,9 +48,17 @@ export function EditCustomerForm({ id, initial }: Props) {
   const [creditMsg, setCreditMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   // Temp credit panel
+  const maxTempExtra = Math.floor(currentLimit * 0.2);
   const [tempExtra, setTempExtra] = useState<"" | number>("");
   const [tempStart, setTempStart] = useState("");
-  const [tempEnd, setTempEnd] = useState("");
+  // end_date คำนวณอัตโนมัติจาก start_date + default_credit_term_days
+  const tempEnd = tempStart
+    ? (() => {
+        const d = new Date(tempStart);
+        d.setDate(d.getDate() + form.default_credit_term_days);
+        return d.toISOString().slice(0, 10);
+      })()
+    : "";
   const [tempReason, setTempReason] = useState("");
   const [tempLoading, setTempLoading] = useState(false);
   const [tempMsg, setTempMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
@@ -143,7 +151,6 @@ export function EditCustomerForm({ id, initial }: Props) {
     }
     setTempExtra("");
     setTempStart("");
-    setTempEnd("");
     setTempReason("");
     setTempMsg({ type: "ok", text: "บันทึกวงเงินชั่วคราวสำเร็จ" });
     await loadTempCredits(); // โหลดข้อมูลใหม่
@@ -358,26 +365,44 @@ export function EditCustomerForm({ id, initial }: Props) {
       <div className="card p-6 space-y-3">
         <h2 className="font-semibold text-brand-800">วงเงินสินเชื่อชั่วคราว</h2>
         <p className="text-xs text-muted">เพิ่มวงเงินชั่วคราวสำหรับช่วงเวลาที่กำหนด โดยไม่เปลี่ยนวงเงินหลัก</p>
-        <div className="grid grid-cols-4 gap-3 items-end">
+        <div className="text-xs bg-brand-50 border border-brand-100 rounded-lg px-3 py-2 text-brand-700">
+          วงเงินตั้งต้น: <span className="font-semibold">{currentLimit.toLocaleString("th-TH")} บาท</span>
+          {" — "}เพิ่มชั่วคราวได้สูงสุด 20% ={" "}
+          <span className="font-semibold text-brand-800">{maxTempExtra.toLocaleString("th-TH")} บาท</span>
+        </div>
+        <div className="grid grid-cols-4 gap-3 items-start">
           <div>
             <label className="label">จำนวนวงเงินเพิ่มเติม (บาท)</label>
             <input
               type="number"
               min="1"
-              step="0.01"
+              max={maxTempExtra}
+              step="1"
               className="input"
               value={tempExtra}
               onChange={(e) => setTempExtra(e.target.value === "" ? "" : Number(e.target.value))}
-              placeholder="เช่น 100000"
+              placeholder={`สูงสุด ${maxTempExtra.toLocaleString("th-TH")} บาท`}
             />
+            {tempExtra !== "" && Number(tempExtra) > maxTempExtra && (
+              <p className="text-xs text-red-600 mt-1">
+                เกินวงเงินสูงสุด {maxTempExtra.toLocaleString("th-TH")} บาท
+              </p>
+            )}
           </div>
           <div>
             <label className="label">วันที่เริ่มต้น</label>
             <input type="date" className="input" value={tempStart} onChange={(e) => setTempStart(e.target.value)} />
           </div>
           <div>
-            <label className="label">วันที่สิ้นสุด</label>
-            <input type="date" className="input" value={tempEnd} onChange={(e) => setTempEnd(e.target.value)} />
+            <label className="label">วันที่สิ้นสุด (อัตโนมัติ)</label>
+            <input
+              type="date"
+              className="input bg-gray-50 text-muted cursor-not-allowed"
+              value={tempEnd}
+              readOnly
+              tabIndex={-1}
+            />
+            <p className="text-[11px] text-muted mt-0.5">= วันเริ่มต้น + {form.default_credit_term_days} วัน (เครดิตของร้านนี้)</p>
           </div>
           <div>
             <label className="label">เหตุผล</label>
@@ -387,7 +412,7 @@ export function EditCustomerForm({ id, initial }: Props) {
         <button
           type="button"
           className="btn-primary"
-          disabled={tempLoading || !tempExtra || !tempStart || !tempEnd}
+          disabled={tempLoading || !tempExtra || !tempStart || !tempEnd || Number(tempExtra) > maxTempExtra}
           onClick={submitTempCredit}
         >
           {tempLoading ? "กำลังบันทึก..." : "บันทึกวงเงินชั่วคราว"}

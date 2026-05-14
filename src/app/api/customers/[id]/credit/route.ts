@@ -9,6 +9,7 @@ import {
   deactivateTempCreditLimit,
   getEffectiveCreditLimit,
 } from "@/backend/services/customers";
+import { query } from "@/backend/db";
 
 const AdjustSchema = z.object({
   action: z.literal("adjust"),
@@ -70,6 +71,18 @@ export async function POST(
     if (parsed.data.action === "temp") {
       if (parsed.data.start_date >= parsed.data.end_date) {
         return badRequest("วันที่สิ้นสุดต้องหลังวันที่เริ่มต้น");
+      }
+      // ตรวจสอบ 20% cap
+      const custRows = await query<{ credit_limit: number }>(
+        "SELECT credit_limit FROM customers WHERE id = ? LIMIT 1",
+        [Number(id)]
+      );
+      const baseLimit = Number(custRows[0]?.credit_limit ?? 0);
+      const maxExtra = Math.floor(baseLimit * 0.2);
+      if (parsed.data.extra_amount > maxExtra) {
+        return badRequest(
+          `วงเงินชั่วคราวต้องไม่เกิน 20% ของวงเงินตั้งต้น (สูงสุด ${maxExtra.toLocaleString("th-TH")} บาท)`
+        );
       }
       const tempId = await createTempCreditLimit({
         customer_id: Number(id),

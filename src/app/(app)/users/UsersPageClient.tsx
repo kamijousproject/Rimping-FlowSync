@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { UserPlus, ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
+import { UserPlus, ChevronDown, ChevronUp, Pencil, Trash2, ShieldCheck, ShieldOff } from "lucide-react";
 
 type User = {
   id: number;
@@ -10,7 +10,20 @@ type User = {
   email: string;
   role: string;
   created_at: Date;
+  temp_role: string | null;
+  temp_expires_at: string | null;
+  temp_granted_by_name: string | null;
 };
+
+const TEMP_DAYS_OPTIONS = [
+  { label: "1 วัน", value: 1 },
+  { label: "3 วัน", value: 3 },
+  { label: "7 วัน", value: 7 },
+  { label: "14 วัน", value: 14 },
+  { label: "30 วัน", value: 30 },
+  { label: "60 วัน", value: 60 },
+  { label: "90 วัน", value: 90 },
+];
 
 const ROLE_LABEL: Record<string, string> = {
   super_admin: "Super Admin",
@@ -44,6 +57,13 @@ export function UsersPageClient({ users: initialUsers, meId }: { users: User[]; 
 
   // Delete
   const [deleteLoading, setDeleteLoading] = useState<number | null>(null);
+
+  // Temp role
+  const [tempTarget, setTempTarget] = useState<User | null>(null);
+  const [tempDays, setTempDays] = useState(7);
+  const [tempLoading, setTempLoading] = useState(false);
+  const [tempErr, setTempErr] = useState<string | null>(null);
+  const [revokeLoading, setRevokeLoading] = useState<number | null>(null);
 
   async function submitCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -109,6 +129,46 @@ export function UsersPageClient({ users: initialUsers, meId }: { users: User[]; 
       return;
     }
     setUsers((prev) => prev.filter((x) => x.id !== u.id));
+  }
+
+  async function submitTempRole(e: React.FormEvent) {
+    e.preventDefault();
+    if (!tempTarget) return;
+    setTempErr(null);
+    setTempLoading(true);
+    const r = await fetch(`/api/auth/users/${tempTarget.id}/temp-role`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ days: tempDays }),
+    });
+    setTempLoading(false);
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      setTempErr(d.error || "ให้สิทธิ์ไม่สำเร็จ");
+      return;
+    }
+    const d = await r.json();
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.id === tempTarget.id
+          ? { ...u, temp_role: "super_admin", temp_expires_at: d.expires_at, temp_granted_by_name: "คุณ" }
+          : u
+      )
+    );
+    setTempTarget(null);
+  }
+
+  async function revokeTemp(u: User) {
+    if (!confirm(`ยืนยันถอนสิทธิ์ชั่วคราวของ "${u.full_name}"?`)) return;
+    setRevokeLoading(u.id);
+    const r = await fetch(`/api/auth/users/${u.id}/temp-role`, { method: "DELETE" });
+    setRevokeLoading(null);
+    if (!r.ok) { alert("ถอนสิทธิ์ไม่สำเร็จ"); return; }
+    setUsers((prev) =>
+      prev.map((x) =>
+        x.id === u.id ? { ...x, temp_role: null, temp_expires_at: null, temp_granted_by_name: null } : x
+      )
+    );
   }
 
   return (
@@ -190,6 +250,7 @@ export function UsersPageClient({ users: initialUsers, meId }: { users: User[]; 
               <th className="text-left p-3">Username</th>
               <th className="text-left p-3">Email</th>
               <th className="text-center p-3">สิทธิ์</th>
+              <th className="text-center p-3">สิทธิ์ชั่วคราว</th>
               <th className="text-left p-3">สร้างเมื่อ</th>
               <th className="p-3" />
             </tr>
@@ -208,6 +269,22 @@ export function UsersPageClient({ users: initialUsers, meId }: { users: User[]; 
                     {ROLE_LABEL[u.role] ?? u.role}
                   </span>
                 </td>
+                <td className="p-3 text-center">
+                  {u.role === "super_admin" ? (
+                    <span className="text-[11px] text-muted">—</span>
+                  ) : u.temp_role ? (
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                        Super Admin (ชั่วคราว)
+                      </span>
+                      <span className="text-[10px] text-muted">
+                        หมด {new Date(u.temp_expires_at!).toLocaleDateString("th-TH")}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-[11px] text-muted">ไม่มี</span>
+                  )}
+                </td>
                 <td className="p-3 text-xs text-muted">{new Date(u.created_at).toLocaleDateString("th-TH")}</td>
                 <td className="p-3">
                   <div className="flex gap-1 justify-end">
@@ -218,6 +295,26 @@ export function UsersPageClient({ users: initialUsers, meId }: { users: User[]; 
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
+                    {u.id !== meId && u.role !== "super_admin" && (
+                      u.temp_role ? (
+                        <button
+                          onClick={() => revokeTemp(u)}
+                          disabled={revokeLoading === u.id}
+                          className="p-1.5 rounded hover:bg-amber-50 text-muted hover:text-amber-700"
+                          title="ถอนสิทธิ์ชั่วคราว"
+                        >
+                          <ShieldOff className="w-3.5 h-3.5" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => { setTempTarget(u); setTempDays(7); setTempErr(null); }}
+                          className="p-1.5 rounded hover:bg-brand-50 text-muted hover:text-brand-700"
+                          title="ให้สิทธิ์ชั่วคราว"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                        </button>
+                      )
+                    )}
                     {u.id !== meId && (
                       <button
                         onClick={() => deleteUser(u)}
@@ -235,6 +332,46 @@ export function UsersPageClient({ users: initialUsers, meId }: { users: User[]; 
           </tbody>
         </table>
       </div>
+
+      {/* Temp role modal */}
+      {tempTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4">
+            <div className="flex items-center gap-2 text-amber-700">
+              <ShieldCheck className="w-5 h-5" />
+              <h2 className="text-lg font-semibold">ให้สิทธิ์ชั่วคราว</h2>
+            </div>
+            <p className="text-sm text-muted">
+              ให้สิทธิ์ <span className="font-medium text-brand-800">Super Admin</span> ชั่วคราวแก่{" "}
+              <span className="font-medium">{tempTarget.full_name}</span> (@{tempTarget.username})
+            </p>
+            <form onSubmit={submitTempRole} className="space-y-3">
+              <div>
+                <label className="label">ระยะเวลาที่ให้สิทธิ์</label>
+                <select
+                  className="input"
+                  value={tempDays}
+                  onChange={(e) => setTempDays(Number(e.target.value))}
+                >
+                  {TEMP_DAYS_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                สิทธิ์จะหมดอายุใน {tempDays} วัน นับจากวันนี้ และสามารถถอนได้ทุกเมื่อ
+              </div>
+              {tempErr && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{tempErr}</div>}
+              <div className="flex gap-2 justify-end pt-1">
+                <button type="button" onClick={() => setTempTarget(null)} className="btn-secondary">ยกเลิก</button>
+                <button className="btn-primary bg-amber-600 hover:bg-amber-700" disabled={tempLoading}>
+                  {tempLoading ? "กำลังบันทึก..." : "ยืนยันให้สิทธิ์"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Edit modal */}
       {editTarget && (

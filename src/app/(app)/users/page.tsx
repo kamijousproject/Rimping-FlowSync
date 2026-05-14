@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
-import { getCurrentUser, listUsers } from "@/backend/auth";
+import { getCurrentUser, listUsers, type UserWithTempGrant } from "@/backend/auth";
 import { UsersPageClient } from "./UsersPageClient";
+
+export type { UserWithTempGrant };
 
 export const dynamic = "force-dynamic";
 
