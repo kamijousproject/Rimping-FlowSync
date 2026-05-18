@@ -180,6 +180,33 @@ CREATE TABLE IF NOT EXISTS credit_limit_adjustments (
   INDEX idx_cla_customer (customer_id)
 ) ENGINE=InnoDB;
 
+-- Credit limit approval requests (for manager approval)
+CREATE TABLE IF NOT EXISTS credit_limit_requests (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  request_type ENUM('permanent_increase', 'temporary') NOT NULL,
+  customer_id INT NOT NULL,
+  -- For permanent increase: amount to add to base credit_limit
+  amount DECIMAL(14,2) DEFAULT NULL,
+  -- For temporary: extra_amount, start_date, end_date
+  extra_amount DECIMAL(14,2) DEFAULT NULL,
+  start_date DATE DEFAULT NULL,
+  end_date DATE DEFAULT NULL,
+  reason VARCHAR(255),
+  status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+  requested_by INT NOT NULL,
+  approved_by INT DEFAULT NULL,
+  approved_at DATETIME DEFAULT NULL,
+  rejection_reason VARCHAR(255) DEFAULT NULL,
+  approval_token VARCHAR(64) UNIQUE NOT NULL,  -- for secure approval link
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_clr_customer FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+  CONSTRAINT fk_clr_requested_by FOREIGN KEY (requested_by) REFERENCES users(id),
+  CONSTRAINT fk_clr_approved_by FOREIGN KEY (approved_by) REFERENCES users(id),
+  INDEX idx_clr_customer (customer_id),
+  INDEX idx_clr_status (status),
+  INDEX idx_clr_token (approval_token)
+) ENGINE=InnoDB;
+
 -- Temporary credit limit grants
 CREATE TABLE IF NOT EXISTS temp_credit_limits (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -191,8 +218,10 @@ CREATE TABLE IF NOT EXISTS temp_credit_limits (
   created_by INT NOT NULL,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  request_id INT DEFAULT NULL,  -- link to credit_limit_requests if approved via request
   CONSTRAINT fk_tcl_customer FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
   CONSTRAINT fk_tcl_user FOREIGN KEY (created_by) REFERENCES users(id),
+  CONSTRAINT fk_tcl_request FOREIGN KEY (request_id) REFERENCES credit_limit_requests(id) ON DELETE SET NULL,
   INDEX idx_tcl_customer (customer_id)
 ) ENGINE=InnoDB;
 

@@ -8,7 +8,10 @@ import {
   listTempCreditLimits,
   deactivateTempCreditLimit,
   getEffectiveCreditLimit,
+  createCreditLimitRequest,
+  listPendingCreditLimitRequests,
 } from "@/backend/services/customers";
+import { sendCreditLimitApprovalEmail } from "@/backend/services/email";
 import { query } from "@/backend/db";
 
 const AdjustSchema = z.object({
@@ -41,12 +44,15 @@ export async function GET(
   const { id } = await ctx.params;
   const cid = Number(id);
   try {
-    const [adjustments, temps, effective] = await Promise.all([
+    const [adjustments, temps, effective, pendingRequests] = await Promise.all([
       listCreditAdjustments(cid),
       listTempCreditLimits(cid),
       getEffectiveCreditLimit(cid),
+      listPendingCreditLimitRequests(),
     ]);
-    return NextResponse.json({ adjustments, temps, effective });
+    // Filter pending requests for this customer
+    const customerPendingRequests = pendingRequests.filter(r => r.customer_id === cid);
+    return NextResponse.json({ adjustments, temps, effective, pendingRequests: customerPendingRequests });
   } catch (e) {
     return serverError(e);
   }
@@ -64,35 +70,90 @@ export async function POST(
   if (!parsed.success) return badRequest("ข้อมูลไม่ถูกต้อง", parsed.error.issues);
 
   try {
+    // Get customer info for email
+    const custRows = await query<{ name: string; code: string; credit_limit: number }>(
+      "SELECT name, code, credit_limit FROM customers WHERE id = ? LIMIT 1",
+      [Number(id)]
+    );
+    const customer = custRows[0];
+    if (!customer) return badRequest("ไม่พบลูกค้า");
+
     if (parsed.data.action === "adjust") {
-      const newLimit = await adjustCreditLimit(Number(id), parsed.data.delta, auth.user.id, parsed.data.reason);
-      return NextResponse.json({ ok: true, new_limit: newLimit });
+      // Only positive deltas (increases) need approval, decreases can be immediate
+      if (parsed.data.delta > 0) {
+        // Create approval request for increase
+        const { id: requestId, approval_token } = await createCreditLimitRequest({
+          request_type: "permanent_increase",
+          customer_id: Number(id),
+          amount: parsed.data.delta,
+          reason: parsed.data.reason,
+          requested_by: auth.user.id,
+        });
+
+        // Send email to manager
+        await sendCreditLimitApprovalEmail(
+          requestId,
+          approval_token,
+          customer.name,
+          customer.code,
+          "permanent_increase",
+          parsed.data.delta,
+          parsed.data.reason || null,
+          auth.user.full_name || auth.user.email
+        );
+
+        return NextResponse.json({ 
+          ok: true, 
+          message: "ส่งคำขอเพิ่มวงเงินไปยังผู้จัดการแล้ว กรุณารอการอนุมัติ",
+          request_id: requestId 
+        }, { status: 201 });
+      } else {
+        // Decrease can be immediate
+        const newLimit = await adjustCreditLimit(Number(id), parsed.data.delta, auth.user.id, parsed.data.reason);
+        return NextResponse.json({ ok: true, new_limit: newLimit });
+      }
     }
     if (parsed.data.action === "temp") {
       if (parsed.data.start_date >= parsed.data.end_date) {
         return badRequest("วันที่สิ้นสุดต้องหลังวันที่เริ่มต้น");
       }
       // ตรวจสอบ 20% cap
-      const custRows = await query<{ credit_limit: number }>(
-        "SELECT credit_limit FROM customers WHERE id = ? LIMIT 1",
-        [Number(id)]
-      );
-      const baseLimit = Number(custRows[0]?.credit_limit ?? 0);
+      const baseLimit = Number(customer.credit_limit ?? 0);
       const maxExtra = Math.floor(baseLimit * 0.2);
       if (parsed.data.extra_amount > maxExtra) {
         return badRequest(
           `วงเงินชั่วคราวต้องไม่เกิน 20% ของวงเงินตั้งต้น (สูงสุด ${maxExtra.toLocaleString("th-TH")} บาท)`
         );
       }
-      const tempId = await createTempCreditLimit({
+
+      // Create approval request for temporary credit
+      const { id: requestId, approval_token } = await createCreditLimitRequest({
+        request_type: "temporary",
         customer_id: Number(id),
         extra_amount: parsed.data.extra_amount,
         start_date: parsed.data.start_date,
         end_date: parsed.data.end_date,
         reason: parsed.data.reason,
-        created_by: auth.user.id,
+        requested_by: auth.user.id,
       });
-      return NextResponse.json({ ok: true, id: tempId }, { status: 201 });
+
+      // Send email to manager
+      await sendCreditLimitApprovalEmail(
+        requestId,
+        approval_token,
+        customer.name,
+        customer.code,
+        "temporary",
+        parsed.data.extra_amount,
+        parsed.data.reason || null,
+        auth.user.full_name || auth.user.email
+      );
+
+      return NextResponse.json({ 
+        ok: true, 
+        message: "ส่งคำขอเพิ่มวงเงินชั่วคราวไปยังผู้จัดการแล้ว กรุณารอการอนุมัติ",
+        request_id: requestId 
+      }, { status: 201 });
     }
     if (parsed.data.action === "deactivate_temp") {
       await deactivateTempCreditLimit(parsed.data.temp_id, auth.user.id);

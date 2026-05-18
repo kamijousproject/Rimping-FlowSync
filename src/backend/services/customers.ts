@@ -711,6 +711,198 @@ export async function deleteCustomer(id: number): Promise<void> {
   });
 }
 
+/** Credit limit approval requests */
+
+export type CreditLimitRequest = {
+  id: number;
+  request_type: "permanent_increase" | "temporary";
+  customer_id: number;
+  amount: number | null;
+  extra_amount: number | null;
+  start_date: string | null;
+  end_date: string | null;
+  reason: string | null;
+  status: "pending" | "approved" | "rejected";
+  requested_by: number;
+  approved_by: number | null;
+  approved_at: Date | null;
+  rejection_reason: string | null;
+  approval_token: string;
+  created_at: Date;
+  // joined fields
+  customer_name?: string;
+  customer_code?: string;
+  requester_name?: string;
+  approver_name?: string;
+};
+
+function generateApprovalToken(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let token = "";
+  for (let i = 0; i < 32; i++) {
+    token += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return token;
+}
+
+export async function createCreditLimitRequest(input: {
+  request_type: "permanent_increase" | "temporary";
+  customer_id: number;
+  amount?: number;  // for permanent_increase
+  extra_amount?: number;  // for temporary
+  start_date?: string;
+  end_date?: string;
+  reason?: string;
+  requested_by: number;
+}): Promise<{ id: number; approval_token: string }> {
+  const token = generateApprovalToken();
+  
+  // Validate based on request type
+  if (input.request_type === "permanent_increase" && (!input.amount || input.amount <= 0)) {
+    throw new Error("จำนวนวงเงินที่ขอเพิ่มต้องมากกว่า 0");
+  }
+  if (input.request_type === "temporary") {
+    if (!input.extra_amount || input.extra_amount <= 0) throw new Error("จำนวนวงเงินชั่วคราวต้องมากกว่า 0");
+    if (!input.start_date || !input.end_date) throw new Error("ต้องระบุวันที่เริ่มต้นและสิ้นสุด");
+    if (input.start_date >= input.end_date) throw new Error("วันที่สิ้นสุดต้องหลังวันที่เริ่มต้น");
+  }
+
+  const result = await exec(
+    `INSERT INTO credit_limit_requests
+       (request_type, customer_id, amount, extra_amount, start_date, end_date, reason, requested_by, approval_token)
+     VALUES (?,?,?,?,?,?,?,?,?)`,
+    [
+      input.request_type,
+      input.customer_id,
+      input.amount || null,
+      input.extra_amount || null,
+      input.start_date || null,
+      input.end_date || null,
+      input.reason || null,
+      input.requested_by,
+      token,
+    ]
+  );
+
+  return { id: result.insertId, approval_token: token };
+}
+
+export async function getCreditLimitRequestByToken(token: string): Promise<CreditLimitRequest | null> {
+  const rows = await query<CreditLimitRequest & {
+    customer_name: string;
+    customer_code: string;
+    requester_name: string;
+    approver_name: string | null;
+  }>(
+    `SELECT r.*, c.name as customer_name, c.code as customer_code,
+            u1.full_name as requester_name, u2.full_name as approver_name
+     FROM credit_limit_requests r
+     JOIN customers c ON c.id = r.customer_id
+     JOIN users u1 ON u1.id = r.requested_by
+     LEFT JOIN users u2 ON u2.id = r.approved_by
+     WHERE r.approval_token = ?`,
+    [token]
+  );
+  return rows[0] ?? null;
+}
+
+export async function listPendingCreditLimitRequests(): Promise<CreditLimitRequest[]> {
+  return query<CreditLimitRequest & {
+    customer_name: string;
+    customer_code: string;
+    requester_name: string;
+  }>(
+    `SELECT r.*, c.name as customer_name, c.code as customer_code,
+            u1.full_name as requester_name
+     FROM credit_limit_requests r
+     JOIN customers c ON c.id = r.customer_id
+     JOIN users u1 ON u1.id = r.requested_by
+     WHERE r.status = 'pending'
+     ORDER BY r.created_at DESC`
+  );
+}
+
+export async function approveCreditLimitRequest(
+  token: string,
+  approvedBy: number
+): Promise<{ success: boolean; message: string }> {
+  return withTx(async (conn) => {
+    // Get request
+    const [rows] = await conn.query(
+      `SELECT * FROM credit_limit_requests WHERE approval_token = ? AND status = 'pending'`,
+      [token]
+    ) as unknown as [CreditLimitRequest[]];
+    
+    const request = rows[0];
+    if (!request) throw new Error("ไม่พบคำขอหรือคำขอถูกดำเนินการแล้ว");
+
+    const [custRows] = await conn.query(
+      "SELECT credit_limit FROM customers WHERE id = ?",
+      [request.customer_id]
+    ) as unknown as [{ credit_limit: number }[]];
+    const currentLimit = Number(custRows[0]?.credit_limit ?? 0);
+
+    if (request.request_type === "permanent_increase") {
+      // Apply permanent increase
+      const newLimit = currentLimit + Number(request.amount);
+      await conn.query(
+        "UPDATE customers SET credit_limit = ? WHERE id = ?",
+        [newLimit, request.customer_id]
+      );
+      await conn.query(
+        `INSERT INTO credit_limit_adjustments (customer_id, adjusted_by, delta, new_limit, reason)
+         VALUES (?,?,?,?,?)`,
+        [request.customer_id, approvedBy, request.amount, newLimit, `อนุมัติคำขอ: ${request.reason || '-'}`]
+      );
+    } else {
+      // Apply temporary credit
+      const [tempRes] = await conn.query(
+        `INSERT INTO temp_credit_limits
+           (customer_id, extra_amount, start_date, end_date, reason, created_by, request_id)
+         VALUES (?,?,?,?,?,?,?)`,
+        [
+          request.customer_id,
+          request.extra_amount,
+          request.start_date,
+          request.end_date,
+          request.reason,
+          approvedBy,
+          request.id,
+        ]
+      );
+    }
+
+    // Update request status
+    await conn.query(
+      `UPDATE credit_limit_requests
+       SET status = 'approved', approved_by = ?, approved_at = NOW()
+       WHERE id = ?`,
+      [approvedBy, request.id]
+    );
+
+    return { success: true, message: "อนุมัติคำขอสำเร็จ" };
+  });
+}
+
+export async function rejectCreditLimitRequest(
+  token: string,
+  rejectedBy: number,
+  rejectionReason?: string
+): Promise<{ success: boolean; message: string }> {
+  const result = await exec(
+    `UPDATE credit_limit_requests
+     SET status = 'rejected', approved_by = ?, approved_at = NOW(), rejection_reason = ?
+     WHERE approval_token = ? AND status = 'pending'`,
+    [rejectedBy, rejectionReason || null, token]
+  );
+
+  if ((result as any).affectedRows === 0) {
+    throw new Error("ไม่พบคำขอหรือคำขอถูกดำเนินการแล้ว");
+  }
+
+  return { success: true, message: "ปฏิเสธคำขอสำเร็จ" };
+}
+
 /** Effective credit limit = base + active temp (if any) */
 export async function getEffectiveCreditLimit(customerId: number): Promise<{
   base_limit: number;
