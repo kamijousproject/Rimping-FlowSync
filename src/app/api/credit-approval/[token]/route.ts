@@ -7,14 +7,15 @@ import {
 } from "@/backend/services/customers";
 import { badRequest, serverError } from "../../_helpers";
 
+// Manager user ID used when approving/rejecting via email link (no session)
+const MANAGER_USER_ID = parseInt(process.env.MANAGER_USER_ID || "1");
+
 const ApproveSchema = z.object({
   action: z.literal("approve"),
-  approved_by: z.number().int().positive(),
 });
 
 const RejectSchema = z.object({
   action: z.literal("reject"),
-  rejected_by: z.number().int().positive(),
   reason: z.string().optional(),
 });
 
@@ -55,10 +56,10 @@ export async function POST(
     }
     
     if (parsed.data.action === "approve") {
-      const result = await approveCreditLimitRequest(token, parsed.data.approved_by);
+      const result = await approveCreditLimitRequest(token, MANAGER_USER_ID);
       return NextResponse.json(result);
     } else {
-      const result = await rejectCreditLimitRequest(token, parsed.data.rejected_by, parsed.data.reason);
+      const result = await rejectCreditLimitRequest(token, MANAGER_USER_ID, parsed.data.reason);
       return NextResponse.json(result);
     }
   } catch (e) {

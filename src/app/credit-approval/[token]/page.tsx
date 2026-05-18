@@ -59,7 +59,7 @@ export default function CreditApprovalPage() {
       const res = await fetch(`/api/credit-approval/${token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "approve", approved_by: 1 }), // TODO: get actual user id
+        body: JSON.stringify({ action: "approve" }),
       });
       
       if (!res.ok) {
@@ -85,8 +85,7 @@ export default function CreditApprovalPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          action: "reject", 
-          rejected_by: 1, // TODO: get actual user id
+          action: "reject",
           reason: rejectReason 
         }),
       });
@@ -148,13 +147,18 @@ export default function CreditApprovalPage() {
     ? request.amount 
     : request.extra_amount;
 
+  const statusColor = isPending ? "bg-yellow-600" : isApproved ? "bg-green-600" : "bg-red-600";
+
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-lg mx-auto">
         {/* Header */}
-        <div className="bg-brand-600 text-white rounded-t-xl p-6 text-center">
+        <div className={`${statusColor} text-white rounded-t-xl p-6 text-center`}>
+          <div className="text-4xl mb-2">
+            {isPending ? "🔔" : isApproved ? "✅" : "❌"}
+          </div>
           <h1 className="text-2xl font-bold">{typeText}</h1>
-          <p className="text-brand-100 mt-1">ระบบ FlowSync</p>
+          <p className="text-white/80 mt-1">ระบบ FlowSync</p>
         </div>
 
         {/* Content */}
@@ -179,49 +183,53 @@ export default function CreditApprovalPage() {
           </div>
 
           {/* Details */}
-          <div className="space-y-4 mb-6">
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-muted">ลูกค้า</span>
-              <span className="font-semibold">
-                {request.customer_name} ({request.customer_code})
-              </span>
-            </div>
-            
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-muted">จำนวนที่ขอ</span>
-              <span className="text-2xl font-bold text-brand-600">
-                {amount?.toLocaleString()} บาท
-              </span>
-            </div>
-            
-            {request.request_type === "temporary" && (
-              <>
-                <div className="flex justify-between items-center py-2 border-b">
-                  <span className="text-muted">วันที่เริ่มต้น</span>
-                  <span className="font-semibold">{request.start_date}</span>
+          <div className="space-y-3 mb-6">
+            <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+              <div className="flex justify-between items-start">
+                <span className="text-gray-500 text-sm">ลูกค้า</span>
+                <span className="font-semibold text-right">
+                  {request.customer_name}<br/>
+                  <span className="text-xs text-gray-400">{request.customer_code}</span>
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center border-t pt-3">
+                <span className="text-gray-500 text-sm">จำนวนที่ขอ</span>
+                <span className="text-2xl font-bold text-green-600">
+                  +{amount?.toLocaleString()} บาท
+                </span>
+              </div>
+
+              {request.request_type === "temporary" && (
+                <div className="flex justify-between items-center border-t pt-3">
+                  <span className="text-gray-500 text-sm">ระยะเวลา</span>
+                  <span className="font-semibold text-sm text-right">
+                    {request.start_date}<br/>
+                    <span className="text-gray-400">ถึง</span><br/>
+                    {request.end_date}
+                  </span>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b">
-                  <span className="text-muted">วันที่สิ้นสุด</span>
-                  <span className="font-semibold">{request.end_date}</span>
-                </div>
-              </>
-            )}
-            
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-muted">เหตุผล</span>
-              <span className="font-semibold">{request.reason || "-"}</span>
-            </div>
-            
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-muted">ผู้ขอ</span>
-              <span className="font-semibold">{request.requester_name}</span>
-            </div>
-            
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-muted">วันที่ขอ</span>
-              <span className="font-semibold">
-                {new Date(request.created_at).toLocaleDateString("th-TH")}
-              </span>
+              )}
+
+              <div className="flex justify-between items-start border-t pt-3">
+                <span className="text-gray-500 text-sm">เหตุผล</span>
+                <span className="font-semibold text-right max-w-xs">{request.reason || "-"}</span>
+              </div>
+
+              <div className="flex justify-between items-center border-t pt-3">
+                <span className="text-gray-500 text-sm">ผู้ขอ</span>
+                <span className="font-semibold">{request.requester_name}</span>
+              </div>
+
+              <div className="flex justify-between items-center border-t pt-3">
+                <span className="text-gray-500 text-sm">วันที่ขอ</span>
+                <span className="font-semibold">
+                  {new Date(request.created_at).toLocaleDateString("th-TH", { 
+                    year: "numeric", month: "long", day: "numeric",
+                    hour: "2-digit", minute: "2-digit"
+                  })}
+                </span>
+              </div>
             </div>
           </div>
 

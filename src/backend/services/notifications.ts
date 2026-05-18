@@ -58,7 +58,7 @@ class LineNotificationService {
     }
     
     if (!useBroadcast) {
-      this.adminUserId = adminUserId;
+      this.adminUserId = adminUserId ?? null;
     }
     
     console.log(`LINE notification mode: ${useBroadcast ? 'Broadcast (all friends)' : 'Single user'}`);

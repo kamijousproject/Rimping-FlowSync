@@ -4,10 +4,11 @@ import { sendLineNotification } from "@/backend/services/notifications";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const customerId = parseInt(params.id);
+    const { id } = await params;
+    const customerId = parseInt(id);
     const { amount, reason, start_date, end_date } = await request.json();
 
     if (!amount || amount <= 0) {

@@ -78,6 +78,18 @@ export async function POST(
     const customer = custRows[0];
     if (!customer) return badRequest("ไม่พบลูกค้า");
 
+    // ตรวจสอบ pending request (ใดๆ) สำหรับลูกค้านี้ ก่อนสร้างคำขอใหม่
+    if (parsed.data.action === "adjust" && parsed.data.delta > 0 || parsed.data.action === "temp") {
+      const allPending = await listPendingCreditLimitRequests();
+      const pendingForCustomer = allPending.filter((r) => r.customer_id === Number(id));
+      if (pendingForCustomer.length > 0) {
+        const pendingType = pendingForCustomer[0].request_type === "permanent_increase"
+          ? "เพิ่มวงเงินถาวร"
+          : "วงเงินชั่วคราว";
+        return badRequest(`มีคำขอ${pendingType}ที่รออนุมัติอยู่แล้ว กรุณารอให้ผู้จัดการอนุมัติก่อน`);
+      }
+    }
+
     if (parsed.data.action === "adjust") {
       // Only positive deltas (increases) need approval, decreases can be immediate
       if (parsed.data.delta > 0) {

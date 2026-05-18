@@ -67,6 +67,9 @@ export function EditCustomerForm({ id, initial }: Props) {
   const [activeTempCredits, setActiveTempCredits] = useState<any[]>([]);
   const [deactivateLoading, setDeactivateLoading] = useState<number | null>(null);
 
+  // Pending credit limit requests
+  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+
   // Upload files
   const [files, setFiles] = useState<File[]>([]);
   const [fileLoading, setFileLoading] = useState(false);
@@ -124,10 +127,17 @@ export function EditCustomerForm({ id, initial }: Props) {
       return;
     }
     const d = await r.json();
-    setCurrentLimit(d.new_limit);
     setCreditDelta("");
     setCreditReason("");
-    setCreditMsg({ type: "ok", text: `ปรับวงเงินสำเร็จ → ${Number(d.new_limit).toLocaleString()} บาท` });
+    if (d.new_limit !== undefined) {
+      // Decrease — applied immediately
+      setCurrentLimit(d.new_limit);
+      setCreditMsg({ type: "ok", text: `ปรับลดวงเงินสำเร็จ → ${Number(d.new_limit).toLocaleString()} บาท` });
+    } else {
+      // Increase — waiting for approval
+      setCreditMsg({ type: "ok", text: d.message || "ส่งคำขอเพิ่มวงเงินไปยังผู้จัดการแล้ว กรุณารอการอนุมัติ" });
+      await loadTempCredits(); // โหลด pending requests ใหม่
+    }
   }
 
   async function submitTempCredit() {
@@ -151,10 +161,11 @@ export function EditCustomerForm({ id, initial }: Props) {
       setTempMsg({ type: "err", text: d.error || "เพิ่มวงเงินชั่วคราวไม่สำเร็จ" });
       return;
     }
+    const d = await r.json();
     setTempExtra("");
     setTempStart("");
     setTempReason("");
-    setTempMsg({ type: "ok", text: "บันทึกวงเงินชั่วคราวสำเร็จ" });
+    setTempMsg({ type: "ok", text: d.message || "ส่งคำขอวงเงินชั่วคราวไปยังผู้จัดการแล้ว กรุณารอการอนุมัติ" });
     await loadTempCredits(); // โหลดข้อมูลใหม่
   }
 
@@ -164,6 +175,7 @@ export function EditCustomerForm({ id, initial }: Props) {
       if (r.ok) {
         const data = await r.json();
         setActiveTempCredits(data.temps || []);
+        setPendingRequests(data.pendingRequests || []);
       }
     } catch (error) {
       console.error('Failed to load temp credits:', error);
@@ -364,15 +376,38 @@ export function EditCustomerForm({ id, initial }: Props) {
         )}
         {creditDelta !== "" && Number(creditDelta) > 0 && (
           <p className="text-xs text-muted">
-            วงเงินใหม่จะเป็น:{" "}
-            <span className="font-semibold text-brand-800">
-              {(creditSign === "increase"
-                ? Number(currentLimit) + Number(creditDelta)
-                : Number(currentLimit) - Number(creditDelta)
-              ).toLocaleString()}{" "}
-              บาท
-            </span>
+            {creditSign === "increase" ? (
+              <span className="text-yellow-700 font-medium">
+                ⚠️ การเพิ่มวงเงินจะถูกส่งคำขอไปยังผู้จัดการเพื่ออนุมัติก่อน
+              </span>
+            ) : (
+              <>
+                วงเงินใหม่จะเป็น:{" "}
+                <span className="font-semibold text-brand-800">
+                  {(Number(currentLimit) - Number(creditDelta)).toLocaleString()} บาท
+                </span>
+              </>
+            )}
           </p>
+        )}
+
+        {/* Pending credit increase requests */}
+        {pendingRequests.filter(r => r.request_type === "permanent_increase").length > 0 && (
+          <div className="mt-3 space-y-2">
+            <h3 className="text-sm font-semibold text-yellow-800">⏳ คำขอเพิ่มวงเงินที่รออนุมัติ</h3>
+            {pendingRequests.filter(r => r.request_type === "permanent_increase").map((req: any) => (
+              <div key={req.id} className="flex items-center justify-between bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <div className="text-sm">
+                  <div className="font-semibold text-yellow-800">
+                    +{Number(req.amount).toLocaleString()} บาท
+                  </div>
+                  <div className="text-yellow-600 text-xs">ผู้ขอ: {req.requester_name}</div>
+                  {req.reason && <div className="text-xs text-yellow-600">เหตุผล: {req.reason}</div>}
+                </div>
+                <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full font-medium">รออนุมัติ</span>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
@@ -430,12 +465,31 @@ export function EditCustomerForm({ id, initial }: Props) {
           disabled={tempLoading || !tempExtra || !tempStart || !tempEnd || Number(tempExtra) > maxTempExtra}
           onClick={submitTempCredit}
         >
-          {tempLoading ? "กำลังบันทึก..." : "บันทึกวงเงินชั่วคราว"}
+          {tempLoading ? "กำลังส่งคำขอ..." : "ส่งคำขอวงเงินชั่วคราว (รอผู้จัดการอนุมัติ)"}
         </button>
         {tempMsg && (
           <p className={`text-sm ${tempMsg.type === "ok" ? "text-green-700" : "text-red-600"}`}>{tempMsg.text}</p>
         )}
         
+        {/* Pending temp credit requests */}
+        {pendingRequests.filter(r => r.request_type === "temporary").length > 0 && (
+          <div className="mt-3 space-y-2">
+            <h3 className="text-sm font-semibold text-yellow-800">⏳ คำขอวงเงินชั่วคราวที่รออนุมัติ</h3>
+            {pendingRequests.filter(r => r.request_type === "temporary").map((req: any) => (
+              <div key={req.id} className="flex items-center justify-between bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <div className="text-sm">
+                  <div className="font-semibold text-yellow-800">
+                    +{Number(req.extra_amount).toLocaleString()} บาท
+                  </div>
+                  <div className="text-yellow-600 text-xs">{req.start_date} ถึง {req.end_date}</div>
+                  {req.reason && <div className="text-xs text-yellow-600">เหตุผล: {req.reason}</div>}
+                </div>
+                <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full font-medium">รออนุมัติ</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* แสดงวงเงินชั่วคราวที่มีอยู่ */}
         {activeTempCredits.length > 0 && (
           <div className="mt-4 space-y-2">
