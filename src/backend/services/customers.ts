@@ -960,6 +960,172 @@ export async function rejectCreditLimitRequest(
   });
 }
 
+// ─── Credit Usage History ────────────────────────────────────────────────────
+
+export type CreditHistoryPoint = {
+  date: string;        // "YYYY-MM-DD"
+  outstanding: number;
+  creditLimit: number;
+};
+
+/**
+ * Reconstructs the outstanding-debt and credit-limit timeline for a customer
+ * over the last `months` months.  Events (PO created, payment, CCN usage,
+ * credit-limit adjustment, temp-credit start/end) become data points; the
+ * outstanding is a running total, and the credit limit is the effective value
+ * (base + any active temp grant) at each event date.
+ */
+export async function getCreditUsageHistory(
+  customerId: number,
+  months: number = 12
+): Promise<CreditHistoryPoint[]> {
+  const from = new Date();
+  from.setMonth(from.getMonth() - months);
+  const fromStr = from.toISOString().slice(0, 10);
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  // Current base credit limit
+  const custRows = await query<{ credit_limit: number }>(
+    "SELECT credit_limit FROM customers WHERE id = ?",
+    [customerId]
+  );
+  const currentBaseLimit = Number(custRows[0]?.credit_limit ?? 0);
+
+  // All credit-limit adjustments (ascending) and temp-credit periods
+  const adjustments = await query<{ created_at: Date; delta: number; new_limit: number }>(
+    "SELECT created_at, delta, new_limit FROM credit_limit_adjustments WHERE customer_id = ? ORDER BY created_at ASC",
+    [customerId]
+  );
+  const tempCredits = await query<{ extra_amount: number; start_date: string; end_date: string }>(
+    "SELECT extra_amount, DATE_FORMAT(start_date,'%Y-%m-%d') AS start_date, DATE_FORMAT(end_date,'%Y-%m-%d') AS end_date FROM temp_credit_limits WHERE customer_id = ? AND is_active = 1 ORDER BY start_date ASC",
+    [customerId]
+  );
+
+  // Reconstruct base credit limit at fromStr by reversing adjustments after fromStr
+  let baseLimitAtFrom = currentBaseLimit;
+  for (const adj of [...adjustments].reverse()) {
+    if (new Date(adj.created_at).toISOString().slice(0, 10) >= fromStr) {
+      baseLimitAtFrom -= Number(adj.delta);
+    }
+  }
+  baseLimitAtFrom = Math.max(0, baseLimitAtFrom);
+
+  // Helper: temp extra active at a given date string
+  const getTempExtra = (dateStr: string): number => {
+    for (const t of tempCredits) {
+      const sd = String(t.start_date).slice(0, 10);
+      const ed = String(t.end_date).slice(0, 10);
+      if (dateStr >= sd && dateStr <= ed) return Number(t.extra_amount);
+    }
+    return 0;
+  };
+
+  // Outstanding at fromStr:
+  // For each non-cancelled PO created before fromStr, take total minus all
+  // payments and CCN usages that happened before fromStr.
+  const preRows = await query<{ val: number }>(`
+    SELECT COALESCE(SUM(
+      po.total
+      - COALESCE((SELECT SUM(p.amount)    FROM payments p WHERE p.po_id = po.id AND DATE(p.paid_at) < ?), 0)
+      - COALESCE((
+          SELECT SUM(ccnu.amount_used)
+          FROM customer_credit_note_usages ccnu
+          JOIN customer_credit_notes ccn ON ccn.id = ccnu.ccn_id
+          WHERE ccnu.po_id = po.id AND ccnu.usage_type = 'applied_to_po' AND DATE(ccnu.created_at) < ?
+        ), 0)
+    ), 0) AS val
+    FROM purchase_orders po
+    WHERE po.customer_id = ? AND po.status <> 'cancelled' AND DATE(po.created_at) < ?
+  `, [fromStr, fromStr, customerId, fromStr]);
+  const outstandingAtFrom = Math.max(0, Number(preRows[0]?.val ?? 0));
+
+  // Events within [fromStr, todayStr] that change outstanding or the limit
+  const poRows = await query<{ date: string; amount: number }>(`
+    SELECT DATE_FORMAT(created_at,'%Y-%m-%d') AS date, total AS amount
+    FROM purchase_orders
+    WHERE customer_id = ? AND status <> 'cancelled' AND DATE(created_at) >= ?
+    ORDER BY created_at
+  `, [customerId, fromStr]);
+
+  const payRows = await query<{ date: string; amount: number }>(`
+    SELECT DATE_FORMAT(p.paid_at,'%Y-%m-%d') AS date, p.amount AS amount
+    FROM payments p
+    JOIN purchase_orders po ON po.id = p.po_id
+    WHERE po.customer_id = ? AND po.status <> 'cancelled' AND DATE(p.paid_at) >= ?
+    ORDER BY p.paid_at
+  `, [customerId, fromStr]);
+
+  const ccnRows = await query<{ date: string; amount: number }>(`
+    SELECT DATE_FORMAT(ccnu.created_at,'%Y-%m-%d') AS date, ccnu.amount_used AS amount
+    FROM customer_credit_note_usages ccnu
+    JOIN customer_credit_notes ccn ON ccn.id = ccnu.ccn_id
+    WHERE ccn.customer_id = ? AND ccnu.usage_type = 'applied_to_po' AND DATE(ccnu.created_at) >= ?
+    ORDER BY ccnu.created_at
+  `, [customerId, fromStr]);
+
+  const adjRows = await query<{ date: string; new_limit: number }>(`
+    SELECT DATE_FORMAT(created_at,'%Y-%m-%d') AS date, new_limit
+    FROM credit_limit_adjustments
+    WHERE customer_id = ? AND DATE(created_at) >= ?
+    ORDER BY created_at
+  `, [customerId, fromStr]);
+
+  // Boundary dates where temp credit starts or expires (day after end)
+  const tempBoundaries = tempCredits.flatMap((t) => {
+    const dates: string[] = [];
+    const sd = String(t.start_date).slice(0, 10);
+    if (sd >= fromStr && sd <= todayStr) dates.push(sd);
+    const end = new Date(String(t.end_date).slice(0, 10));
+    end.setDate(end.getDate() + 1);
+    const ed1 = end.toISOString().slice(0, 10);
+    if (ed1 >= fromStr && ed1 <= todayStr) dates.push(ed1);
+    return dates;
+  });
+
+  type Event =
+    | { date: string; kind: "po" | "pay" | "ccn"; amount: number }
+    | { date: string; kind: "adj"; newLimit: number }
+    | { date: string; kind: "boundary" };
+
+  const events: Event[] = [
+    ...poRows.map((e) => ({ date: String(e.date), kind: "po" as const, amount: Number(e.amount) })),
+    ...payRows.map((e) => ({ date: String(e.date), kind: "pay" as const, amount: Number(e.amount) })),
+    ...ccnRows.map((e) => ({ date: String(e.date), kind: "ccn" as const, amount: Number(e.amount) })),
+    ...adjRows.map((e) => ({ date: String(e.date), kind: "adj" as const, newLimit: Number(e.new_limit) })),
+    ...tempBoundaries.map((d) => ({ date: d, kind: "boundary" as const })),
+  ].sort((a, b) => a.date.localeCompare(b.date));
+
+  // Walk events and build data points
+  const points: CreditHistoryPoint[] = [
+    { date: fromStr, outstanding: outstandingAtFrom, creditLimit: baseLimitAtFrom + getTempExtra(fromStr) },
+  ];
+  let outstanding = outstandingAtFrom;
+  let baseLimit = baseLimitAtFrom;
+
+  for (const ev of events) {
+    if (ev.kind === "adj") {
+      baseLimit = ev.newLimit;
+    } else if (ev.kind === "po") {
+      outstanding += ev.amount;
+    } else if (ev.kind === "pay" || ev.kind === "ccn") {
+      outstanding = Math.max(0, outstanding - ev.amount);
+    }
+    // boundary events don't change outstanding/limit — they just force a point
+    points.push({ date: ev.date, outstanding, creditLimit: baseLimit + getTempExtra(ev.date) });
+  }
+
+  // Ensure we have today's point
+  if (points[points.length - 1]?.date !== todayStr) {
+    points.push({ date: todayStr, outstanding, creditLimit: baseLimit + getTempExtra(todayStr) });
+  }
+
+  // Deduplicate by date — keep last entry per date (most recent state of that day)
+  const deduped = new Map<string, CreditHistoryPoint>();
+  for (const p of points) deduped.set(p.date, p);
+
+  return [...deduped.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
 /** Effective credit limit = base + active temp (if any) */
 export async function getEffectiveCreditLimit(customerId: number): Promise<{
   base_limit: number;

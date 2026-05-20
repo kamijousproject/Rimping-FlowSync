@@ -4,6 +4,7 @@ import {
   getCustomer,
   listCustomerFiles,
   getEffectiveCreditLimit,
+  getCreditUsageHistory,
 } from "@/backend/services/customers";
 import { listPos } from "@/backend/services/po";
 import { listAllPaymentsForCustomer } from "@/backend/services/payments";
@@ -17,6 +18,7 @@ import { CustomerFilesModal } from "./CustomerFilesModal";
 import { CustomerEditLogsSection } from "./CustomerEditLogsSection";
 import { CustomerPoTable } from "./CustomerPoTable";
 import { CustomerCreditNotesSection } from "./CustomerCreditNotesSection";
+import { CustomerCreditUsageChart } from "./CustomerCreditUsageChart";
 
 export const dynamic = "force-dynamic";
 
@@ -29,12 +31,13 @@ export default async function CustomerDetailPage({
   const cid = Number(id);
   const c = await getCustomer(cid);
   if (!c) notFound();
-  const [{ pos }, payments, user, files, effective] = await Promise.all([
+  const [{ pos }, payments, user, files, effective, creditHistory] = await Promise.all([
     listPos({ customer_id: cid, limit: 999 }),
     listAllPaymentsForCustomer(cid),
     getCurrentUser(),
     listCustomerFiles(cid),
     getEffectiveCreditLimit(cid),
+    getCreditUsageHistory(cid, 12),
   ]);
   const canEdit = isSuperAdmin(user);
 
@@ -204,6 +207,10 @@ export default async function CustomerDetailPage({
             {c.notes || "-"}
           </div>
         </div>
+      </div>
+
+      <div className="card p-5">
+        <CustomerCreditUsageChart data={creditHistory} />
       </div>
 
       <CustomerPoTable
