@@ -69,6 +69,7 @@ export function EditCustomerForm({ id, initial }: Props) {
 
   // Pending credit limit requests
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [cancelLoading, setCancelLoading] = useState<number | null>(null);
 
   // Upload files
   const [files, setFiles] = useState<File[]>([]);
@@ -179,6 +180,28 @@ export function EditCustomerForm({ id, initial }: Props) {
       }
     } catch (error) {
       console.error('Failed to load temp credits:', error);
+    }
+  }
+
+  async function cancelCreditRequest(requestId: number, token: string) {
+    setCancelLoading(requestId);
+    try {
+      const r = await fetch(`/api/customers/${id}/credit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel_request", request_id: requestId, token }),
+      });
+      if (r.ok) {
+        await loadTempCredits();
+        setCreditMsg({ type: "ok", text: "ยกเลิกคำขอสำเร็จ" });
+      } else {
+        const d = await r.json().catch(() => ({}));
+        setCreditMsg({ type: "err", text: d.error || "ยกเลิกคำขอไม่สำเร็จ" });
+      }
+    } catch {
+      setCreditMsg({ type: "err", text: "เกิดข้อผิดพลาด" });
+    } finally {
+      setCancelLoading(null);
     }
   }
 
@@ -404,7 +427,14 @@ export function EditCustomerForm({ id, initial }: Props) {
                   <div className="text-yellow-600 text-xs">ผู้ขอ: {req.requester_name}</div>
                   {req.reason && <div className="text-xs text-yellow-600">เหตุผล: {req.reason}</div>}
                 </div>
-                <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full font-medium">รออนุมัติ</span>
+                <button
+                  type="button"
+                  className="text-xs bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1 rounded-full font-medium transition-colors disabled:opacity-50"
+                  disabled={cancelLoading === req.id}
+                  onClick={() => cancelCreditRequest(req.id, req.approval_token)}
+                >
+                  {cancelLoading === req.id ? "กำลังยกเลิก..." : "ยกเลิกคำขอ"}
+                </button>
               </div>
             ))}
           </div>
@@ -484,7 +514,14 @@ export function EditCustomerForm({ id, initial }: Props) {
                   <div className="text-yellow-600 text-xs">{req.start_date} ถึง {req.end_date}</div>
                   {req.reason && <div className="text-xs text-yellow-600">เหตุผล: {req.reason}</div>}
                 </div>
-                <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full font-medium">รออนุมัติ</span>
+                <button
+                  type="button"
+                  className="text-xs bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1 rounded-full font-medium transition-colors disabled:opacity-50"
+                  disabled={cancelLoading === req.id}
+                  onClick={() => cancelCreditRequest(req.id, req.approval_token)}
+                >
+                  {cancelLoading === req.id ? "กำลังยกเลิก..." : "ยกเลิกคำขอ"}
+                </button>
               </div>
             ))}
           </div>

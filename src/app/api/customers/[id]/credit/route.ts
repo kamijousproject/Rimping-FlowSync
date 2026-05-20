@@ -10,6 +10,7 @@ import {
   getEffectiveCreditLimit,
   createCreditLimitRequest,
   listPendingCreditLimitRequests,
+  rejectCreditLimitRequest,
 } from "@/backend/services/customers";
 import { sendCreditLimitApprovalEmail } from "@/backend/services/email";
 import { query } from "@/backend/db";
@@ -33,7 +34,13 @@ const DeactivateSchema = z.object({
   temp_id: z.number().int().positive(),
 });
 
-const Schema = z.discriminatedUnion("action", [AdjustSchema, TempSchema, DeactivateSchema]);
+const CancelRequestSchema = z.object({
+  action: z.literal("cancel_request"),
+  request_id: z.number().int().positive(),
+  token: z.string(),
+});
+
+const Schema = z.discriminatedUnion("action", [AdjustSchema, TempSchema, DeactivateSchema, CancelRequestSchema]);
 
 export async function GET(
   _req: Request,
@@ -170,6 +177,10 @@ export async function POST(
     if (parsed.data.action === "deactivate_temp") {
       await deactivateTempCreditLimit(parsed.data.temp_id, auth.user.id);
       return NextResponse.json({ ok: true });
+    }
+    if (parsed.data.action === "cancel_request") {
+      await rejectCreditLimitRequest(parsed.data.token, auth.user.id, "ยกเลิกโดยผู้ขอ");
+      return NextResponse.json({ ok: true, message: "ยกเลิกคำขอสำเร็จ" });
     }
   } catch (e) {
     return serverError(e);

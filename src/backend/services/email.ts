@@ -1,25 +1,11 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
 const MANAGER_EMAIL = process.env.MANAGER_EMAIL || "thanapong@rimping.com";
-const SMTP_HOST = process.env.SMTP_HOST || "smtp.gmail.com";
-const SMTP_PORT = parseInt(process.env.SMTP_PORT || "587");
-const SMTP_USER = process.env.SMTP_USER || "";
-const SMTP_PASS = process.env.SMTP_PASS || "";
+const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "noreply@rimping.com";
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
-let transporter: nodemailer.Transporter | null = null;
-
-if (SMTP_USER && SMTP_PASS) {
-  transporter = nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: SMTP_PORT,
-    secure: SMTP_PORT === 465,
-    auth: {
-      user: SMTP_USER,
-      pass: SMTP_PASS,
-    },
-  });
-}
+const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
 export async function sendCreditLimitApprovalEmail(
   requestId: number,
@@ -31,8 +17,8 @@ export async function sendCreditLimitApprovalEmail(
   reason: string | null,
   requesterName: string
 ): Promise<void> {
-  if (!transporter) {
-    console.warn("Email transporter not configured. Check SMTP_USER and SMTP_PASS env vars.");
+  if (!resend) {
+    console.warn("Resend not configured. Set RESEND_API_KEY in .env.local");
     console.log(`[EMAIL MOCK] Approval email would be sent to ${MANAGER_EMAIL}`);
     console.log(`[EMAIL MOCK] Approval link: ${BASE_URL}/credit-approval/${token}`);
     return;
@@ -131,14 +117,19 @@ ${approvalLink}
   `;
 
   try {
-    await transporter.sendMail({
-      from: `"FlowSync System" <${SMTP_USER}>`,
+    const { error } = await resend.emails.send({
+      from: `FlowSync System <${FROM_EMAIL}>`,
       to: MANAGER_EMAIL,
       subject,
       html,
       text,
     });
-    
+
+    if (error) {
+      console.error("Resend error:", error);
+      throw new Error(error.message);
+    }
+
     console.log(`Approval email sent to ${MANAGER_EMAIL} for request ${requestId}`);
   } catch (error) {
     console.error("Failed to send approval email:", error);
