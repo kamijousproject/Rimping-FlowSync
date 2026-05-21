@@ -335,6 +335,23 @@ ON DUPLICATE KEY UPDATE
   synced_at = CURRENT_TIMESTAMP
 """
 
+def get_today_sales(conn) -> dict[str, int]:
+    """Return {sku: total_qty} for all non-cancelled POs created since 00:00 today."""
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT pi.product_name, SUM(pi.quantity)
+        FROM po_items pi
+        JOIN purchase_orders po ON pi.po_id = po.id
+        WHERE po.created_at >= CURDATE()
+          AND po.status != 'cancelled'
+        GROUP BY pi.product_name
+    """)
+    result = {row[0]: int(row[1]) for row in cursor.fetchall()}
+    cursor.close()
+    log.info(f"Today's sales: {len(result)} SKUs with sold qty")
+    return result
+
+
 def upsert_inventory_rows(conn, rows: list[dict]):
     cursor = conn.cursor()
     total_affected = 0
@@ -429,6 +446,13 @@ def main():
         # 5. Upsert inventory
         conn = mysql.connector.connect(**DB_CONFIG)
         try:
+            # Subtract today's PO sales so on_hand reflects real-time stock
+            sales_today = get_today_sales(conn)
+            for row in inv_rows:
+                sold = sales_today.get(row["sku"], 0)
+                row["on_hand"] = row["on_hand"] - sold
+            log.info(f"Applied today's sales deduction to {len(sales_today)} SKUs")
+
             inv_processed, inv_affected, inv_skipped = upsert_inventory_rows(conn, inv_rows)
             log.info(f"Inventory: ประมวลผล {inv_processed:,} แถว | affected rows: {inv_affected:,} | ข้าม {inv_skipped:,}")
         finally:
