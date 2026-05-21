@@ -73,6 +73,7 @@ function NewPoInner() {
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [stockInfo, setStockInfo] = useState<Record<string, number>>({});
 
   useEffect(() => {
     fetch("/api/customers")
@@ -86,8 +87,16 @@ function NewPoInner() {
           const c = list.find((x) => x.id === id);
           if (c) { setCreditTerm(c.default_credit_term_days); setCustQuery(c.name); }
         }
-      });
+      })
+      .catch(console.error);
   }, [presetCust]);
+
+  useEffect(() => {
+    const skus = items
+      .filter(it => it.product_name)
+      .map(it => it.product_name!);
+    fetchStockInfo(skus);
+  }, [items.map(it => it.product_name).join(",")]);
 
   const custMatches = custQuery.trim()
     ? customers.filter(
@@ -125,7 +134,7 @@ function NewPoInner() {
     const el = inputRefs.current[idx];
     if (!el) return;
     const r = el.getBoundingClientRect();
-    setDropdownPos({ top: r.bottom + window.scrollY + 2, left: r.left + window.scrollX, width: r.width });
+    setDropdownPos({ top: r.bottom + 2, left: r.left, width: r.width });
   }, []);
 
   function onProdQueryChange(idx: number, val: string) {
@@ -176,6 +185,35 @@ function NewPoInner() {
     setItems(items.filter((_, i) => i !== idx));
   }
 
+  // Fetch stock info for display
+  async function fetchStockInfo(skus: string[]) {
+    if (skus.length === 0) {
+      setStockInfo({});
+      return;
+    }
+    
+    try {
+      const response = await fetch("/api/inventory/check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          items: skus.map(sku => ({ sku, quantity: 1 }))
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const stockMap: Record<string, number> = {};
+        data.items?.forEach((item: any) => {
+          stockMap[item.sku] = item.stock;
+        });
+        setStockInfo(stockMap);
+      }
+    } catch (error) {
+      console.error("Failed to fetch stock info:", error);
+    }
+  }
+
   // Validation function
   function validateForm(): boolean {
     if (!customerId) {
@@ -184,6 +222,10 @@ function NewPoInner() {
     }
     if (items.length === 0 || items.some((it) => !it.product_name)) {
       setErr("กรุณากรอกรายการสินค้าให้ครบ");
+      return false;
+    }
+    if (items.some((it) => !it.quantity || it.quantity <= 0)) {
+      setErr("กรุณาระบุจำนวนที่ถูกต้อง");
       return false;
     }
     return true;
@@ -201,6 +243,8 @@ function NewPoInner() {
   async function confirmSubmit() {
     setShowConfirm(false);
     setLoading(true);
+    setErr(null);
+    
     const cleanItems = items.map(({ _prodQuery: _q, _prodOpen: _o, _prodHits: _h, ...rest }) => rest);
     const r = await fetch("/api/po", {
       method: "POST",
@@ -366,6 +410,7 @@ function NewPoInner() {
                   <th className="text-left p-2">รายละเอียด</th>
                   <th className="text-right p-2 w-24">จำนวน *</th>
                   <th className="text-left p-2 w-24">หน่วย</th>
+                  <th className="text-right p-2 w-24">Stock</th>
                   <th className="text-right p-2 w-32">ราคา/หน่วย *</th>
                   <th className="text-right p-2 w-32">รวม</th>
                   <th className="w-10"></th>
@@ -378,11 +423,12 @@ function NewPoInner() {
                     <tr key={idx} className="border-t">
                       <td className="p-1">
                         <input
-                          ref={(el) => { inputRefs.current[idx] = el; }}
+                          type="text"
                           className="input"
                           required
                           placeholder="ค้น SKU..."
                           autoComplete="off"
+                          ref={(el) => { inputRefs.current[idx] = el; }}
                           value={it._prodQuery ?? it.product_name}
                           onFocus={() => { setOpenIdx(idx); recalcPos(idx); updateItem(idx, { _prodOpen: true }); }}
                           onBlur={() => setTimeout(() => { updateItem(idx, { _prodOpen: false }); setOpenIdx(null); setDropdownPos(null); }, 150)}
@@ -422,6 +468,19 @@ function NewPoInner() {
                           }
                         />
                       </td>
+                      <td className="p-1 text-right">
+                        {it.product_name && stockInfo[it.product_name] !== undefined ? (
+                          <span className={
+                            stockInfo[it.product_name] < 0 ? "text-red-600 font-semibold" :
+                            stockInfo[it.product_name] < Number(it.quantity || 0) ? "text-orange-600 font-semibold" :
+                            "text-green-600"
+                          }>
+                            {stockInfo[it.product_name] < 0 ? `${stockInfo[it.product_name]} (ติดลบ)` : stockInfo[it.product_name]}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
                       <td className="p-1">
                         <input
                           type="number"
@@ -458,7 +517,7 @@ function NewPoInner() {
               </tbody>
               <tfoot>
                 <tr className="border-t-2 font-bold">
-                  <td colSpan={5} className="p-2 text-right">
+                  <td colSpan={6} className="p-2 text-right">
                     รวมทั้งหมด
                   </td>
                   <td className="p-2 text-right text-brand-700 text-lg">
@@ -495,6 +554,8 @@ function NewPoInner() {
 
         <div className="flex gap-2">
           <button
+            type="button"
+            onClick={handleSubmitClick}
             className="btn-primary"
             disabled={loading || overLimit || !customerId}
           >

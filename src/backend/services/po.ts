@@ -38,6 +38,9 @@ export type PurchaseOrder = {
   signed_doc_path: string | null;  // JSON array string or single path (legacy)
   signed_at: Date | null;
   tax_invoice_number: string | null;
+  jda_job_id: string | null;
+  jda_po_number: string | null;
+  jda_synced_at: Date | null;
   due_date: Date | null;
   fully_paid_at: Date | null;
   notes: string | null;

@@ -1,0 +1,127 @@
+import { query, exec } from "../db";
+
+export type InventoryItem = {
+  id: number;
+  store: number;
+  sku: string;
+  upc: string | null;
+  description: string;
+  vendor: number | null;
+  vendor_name: string | null;
+  on_hand: number;
+  on_order: number;
+  on_transfer: number;
+  in_transit: number;
+  hold_qty: number;
+  date_last_sold: Date | null;
+  synced_at: Date;
+};
+
+export async function getInventoryBySKU(sku: string, store: number = 500): Promise<InventoryItem | null> {
+  const rows = await query(
+    "SELECT * FROM inventory WHERE sku = ? AND store = ?",
+    [sku, store]
+  );
+  return (rows as InventoryItem[])[0] ?? null;
+}
+
+export async function getInventoryBySKUs(skus: string[], store: number = 500): Promise<InventoryItem[]> {
+  if (skus.length === 0) return [];
+  
+  const placeholders = skus.map(() => "?").join(",");
+  const rows = await query(
+    `SELECT * FROM inventory WHERE sku IN (${placeholders}) AND store = ?`,
+    [...skus, store]
+  );
+  return rows as InventoryItem[];
+}
+
+export async function checkStockAvailability(
+  sku: string, 
+  quantity: number, 
+  store: number = 500
+): Promise<{ available: boolean; stock: number; message: string }> {
+  const inventory = await getInventoryBySKU(sku, store);
+  
+  if (!inventory) {
+    return {
+      available: false,
+      stock: 0,
+      message: `ไม่พบข้อมูลสินค้า ${sku} ในระบบ inventory`
+    };
+  }
+  
+  const availableStock = inventory.on_hand;
+  
+  if (availableStock < 0) {
+    return {
+      available: false,
+      stock: availableStock,
+      message: `สินค้า ${sku} มี stock เป็นค่าลบ (${availableStock} ชิ้น) ไม่สามารถสั่งได้`
+    };
+  }
+  
+  if (availableStock < quantity) {
+    return {
+      available: false,
+      stock: availableStock,
+      message: `สินค้า ${sku} มี stock เพียง ${availableStock} ชิ้น ไม่เพียงพอสำหรับสั่ง ${quantity} ชิ้น`
+    };
+  }
+  
+  return {
+    available: true,
+    stock: availableStock,
+    message: `สินค้า ${sku} มี stock ${availableStock} ชิ้น สามารถสั่ง ${quantity} ชิ้นได้`
+  };
+}
+
+export async function checkMultipleStockAvailability(
+  items: { sku: string; quantity: number }[],
+  store: number = 500
+): Promise<{ sku: string; available: boolean; stock: number; message: string }[]> {
+  const skus = items.map(item => item.sku);
+  const inventoryMap = new Map(
+    (await getInventoryBySKUs(skus, store)).map(item => [item.sku, item])
+  );
+  
+  return items.map(item => {
+    const inventory = inventoryMap.get(item.sku);
+    
+    if (!inventory) {
+      return {
+        sku: item.sku,
+        available: false,
+        stock: 0,
+        message: `ไม่พบข้อมูลสินค้า ${item.sku} ในระบบ inventory`
+      };
+    }
+    
+    const availableStock = inventory.on_hand;
+    
+    if (availableStock < 0) {
+      return {
+        sku: item.sku,
+        available: false,
+        stock: availableStock,
+        message: `สินค้า ${item.sku} มี stock เป็นค่าลบ (${availableStock} ชิ้น)`
+      };
+    }
+    
+    if (availableStock < item.quantity) {
+      return {
+        sku: item.sku,
+        available: false,
+        stock: availableStock,
+        message: `มี stock เพียง ${availableStock} ชิ้น ไม่เพียงพอสำหรับสั่ง ${item.quantity} ชิ้น`
+      };
+    }
+    
+    return {
+      sku: item.sku,
+      available: true,
+      stock: availableStock,
+      message: `มี stock ${availableStock} ชิ้น`
+    };
+  });
+}

@@ -68,6 +68,11 @@ export default async function PoDetailPage({
             <StatusBadge status={po.status} />
             <PaymentBadge status={po.payment_status} />
           </div>
+          {po.jda_po_number && (
+            <div className="text-xs bg-green-50 border border-green-200 rounded px-2 py-0.5 text-green-800">
+              JDA: <span className="font-mono font-semibold">{po.jda_po_number}</span>
+            </div>
+          )}
           <div className="text-xs text-muted">
             เครดิต {po.credit_term_days} วัน
             {po.due_date &&
@@ -208,6 +213,8 @@ export default async function PoDetailPage({
           created_at: cn.created_at,
           creator_name: cn.creator_name,
         }))}
+        jda_job_id={po.jda_job_id ?? null}
+        jda_po_number={po.jda_po_number ?? null}
       />
 
       {/* Items */}

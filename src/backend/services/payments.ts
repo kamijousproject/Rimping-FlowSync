@@ -11,6 +11,8 @@ export type Payment = {
   reference: string | null;
   slip_path: string | null;
   notes: string | null;
+  jda_job_id: string | null;
+  jda_synced_at: Date | null;
   recorded_by: number;
   created_at: Date;
 };

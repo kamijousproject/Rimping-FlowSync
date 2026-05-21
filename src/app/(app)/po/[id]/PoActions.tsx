@@ -1,8 +1,9 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, FileMinus, Upload, Wallet, X, AlertCircle } from "lucide-react";
+import { FileText, FileMinus, Upload, Wallet, X, AlertCircle, RefreshCw } from "lucide-react";
 import { fmtMoney } from "@/components/StatusBadge";
+import { JdaProgressBar, type JdaPollData } from "@/components/JdaProgress";
 
 const FLOW: { from: string; to: string; label: string }[] = [
   { from: "draft", to: "confirmed", label: "ยืนยัน PO (ลูกค้า confirm)" },
@@ -26,6 +27,8 @@ export function PoActions({
   items: poItems,
   customerId,
   creditNotes: initialCreditNotes,
+  jda_job_id: initialJdaJobId,
+  jda_po_number: initialJdaPoNumber,
 }: {
   poId: number;
   status: string;
@@ -36,6 +39,8 @@ export function PoActions({
   items: PoItem[];
   customerId: number;
   creditNotes: CreditNote[];
+  jda_job_id: string | null;
+  jda_po_number: string | null;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -107,6 +112,76 @@ export function PoActions({
     invoice_number: string;
     amount: number;
   } | null>(null);
+
+  // JDA sync state
+  const [jdaJobId, setJdaJobId] = useState<string | null>(initialJdaJobId);
+  const [jdaPoNumber, setJdaPoNumber] = useState<string | null>(initialJdaPoNumber);
+  const [jdaPollStatus, setJdaPollStatus] = useState<"idle" | "pending" | "success" | "error">(
+    initialJdaPoNumber ? "success" : initialJdaJobId ? "pending" : "idle"
+  );
+  const [jdaBusy, setJdaBusy] = useState(false);
+  const [jdaPollData, setJdaPollData] = useState<JdaPollData | null>(null);
+  const jdaPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Poll JDA status every 15 s when a job is pending
+  useEffect(() => {
+    if (jdaPollStatus !== "pending" || jdaPoNumber) return;
+
+    async function poll() {
+      const r = await fetch(`/api/po/${poId}/jda-status`);
+      if (!r.ok) return;
+      const d: JdaPollData = await r.json();
+      setJdaPollData(d);
+      if (d.status === "success") {
+        setJdaPoNumber(d.jda_po_number ?? null);
+        setJdaPollStatus("success");
+        if (jdaPollRef.current) clearInterval(jdaPollRef.current);
+        router.refresh();
+      }
+    }
+
+    poll();
+    jdaPollRef.current = setInterval(poll, 15_000);
+    return () => {
+      if (jdaPollRef.current) clearInterval(jdaPollRef.current);
+    };
+  }, [jdaPollStatus, jdaPoNumber, poId, router]);
+
+  async function triggerJda() {
+    setJdaBusy(true);
+    try {
+      const r = await fetch(`/api/po/${poId}/jda-trigger`, { method: "POST" });
+      const d = await r.json();
+      if (!r.ok) { setErr(d.error || "ส่งข้อมูล JDA ไม่สำเร็จ"); return; }
+      if (d.already_synced) {
+        setJdaPoNumber(d.jda_po_number);
+        setJdaPollStatus("success");
+        return;
+      }
+      setJdaJobId(d.job_id);
+      setJdaPollStatus("pending");
+    } catch {
+      setErr("เชื่อมต่อ RPA Bot ไม่ได้");
+    } finally {
+      setJdaBusy(false);
+    }
+  }
+
+  async function checkJdaNow() {
+    setJdaBusy(true);
+    try {
+      const r = await fetch(`/api/po/${poId}/jda-status`);
+      const d: JdaPollData = await r.json();
+      setJdaPollData(d);
+      if (d.status === "success") {
+        setJdaPoNumber(d.jda_po_number ?? null);
+        setJdaPollStatus("success");
+        router.refresh();
+      }
+    } finally {
+      setJdaBusy(false);
+    }
+  }
 
   // Credit note state
   const [creditNotes, setCreditNotes] = useState<CreditNote[]>(initialCreditNotes);
@@ -361,6 +436,7 @@ export function PoActions({
 
   const canPay = payment_status !== "paid" && status !== "cancelled" &&
     ["received", "delivered"].includes(status);
+  const jdaReady = !!jdaPoNumber;
 
   return (
     <div className="card p-5 space-y-4">
@@ -583,6 +659,50 @@ export function PoActions({
         </div>
       )}
 
+      {/* JDA sync section — shown when status is received */}
+      {status === "received" && (
+        <div className="border-t pt-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm font-medium">ส่งข้อมูลเข้า JDA</div>
+            {jdaPollStatus === "success" ? (
+              <span className="text-xs text-green-700 bg-green-50 border border-green-200 rounded px-2 py-0.5">สำเร็จ</span>
+            ) : jdaPollStatus === "pending" ? (
+              <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 flex items-center gap-1">
+                <RefreshCw className="w-3 h-3 animate-spin" /> กำลังรอ JDA...
+              </span>
+            ) : null}
+          </div>
+
+          {jdaPollStatus === "success" && jdaPoNumber ? (
+            <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-sm">
+              <div className="text-xs text-green-600 mb-0.5">เลข PO ใน JDA</div>
+              <div className="font-mono font-bold text-green-800 text-base">{jdaPoNumber}</div>
+            </div>
+          ) : jdaPollStatus === "pending" ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-3 text-sm space-y-3">
+              <div className="text-xs text-muted font-mono">Job ID: {jdaJobId}</div>
+              {jdaPollData ? (
+                <JdaProgressBar data={jdaPollData} />
+              ) : (
+                <div className="text-amber-800 text-xs">กำลังเชื่อมต่อ RPA Bot...</div>
+              )}
+              <button onClick={checkJdaNow} disabled={jdaBusy} className="btn-secondary text-xs flex items-center gap-1">
+                <RefreshCw className={`w-3 h-3 ${jdaBusy ? "animate-spin" : ""}`} />
+                เช็คสถานะตอนนี้
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="text-xs text-muted">ยังไม่ได้ส่งข้อมูลเข้า JDA</div>
+              <button onClick={triggerJda} disabled={jdaBusy} className="btn-secondary text-sm flex items-center gap-1">
+                <RefreshCw className={`w-3.5 h-3.5 ${jdaBusy ? "animate-spin" : ""}`} />
+                ส่งข้อมูล JDA ใหม่
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Payment section */}
       {canPay && (
         <div className="border-t pt-3">
@@ -595,17 +715,26 @@ export function PoActions({
               <FileText className="w-4 h-4" />
               สร้าง Invoice ({fmtMoney(remaining)} ฿)
             </button>
-            <button
-              onClick={() => {
-                setPayAmount(remaining);
-                setShowPay(true);
-              }}
-              disabled={busy || remaining <= 0}
-              className="btn-primary"
-            >
-              <Wallet className="w-4 h-4" />
-              บันทึกการชำระเงิน
-            </button>
+            <div className="flex flex-col items-start gap-1">
+              <button
+                onClick={() => {
+                  setPayAmount(remaining);
+                  setShowPay(true);
+                }}
+                disabled={busy || remaining <= 0 || !jdaReady}
+                className="btn-primary"
+                title={!jdaReady ? "รอให้ JDA ยืนยันเลข PO ก่อน" : undefined}
+              >
+                <Wallet className="w-4 h-4" />
+                บันทึกการชำระเงิน
+              </button>
+              {!jdaReady && (
+                <div className="text-xs text-amber-700 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  รอเลข PO จาก JDA ก่อนบันทึกการชำระ
+                </div>
+              )}
+            </div>
           </div>
           {invoice && (
             <div className="mt-2 text-xs text-brand-700">

@@ -179,7 +179,7 @@ export function CustomerPoTable({
                 </td>
                 <td className="text-right">{fmtMoney(p.total)}</td>
                 <td className="text-right text-brand-700">{fmtMoney(p.paid_amount)}</td>
-                <td className="text-right text-red-600">{fmtMoney(p.remaining_amount)}</td>
+                <td className="text-right text-red-600">{p.status === "cancelled" ? fmtMoney(0) : fmtMoney(p.remaining_amount)}</td>
                 <td className="text-center"><StatusBadge status={p.status} /></td>
                 <td className="text-center"><PaymentBadge status={p.payment_status} /></td>
                 <td className="text-center text-xs">

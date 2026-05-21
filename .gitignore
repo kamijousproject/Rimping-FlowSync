@@ -64,3 +64,17 @@ testsprite_tests/
 testsprite-mcp-test-report.md
 testsprite_*.log
 testsprite_cache/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+.venv/
+venv/
+
+# Backend runtime
+backend/backend.log
+backend/__pycache__/
+src/backend/__pycache__/
