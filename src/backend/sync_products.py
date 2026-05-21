@@ -82,8 +82,9 @@ def parse_date(val: str):
 
 def to_int(val: str):
     try:
-        return int(val.strip()) if val.strip() else None
-    except ValueError:
+        v = val.strip()
+        return int(float(v)) if v else None
+    except (ValueError, OverflowError):
         return None
 
 def to_float(val: str):
