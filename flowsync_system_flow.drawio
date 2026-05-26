@@ -1,0 +1,162 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="flowsync" name="FlowSync System Flow">
+    <![CDATA[
+flowchart TD
+
+    %% =========================
+    %% AUTHENTICATION
+    %% =========================
+    A([Start]) --> B{Authenticated?}
+
+    B -- No --> C[Login Page]
+    C --> D{Login Success?}
+
+    D -- No --> C
+    D -- Yes --> E[Dashboard]
+
+    B -- Yes --> E
+
+    %% =========================
+    %% MAIN MODULES
+    %% =========================
+    E --> F[Customer Management]
+    E --> G[Purchase Order Management]
+    E --> H[Billing Notes]
+    E --> I[Invoice Management]
+    E --> J[Receipt Management]
+    E --> K[User Management]
+    E --> L[Notification & Cron Services]
+
+    %% =========================
+    %% CUSTOMER FLOW
+    %% =========================
+    subgraph CUSTOMER_FLOW [Customer Management Flow]
+        F --> F1[Create Customer]
+        F --> F2[Edit Customer]
+        F --> F3[Upload Customer Files]
+        F --> F4[Create Credit Note]
+        F --> F5[Create Billing Note]
+        F --> F6[Request Temporary Credit]
+    end
+
+    %% =========================
+    %% PURCHASE ORDER FLOW
+    %% =========================
+    subgraph PO_FLOW [Purchase Order Lifecycle]
+        G --> G1[Create Purchase Order]
+
+        G1 --> G2{Credit Check Passed?}
+
+        G2 -- No --> G3[Reject PO]
+        G2 -- Yes --> G4[Save Draft PO]
+
+        G4 --> G5[Auto Apply Credit Notes]
+        G5 --> G6[Confirm PO]
+
+        G6 --> G7[Pack Items]
+        G7 --> G8[Quality Check]
+        G8 --> G9[Deliver Order]
+        G9 --> G10[Customer Received]
+
+        G10 --> G11[Generate Documents]
+        G11 --> G12[Quotation]
+        G11 --> G13[Invoice]
+        G11 --> G14[Tax Invoice]
+        G11 --> G15[Signed Documents]
+
+        G15 --> P1
+    end
+
+    %% =========================
+    %% PAYMENT FLOW
+    %% =========================
+    subgraph PAYMENT_FLOW [Payment & Settlement]
+        P1[Create Payment Record]
+        P1 --> P2[Upload Slip / Reference]
+        P2 --> P3[Recalculate Remaining Amount]
+
+        P3 --> P4{Fully Paid?}
+
+        P4 -- No --> P1
+        P4 -- Yes --> P5[Mark as Paid]
+        P5 --> P6[Set fully_paid_at]
+    end
+
+    %% =========================
+    %% BILLING NOTE FLOW
+    %% =========================
+    subgraph BILLING_FLOW [Billing Note Flow]
+        H --> H1[Create Billing Note]
+        H1 --> H2[Track Due Date]
+        H2 --> H3[Monitor Billing Status]
+    end
+
+    %% =========================
+    %% INVOICE FLOW
+    %% =========================
+    subgraph INVOICE_FLOW [Invoice Flow]
+        I --> I1[Create Invoice]
+        I --> I2[Edit Invoice]
+        I --> I3[List Invoices]
+        I1 --> I4[Invoice Logs]
+    end
+
+    %% =========================
+    %% RECEIPT FLOW
+    %% =========================
+    subgraph RECEIPT_FLOW [Receipt Flow]
+        J --> J1[View Receipt Data]
+    end
+
+    %% =========================
+    %% USER FLOW
+    %% =========================
+    subgraph USER_FLOW [User Management]
+        K --> K1[Register User]
+        K --> K2[Edit User]
+        K --> K3[Assign Temporary Role]
+        K --> K4[Role Based Access]
+    end
+
+    %% =========================
+    %% NOTIFICATION FLOW
+    %% =========================
+    subgraph NOTIFICATION_FLOW [Overdue Notification System]
+        L --> L1[Cron Trigger]
+        L1 --> L2[Run Overdue Check]
+        L2 --> L3[Query Overdue Customers / PO]
+        L3 --> L4[Generate Notification]
+        L4 --> L5[Send LINE Notification]
+        L5 --> L6[Store Delivery Result]
+    end
+
+    %% =========================
+    %% SYSTEM ARCHITECTURE FLOW
+    %% =========================
+    subgraph SYSTEM_ARCH [System Architecture]
+        U[Back-office User]
+        FE[Next.js Frontend]
+        MW[Proxy Middleware]
+        API[Backend API Services]
+        DB[(MySQL Database)]
+        FS[(File Storage)]
+        LINE[LINE Bot API]
+
+        U --> FE
+        FE --> MW
+        MW --> API
+
+        API --> DB
+        API --> FS
+        API --> LINE
+    end
+
+    %% =========================
+    %% END FLOW
+    %% =========================
+    P6 --> Z([End])
+    G3 --> Z
+
+    ]]>
+  </diagram>
+</mxfile>
