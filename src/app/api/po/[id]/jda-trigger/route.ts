@@ -19,7 +19,7 @@ export async function POST(
   if (!data) return badRequest("ไม่พบ PO");
   const { po } = data;
 
-  if (po.status !== "received") return badRequest("PO ต้องอยู่ในสถานะ received");
+  if (po.status !== "confirmed") return badRequest("PO ต้องอยู่ในสถานะ confirmed");
   if (po.jda_po_number) return NextResponse.json({ already_synced: true, jda_po_number: po.jda_po_number });
 
   try {

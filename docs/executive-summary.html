@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>POM (purchase order management) - สรุปโปรเจคสำหรับผู้บริหาร</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 5mm;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: "Sarabun", "Kanit", -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 11pt;
+            line-height: 1.6;
+            color: #1f2937;
+        }
+        .container {
+            max-width: 210mm;
+            margin: 0 auto;
+            padding: 3mm;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #059669;
+            padding-bottom: 8px;
+            margin-bottom: 10px;
+        }
+        .logo-text {
+            font-size: 28pt;
+            font-weight: 700;
+            color: #059669;
+            letter-spacing: -1px;
+        }
+        .subtitle {
+            font-size: 12pt;
+            color: #6b7280;
+            margin-top: 5px;
+        }
+        h1 {
+            font-size: 14pt;
+            color: #059669;
+            margin: 12px 0 8px 0;
+            border-left: 4px solid #059669;
+            padding-left: 8px;
+        }
+        h2 {
+            font-size: 11pt;
+            color: #374151;
+            margin: 10px 0 5px 0;
+        }
+        .highlight-box {
+            background: #f0fdf4;
+            border: 1px solid #86efac;
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin: 10px 0;
+        }
+        .tech-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 12px 0;
+        }
+        .tech-item {
+            background: #f9fafb;
+            border-left: 3px solid #059669;
+            padding: 8px 12px;
+            font-size: 10pt;
+        }
+        .tech-label {
+            font-weight: 600;
+            color: #059669;
+        }
+        .feature-list {
+            list-style: none;
+            margin: 8px 0;
+        }
+        .feature-list li {
+            padding: 3px 0 3px 18px;
+            position: relative;
+        }
+        .feature-list li::before {
+            content: "•";
+            position: absolute;
+            left: 0;
+            color: #059669;
+            font-weight: bold;
+        }
+        .ai-section {
+            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+            border: 2px solid #10b981;
+            border-radius: 10px;
+            padding: 12px;
+            margin: 12px 0;
+        }
+        .ai-badge {
+            display: inline-block;
+            background: #10b981;
+            color: white;
+            font-size: 9pt;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 20px;
+            margin-bottom: 8px;
+        }
+        .status-tag {
+            display: inline-block;
+            background: #fef3c7;
+            color: #92400e;
+            font-size: 8pt;
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin-left: 5px;
+        }
+        .status-tag.ready {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            font-size: 10pt;
+        }
+        th, td {
+            padding: 6px 8px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        th {
+            background: #f0fdf4;
+            font-weight: 600;
+            color: #059669;
+        }
+        .footer {
+            margin-top: 20px;
+            padding-top: 10px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            font-size: 9pt;
+            color: #9ca3af;
+        }
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .metric-box {
+            text-align: center;
+            padding: 12px;
+            background: #f9fafb;
+            border-radius: 8px;
+        }
+        .metric-number {
+            font-size: 20pt;
+            font-weight: 700;
+            color: #059669;
+        }
+        .metric-label {
+            font-size: 9pt;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo-text">POM (purchase order management)</div>
+            <div class="subtitle">ระบบจัดการขายแบบสินเชื่อสำหรับ Rimping</div>
+        </div>
+
+        <h1>ภาพรวมโปรเจค</h1>
+        <div class="highlight-box">
+            <strong>POM (purchase order management)</strong> คือระบบหลังบ้าน (Back-office) สำหรับจัดการ <strong>Purchase Order (PO)</strong> 
+            ที่ขายสินค้าแบบเครดิตให้ลูกค้า ครอบคลุมตั้งแต่การออก PO, ติดตามสถานะ, ออกใบแจ้งหนี้, 
+            บันทึกการชำระเงิน พร้อมระบบแจ้งเตือนอัตโนมัติผ่าน LINE
+        </div>
+
+        <div class="two-col" style="margin: 15px 0;">
+            <div class="metric-box">
+                <div class="metric-number">6</div>
+                <div class="metric-label">ขั้นตอน PO Lifecycle</div>
+                <div style="font-size: 9pt; color: #6b7280; margin-top: 8px; text-align: left; padding: 0 10px;">
+                    1. ร่างเอกสาร<br>
+                    2. ยืนยันออเดอร์<br>
+                    3. แพ็คสินค้า<br>
+                    4. ตรวจสอบ<br>
+                    5. จัดส่ง<br>
+                    6. ลูกค้ารับของ
+                </div>
+            </div>
+            <div class="metric-box">
+                <div class="metric-number">2</div>
+                <div class="metric-label">ระดับสิทธิ์ผู้ใช้งาน</div>
+                <div style="font-size: 9pt; color: #6b7280; margin-top: 8px; text-align: left; padding: 0 10px;">
+                    <strong>เจ้าหน้าที่:</strong> ออก PO บันทึกการชำระเงิน ดูรายงาน<br><br>
+                    <strong>ผู้ดูแลระบบ:</strong> จัดการลูกค้า ปรับวงเงินเครดิต อนุมัติคำขอเพิ่มวงเงิน
+                </div>
+            </div>
+        </div>
+
+        <h1>เทคโนโลยีที่ใช้</h1>
+        <div class="highlight-box">
+            ระบบพัฒนาด้วยเทคโนโลยีเว็บสมัยใหม่ที่รองรับการทำงานบนมือถือและคอมพิวเตอร์ 
+            ใช้ฐานข้อมูล MySQL เก็บข้อมูลอย่างปลอดภัย มีระบบแจ้งเตือนผ่าน LINE 
+            และรองรับการเชื่อมต่อกับระบบอื่นในอนาคต
+        </div>
+
+        <h1>ฟีเจอร์หลัก</h1>
+        <ul class="feature-list">
+            <li>ออกใบสั่งซื้อ (PO) พร้อมตรวจสอบวงเงินเครดิตอัตโนมัติ</li>
+            <li>ติดตามสถานะสินค้าตั้งแต่รอจัดส่งจนถึงลูกค้ารับของ</li>
+            <li>ออกใบแจ้งหนี้และบันทึกรับชำระเงินพร้อมแนบหลักฐาน</li>
+            <li>แก้ไขข้อมูลได้พร้อมบันทึกประวัติการแก้ไขทุกครั้ง</li>
+            <li>แดชบอร์ดสรุปยอดลูกหนี้และรายการที่เลยกำหนดชำระ</li>
+            <li>แบ่งระดับสิทธิ์ผู้ใช้งาน: เจ้าหน้าที่และผู้ดูแลระบบ</li>
+            <li>พิมพ์เอกสารและส่งออก PDF ได้</li>
+            <li>ใช้งานได้ทั้งบนมือถือและคอมพิวเตอร์</li>
+        </ul>
+
+        <h1>การนำ AI และระบบอัตโนมัติเข้ามาใช้</h1>
+        
+        <div class="ai-section">
+            <div class="ai-badge">AI READY</div>
+            <h2>1. ระบบให้คะแนนความน่าเชื่อถือลูกค้า <span class="status-tag ready">พร้อมใช้งาน</span></h2>
+            <p style="font-size: 10pt; margin-bottom: 10px;">
+                ระบบเตรียมพร้อมรองรับ AI วิเคราะห์ประวัติการชำระเงินของลูกค้า 
+                เพื่อให้คะแนนความน่าเชื่อถือ ช่วยพิจารณาวงเงินเครดิตที่เหมาะสม
+            </p>
+        </div>
+
+        <div class="ai-section">
+            <div class="ai-badge">AUTOMATION</div>
+            <h2>2. แจ้งเตือนอัตโนมัติผ่าน LINE <span class="status-tag ready">ใช้งานอยู่</span></h2>
+            <p style="font-size: 10pt; margin-bottom: 10px;">
+                ระบบส่งข้อความแจ้งเตือนไปยังผู้บริหารและเจ้าหน้าที่อัตโนมัติ 
+                ตรวจสอบลูกค้าเลยกำหนดชำระทุกวัน เวลา 08:00 และ 14:00 น.
+            </p>
+            <ul class="feature-list" style="font-size: 10pt;">
+                <li>แจ้งเตือนลูกค้าเลยกำหนดชำระ 3, 7, 14, และ 30 วัน</li>
+                <li>แจ้งเตือนเมื่อมีลูกค้าใหม่เข้าระบบ</li>
+                <li>แจ้งเตือนการขอเพิ่มวงเงินเครดิต</li>
+                <li>แจ้งเตือนการปรับเปลี่ยนวงเงินลูกค้า</li>
+            </ul>
+        </div>
+
+        <div class="ai-section">
+            <div class="ai-badge">RPA INTEGRATION</div>
+            <h2>3. เชื่อมต่อระบบคลังสินค้า <span class="status-tag ready">Mock Ready</span></h2>
+            <p style="font-size: 10pt;">
+                เตรียมเชื่อมต่อกับระบบจัดการคลังสินค้า (JDA) 
+                เพื่อส่งข้อมูลการสั่งซื้อเข้าระบบโดยอัตโนมัติ ลดการทำงานซ้ำซ้อน
+            </p>
+        </div>
+
+        <h1>ประโยชน์ที่ได้รับ</h1>
+        <ul class="feature-list">
+            <li>ลดเวลาการติดตามลูกหนี้ด้วยการแจ้งเตือนอัตโนมัติ</li>
+            <li>ลดความเสี่ยงการให้เครดิตเกินวงเงินด้วยการตรวจสอบอัตโนมัติ</li>
+            <li>ตรวจสอบยอดค้างและประวัติลูกค้าได้แบบ Real-time</li>
+            <li>ออกเอกสารได้รวดเร็ว ไม่ต้องทำซ้ำหลายครั้ง</li>
+            <li>ทำงานได้จากทุกที่ ทั้งบนมือถือและคอมพิวเตอร์</li>
+        </ul>
+
+        <h1>สรุปสำหรับผู้บริหาร</h1>
+        <div class="highlight-box">
+            <strong>POM (purchase order management)</strong> เป็นระบบจัดการขายแบบเครดิตแบบครบวงจร 
+            ช่วยให้เจ้าหน้าที่ติดตามสถานะการสั่งซื้อและการชำระเงินได้อย่างมีประสิทธิภาพ 
+            ลดการทำงานด้วยมือด้วยระบบแจ้งเตือนอัตโนมัติผ่าน LINE 
+            พร้อมรองรับการประเมินความเสี่ยงด้วย AI ในอนาคต
+        </div>
+
+        <div class="footer">
+            POM (purchase order management) Project - Rimping | เอกสารฉบับสรุปสำหรับผู้บริหาร | มิถุนายน 2026
+        </div>
+    </div>
+
+    <script>
+        // Auto-print dialog for PDF export
+        window.onload = function() {
+            setTimeout(function() {
+                console.log("พร้อมสำหรับ Export PDF - กด Ctrl+P เพื่อบันทึกเป็น PDF");
+            }, 1000);
+        };
+    </script>
+</body>
+</html>

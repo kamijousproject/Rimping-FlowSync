@@ -659,8 +659,8 @@ export function PoActions({
         </div>
       )}
 
-      {/* JDA sync section — shown when status is received */}
-      {status === "received" && (
+      {/* JDA sync section — shown when status is confirmed */}
+      {status === "confirmed" && (
         <div className="border-t pt-3">
           <div className="flex items-center justify-between mb-2">
             <div className="text-sm font-medium">ส่งข้อมูลเข้า JDA</div>

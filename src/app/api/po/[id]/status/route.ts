@@ -60,8 +60,8 @@ export async function POST(
     const updated = await getPo(Number(id));
     if (!updated) return badRequest("ไม่พบ PO");
 
-    // Auto-trigger RPA bot when PO is marked received (fire-and-forget)
-    if (body.status === "received" && !updated.po.jda_job_id) {
+    // Auto-trigger RPA bot when PO is confirmed (fire-and-forget)
+    if (body.status === "confirmed" && !updated.po.jda_job_id) {
       triggerRpaBot(updated.po);
     }
 
