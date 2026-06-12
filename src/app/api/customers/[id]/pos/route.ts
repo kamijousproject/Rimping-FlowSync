@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/backend/db";
-import { getCurrentUser } from "@/backend/auth";
+import { requireUser, badRequest, serverError } from "../../../_helpers";
 
 export type CustomerPo = {
   id: number;
@@ -15,29 +15,24 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireUser();
+  if (!auth.ok) return auth.res;
 
   try {
     const { id } = await params;
     const customerId = parseInt(id);
-    
+
     if (isNaN(customerId)) {
-      return NextResponse.json(
-        { error: "Invalid customer ID" },
-        { status: 400 }
-      );
+      return badRequest("Invalid customer ID");
     }
 
     const { searchParams } = new URL(req.url);
-    
+
     // Pagination
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
     const offset = (page - 1) * limit;
-    
+
     // Filters
     const poNumber = searchParams.get("po_number");
     const taxInvoiceNumber = searchParams.get("tax_invoice_number");
@@ -46,60 +41,60 @@ export async function GET(
     const dateFrom = searchParams.get("date_from");
     const dateTo = searchParams.get("date_to");
     const status = searchParams.get("status");
-    
+
     // Build WHERE conditions
     const conditions: string[] = ["po.customer_id = ?"];
-    const paramsArray: any[] = [customerId];
-    
+    const paramsArray: unknown[] = [customerId];
+
     if (poNumber) {
       conditions.push("po.po_number LIKE ?");
       paramsArray.push(`%${poNumber}%`);
     }
-    
+
     if (taxInvoiceNumber) {
       conditions.push("po.tax_invoice_number LIKE ?");
       paramsArray.push(`%${taxInvoiceNumber}%`);
     }
-    
+
     if (minAmount) {
       conditions.push("po.total >= ?");
       paramsArray.push(minAmount);
     }
-    
+
     if (maxAmount) {
       conditions.push("po.total <= ?");
       paramsArray.push(maxAmount);
     }
-    
+
     if (dateFrom) {
       conditions.push("po.created_at >= ?");
       paramsArray.push(dateFrom);
     }
-    
+
     if (dateTo) {
       conditions.push("po.created_at <= ?");
       paramsArray.push(dateTo);
     }
-    
+
     if (status) {
       conditions.push("po.status = ?");
       paramsArray.push(status);
     }
-    
+
     const whereClause = conditions.join(" AND ");
-    
+
     // Count total
     const countQuery = `
-      SELECT COUNT(*) as total 
+      SELECT COUNT(*) as total
       FROM purchase_orders po
       WHERE ${whereClause}
     `;
     const [countResult] = await query<{ total: number }>(countQuery, paramsArray);
     const total = countResult?.total || 0;
-    
+
     // Fetch POs
     const dataQuery = `
-      SELECT 
+      SELECT
         po.id,
         po.po_number,
         po.tax_invoice_number,
@@ -111,9 +106,9 @@ export async function GET(
       ORDER BY po.created_at DESC
       LIMIT ? OFFSET ?
     `;
-    
+
     const pos = await query<CustomerPo>(dataQuery, [...paramsArray, limit, offset]);
-    
+
     return NextResponse.json({
       pos,
       pagination: {
@@ -123,12 +118,7 @@ export async function GET(
         totalPages: Math.ceil(total / limit),
       },
     });
-    
-  } catch (error) {
-    console.error("Error fetching customer POs:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch POs" },
-      { status: 500 }
-    );
+  } catch (e) {
+    return serverError(e);
   }
 }

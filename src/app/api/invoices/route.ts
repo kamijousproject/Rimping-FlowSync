@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@/backend/db";
-import { getCurrentUser } from "@/backend/auth";
+import { requireUser, serverError } from "../_helpers";
 
 export type InvoiceWithDetails = {
   id: number;
@@ -19,14 +19,12 @@ export type InvoiceWithDetails = {
 };
 
 export async function GET(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireUser();
+  if (!auth.ok) return auth.res;
 
   try {
     const { searchParams } = new URL(req.url);
-    
+
     // Filters
     const customerId = searchParams.get("customer_id");
     const customerName = searchParams.get("customer_name");
@@ -37,64 +35,64 @@ export async function GET(req: Request) {
     const dateTo = searchParams.get("date_to");
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
-    
+
     const offset = (page - 1) * limit;
-    
+
     // Build WHERE conditions
     // ไม่แสดงรายการที่ชำระครบแล้ว
     const conditions: string[] = ["po.tax_invoice_number IS NOT NULL", "po.payment_status != 'paid'"];
-    const params: any[] = [];
-    
+    const params: unknown[] = [];
+
     if (customerId) {
       conditions.push("po.customer_id = ?");
       params.push(customerId);
     }
-    
+
     if (customerName) {
       conditions.push("c.name LIKE ?");
       params.push(`%${customerName}%`);
     }
-    
+
     if (taxInvoiceNumber) {
       conditions.push("po.tax_invoice_number LIKE ?");
       params.push(`%${taxInvoiceNumber}%`);
     }
-    
+
     if (minAmount) {
       conditions.push("po.total >= ?");
       params.push(minAmount);
     }
-    
+
     if (maxAmount) {
       conditions.push("po.total <= ?");
       params.push(maxAmount);
     }
-    
+
     if (dateFrom) {
       conditions.push("po.created_at >= ?");
       params.push(dateFrom);
     }
-    
+
     if (dateTo) {
       conditions.push("po.created_at <= ?");
       params.push(dateTo);
     }
-    
+
     const whereClause = conditions.join(" AND ");
-    
+
     // Count total
     const countQuery = `
-      SELECT COUNT(*) as total 
+      SELECT COUNT(*) as total
       FROM purchase_orders po
       JOIN customers c ON po.customer_id = c.id
       WHERE ${whereClause}
     `;
     const [countResult] = await query<{ total: number }>(countQuery, params);
     const total = countResult?.total || 0;
-    
+
     // Fetch invoices
     const dataQuery = `
-      SELECT 
+      SELECT
         po.id,
         po.id as po_id,
         po.po_number,
@@ -115,9 +113,9 @@ export async function GET(req: Request) {
       ORDER BY po.created_at DESC
       LIMIT ? OFFSET ?
     `;
-    
+
     const invoices = await query<InvoiceWithDetails>(dataQuery, [...params, limit, offset]);
-    
+
     return NextResponse.json({
       invoices,
       pagination: {
@@ -127,12 +125,7 @@ export async function GET(req: Request) {
         totalPages: Math.ceil(total / limit),
       },
     });
-    
-  } catch (error) {
-    console.error("Error fetching invoices:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch invoices" },
-      { status: 500 }
-    );
+  } catch (e) {
+    return serverError(e);
   }
 }

@@ -18,7 +18,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import type { InvoiceWithDetails } from "../api/invoices/route";
+import type { InvoiceWithDetails } from "@/app/api/invoices/route";
 
 interface FilterState {
   customerName: string;

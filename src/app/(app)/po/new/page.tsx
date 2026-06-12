@@ -403,7 +403,7 @@ function NewPoInner() {
             </button>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[680px] text-sm">
               <thead className="text-xs text-muted">
                 <tr>
                   <th className="text-left p-2">สินค้า (SKU) *</th>
