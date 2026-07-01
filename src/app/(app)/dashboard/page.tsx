@@ -11,6 +11,8 @@ import {
   Wallet,
   CreditCard,
   Users as UsersIcon,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -35,11 +37,35 @@ const STATUS_LABEL_TH: Record<string, string> = {
   cancelled: "ยกเลิก",
 };
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const [stats, customers] = await Promise.all([
     getDashboardStats(),
     listCustomers(),
   ]);
+  const sp = await searchParams;
+
+  // Pagination (frontend-only; slices the already-fetched list)
+  const limit = 10;
+  const page = Math.max(1, parseInt(sp.page || "1", 10));
+  const totalPages = Math.max(1, Math.ceil(customers.length / limit));
+  const currentPage = Math.min(page, totalPages);
+  const startItem = customers.length > 0 ? (currentPage - 1) * limit + 1 : 0;
+  const endItem = Math.min(currentPage * limit, customers.length);
+  const pageCustomers = customers.slice(
+    (currentPage - 1) * limit,
+    currentPage * limit
+  );
+
+  function buildPageLink(p: number) {
+    const params = new URLSearchParams();
+    if (p > 1) params.set("page", String(p));
+    const qs = params.toString();
+    return qs ? `/dashboard?${qs}` : "/dashboard";
+  }
 
   const cards = [
     {
@@ -237,7 +263,7 @@ export default async function DashboardPage() {
 
         {/* Mobile cards */}
         <div className="md:hidden space-y-2">
-          {customers.map((c) => {
+          {pageCustomers.map((c) => {
             const usedPct = c.effective_limit
               ? (Number(c.outstanding) / Number(c.effective_limit)) * 100
               : 0;
@@ -290,7 +316,7 @@ export default async function DashboardPage() {
               </Link>
             );
           })}
-          {customers.length === 0 && (
+          {pageCustomers.length === 0 && (
             <div className="card p-8 text-center text-muted text-sm">ยังไม่มีลูกค้า</div>
           )}
         </div>
@@ -311,7 +337,7 @@ export default async function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {customers.map((c) => {
+              {pageCustomers.map((c) => {
                 const usedPct = c.effective_limit
                   ? (Number(c.outstanding) / Number(c.effective_limit)) * 100
                   : 0;
@@ -355,7 +381,7 @@ export default async function DashboardPage() {
                   </tr>
                 );
               })}
-              {customers.length === 0 && (
+              {pageCustomers.length === 0 && (
                 <tr>
                   <td colSpan={8} className="text-center py-8 text-muted">ยังไม่มีลูกค้า</td>
                 </tr>
@@ -363,6 +389,40 @@ export default async function DashboardPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 mt-2 card">
+            <p className="text-sm text-muted">
+              แสดง {startItem}-{endItem} จาก {customers.length} รายการ
+            </p>
+            <div className="flex items-center gap-2">
+              <Link
+                href={buildPageLink(currentPage - 1)}
+                aria-disabled={currentPage <= 1}
+                className={`btn-secondary text-sm flex items-center gap-1 ${
+                  currentPage <= 1 ? "pointer-events-none opacity-50" : ""
+                }`}
+              >
+                <ChevronLeft className="w-4 h-4" />
+                ก่อนหน้า
+              </Link>
+              <span className="text-sm text-muted px-2">
+                หน้า {currentPage} / {totalPages}
+              </span>
+              <Link
+                href={buildPageLink(currentPage + 1)}
+                aria-disabled={currentPage >= totalPages}
+                className={`btn-secondary text-sm flex items-center gap-1 ${
+                  currentPage >= totalPages ? "pointer-events-none opacity-50" : ""
+                }`}
+              >
+                ถัดไป
+                <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
+        )}
       </div>
 
     </div>
