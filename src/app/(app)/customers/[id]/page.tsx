@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AlertTriangle, Info } from "lucide-react";
 import {
   getCustomer,
   listCustomerFiles,
@@ -86,37 +87,44 @@ export default async function CustomerDetailPage({
             </Link>
           )}
           <Link href={`/po/new?customer_id=${cid}`} className="btn-primary">
-            + สร้าง PO ให้ลูกค้านี้
+            + สร้าง Quotation ให้ลูกค้านี้
           </Link>
         </div>
       </div>
 
       {/* Over base limit warning (temp credit expired or no temp credit) */}
       {overBaseLimit && (
-        <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 font-medium">
-          ⚠️ ลูกค้ามียอดค้างชำระ {fmtMoney(c.outstanding)} เกินวงเงินหลัก {fmtMoney(c.credit_limit)}
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 font-medium flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>ลูกค้ามียอดค้างชำระ {fmtMoney(c.outstanding)} เกินวงเงินหลัก {fmtMoney(c.credit_limit)}</span>
         </div>
       )}
 
       {/* Temp credit expired warning */}
       {tempExpired && (
-        <div className="rounded-lg border border-orange-300 bg-orange-50 px-4 py-3 text-sm text-orange-700">
-          ⚠️ <strong>วงเงินชั่วคราวหมดอายุแล้ว</strong> (หมดเมื่อ {tempCredit!.end_date}) — วงเงินเพิ่มเติม{" "}
-          {fmtMoney(tempCredit!.extra_amount)} ไม่นับรวมอีกต่อไป{" "}
-          {Number(c.outstanding) > Number(c.credit_limit) && (
-            <span className="font-bold text-red-700">
-              · ยอดค้างชำระ {fmtMoney(c.outstanding)} เกินวงเงินหลัก {fmtMoney(c.credit_limit)}
-            </span>
-          )}
+        <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700 flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>
+            <strong>วงเงินชั่วคราวหมดอายุแล้ว</strong> (หมดเมื่อ {tempCredit!.end_date}) — วงเงินเพิ่มเติม{" "}
+            {fmtMoney(tempCredit!.extra_amount)} ไม่นับรวมอีกต่อไป{" "}
+            {Number(c.outstanding) > Number(c.credit_limit) && (
+              <span className="font-bold text-red-700">
+                · ยอดค้างชำระ {fmtMoney(c.outstanding)} เกินวงเงินหลัก {fmtMoney(c.credit_limit)}
+              </span>
+            )}
+          </span>
         </div>
       )}
 
       {/* Active temp credit banner */}
       {tempCredit && !tempExpired && (
-        <div className="rounded-lg border border-blue-300 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-          🔵 <strong>วงเงินชั่วคราวใช้งานอยู่:</strong> +{fmtMoney(tempCredit.extra_amount)} (ถึง{" "}
-          {new Date(tempCredit.end_date).toLocaleDateString("th-TH")}){" "}
-          {tempCredit.reason ? `· ${tempCredit.reason}` : ""}
+        <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 flex items-start gap-2">
+          <Info className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>
+            <strong>วงเงินชั่วคราวใช้งานอยู่:</strong> +{fmtMoney(tempCredit.extra_amount)} (ถึง{" "}
+            {new Date(tempCredit.end_date).toLocaleDateString("th-TH")}){" "}
+            {tempCredit.reason ? `· ${tempCredit.reason}` : ""}
+          </span>
         </div>
       )}
 
@@ -231,13 +239,13 @@ export default async function CustomerDetailPage({
       />
 
       <div className="card p-5">
-        <h3 className="font-semibold mb-3">ประวัติการชำระเงิน (ทุก PO)</h3>
+        <h3 className="font-semibold mb-3">ประวัติการชำระเงิน (ทุก Quotation)</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-xs text-muted border-b">
               <tr>
                 <th className="text-left py-2">วันที่</th>
-                <th className="text-left">PO</th>
+                <th className="text-left">Quotation</th>
                 <th className="text-right">ยอด</th>
                 <th>วิธี</th>
                 <th>อ้างอิง</th>

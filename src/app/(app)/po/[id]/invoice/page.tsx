@@ -215,7 +215,7 @@ export default async function InvoicePage({
               </span>
             </div>
             <div>
-              <span className="text-muted">อ้างอิง PO</span>{" "}
+              <span className="text-muted">อ้างอิง Quotation</span>{" "}
               <span className="font-mono">{po.po_number}</span>
             </div>
             <div>
@@ -353,25 +353,14 @@ export default async function InvoicePage({
           <div className="space-y-4">
             <div className="border border-border rounded p-3">
               <div className="font-semibold text-brand-800 mb-2">วิธีชำระเงิน / Payment Method</div>
-              <div className="flex gap-3 items-start">
-                <div className="flex-1 space-y-0.5">
-                  <div>โอนเงินเข้าบัญชีธนาคาร</div>
-                  <div>ชื่อบัญชี ธนาคารกรุงเทพ สาขาท่าแพ-เชียงใหม่</div>
-                  <div>เลขที่บัญชี : <span className="font-mono">251-5-01738-8</span> ประเภทบัญชี ออมทรัพย์</div>
-                  <div className="mt-1">Bangkok Bank : Account No. : 251-5-01738-8</div>
-                  <div>Account Name:</div>
-                  <div>TRNTRAPHAN SUPPERMARKET (1944) CO., LTD.</div>
-                </div>
-                <div className="shrink-0 text-center">
-                  <Image
-                    src="/payment-qr.png"
-                    alt="QR PromptPay"
-                    width={72}
-                    height={72}
-                    className="border border-border rounded"
-                  />
-                  <div className="text-[9px] text-muted mt-0.5">สแกนชำระเงิน</div>
-                </div>
+              {/* QR ปิดไว้ก่อน — ยังไม่ได้ QR PromptPay จริง */}
+              <div className="space-y-0.5">
+                <div>โอนเงินเข้าบัญชีธนาคาร</div>
+                <div>ชื่อบัญชี ธนาคารกรุงเทพ สาขาท่าแพ-เชียงใหม่</div>
+                <div>เลขที่บัญชี : <span className="font-mono">251-5-01738-8</span> ประเภทบัญชี ออมทรัพย์</div>
+                <div className="mt-1">Bangkok Bank : Account No. : 251-5-01738-8</div>
+                <div>Account Name:</div>
+                <div>TRNTRAPHAN SUPPERMARKET (1944) CO., LTD.</div>
               </div>
             </div>
             <div>

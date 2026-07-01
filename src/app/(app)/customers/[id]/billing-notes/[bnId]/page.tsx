@@ -114,7 +114,7 @@ export default async function BillingNotePrintPage({
             <thead>
               <tr className="bg-brand-50 text-xs text-muted">
                 <th className="text-center p-2 w-8">#</th>
-                <th className="text-left p-2">วันที่ออก PO / เลข PO</th>
+                <th className="text-left p-2">วันที่ออก Quotation / เลข Quotation</th>
                 <th className="text-left p-2">เลขที่บิล</th>
                 <th className="text-center p-2">จำนวน/บิล</th>
                 <th className="text-right p-2">จำนวนเงิน</th>
@@ -164,25 +164,13 @@ export default async function BillingNotePrintPage({
           <div className="space-y-4">
             <div className="border border-border rounded p-3">
               <div className="font-semibold text-brand-800 mb-2">วิธีชำระเงิน / Payment Method</div>
-              <div className="flex gap-3 items-start">
-                <div className="flex-1 space-y-0.5">
-                  <div>โอนเงินเข้าบัญชีธนาคาร</div>
-                  <div>ชื่อบัญชี ธนาคารกรุงเทพ สาขาท่าแพ-เชียงใหม่</div>
-                  <div>เลขที่บัญชี : <span className="font-mono">251-5-01738-8</span> ประเภทบัญชี ออมทรัพย์</div>
-                  <div className="mt-1">Bangkok Bank : Account No. : 251-5-01738-8</div>
-                  <div>Account Name:</div>
-                  <div>TRNTRAPHAN SUPPERMARKET (1944) CO., LTD.</div>
-                </div>
-                <div className="shrink-0 text-center">
-                  <Image
-                    src="/payment-qr.png"
-                    alt="QR PromptPay"
-                    width={72}
-                    height={72}
-                    className="border border-border rounded"
-                  />
-                  <div className="text-[9px] text-muted mt-0.5">สแกนชำระเงิน</div>
-                </div>
+              <div className="space-y-0.5">
+                <div>โอนเงินเข้าบัญชีธนาคาร</div>
+                <div>ชื่อบัญชี ธนาคารกรุงเทพ สาขาท่าแพ-เชียงใหม่</div>
+                <div>เลขที่บัญชี : <span className="font-mono">251-5-01738-8</span> ประเภทบัญชี ออมทรัพย์</div>
+                <div className="mt-1">Bangkok Bank : Account No. : 251-5-01738-8</div>
+                <div>Account Name:</div>
+                <div>TRNTRAPHAN SUPPERMARKET (1944) CO., LTD.</div>
               </div>
             </div>
             <div>

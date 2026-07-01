@@ -225,7 +225,7 @@ export function PaymentEditModal({ payment, poId, onClose, onSaved, onDeleted }:
               <h4 className="font-semibold">ยืนยันการลบ</h4>
             </div>
             <p className="text-sm text-muted mb-4">
-              ต้องการลบการชำระเงินนี้ใช่หรือไม่? ยอดชำระจะถูกหักออกจาก PO และไม่สามารถกู้คืนได้
+              ต้องการลบการชำระเงินนี้ใช่หรือไม่? ยอดชำระจะถูกหักออกจาก Quotation และไม่สามารถกู้คืนได้
             </p>
             <div className="flex justify-end gap-2">
               <button

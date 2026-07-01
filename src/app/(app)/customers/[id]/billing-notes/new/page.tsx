@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
 import { FileSpreadsheet, ArrowLeft } from "lucide-react";
 import { fmtMoney } from "@/components/StatusBadge";
+import { ThaiDateInput } from "@/components/ThaiDateInput";
 
 interface PoDetail {
   id: number;
@@ -64,7 +65,7 @@ export default function NewBillingNotePage() {
       )
     )
       .then((results) => setPos(results.filter(Boolean)))
-      .catch(() => setErr("โหลดข้อมูล PO ไม่สำเร็จ"))
+      .catch(() => setErr("โหลดข้อมูล Quotation ไม่สำเร็จ"))
       .finally(() => setLoading(false));
   }, [poIdsParam, customerId]);
 
@@ -97,7 +98,7 @@ export default function NewBillingNotePage() {
   const total = pos.reduce((s, p) => s + Number(p.remaining_amount), 0);
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div>
       <div className="flex items-center gap-3 mb-6">
         <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-lg transition">
           <ArrowLeft className="w-5 h-5" />
@@ -117,12 +118,12 @@ export default function NewBillingNotePage() {
         <div className="space-y-4">
           {/* PO Summary with Notes */}
           <div className="card p-4 space-y-4">
-            <h2 className="font-medium mb-3 text-sm">รายการ PO ที่เลือก ({pos.length} รายการ)</h2>
+            <h2 className="font-medium mb-3 text-sm">รายการ Quotation ที่เลือก ({pos.length} รายการ)</h2>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 text-xs text-muted">
-                    <th className="text-left px-3 py-2">เลข PO</th>
+                    <th className="text-left px-3 py-2">เลข Quotation</th>
                     <th className="text-left px-3 py-2">เลขใบกำกับภาษี</th>
                     <th className="text-left px-3 py-2">วันที่</th>
                     <th className="text-right px-3 py-2">ยอดค้างชำระ</th>
@@ -167,21 +168,18 @@ export default function NewBillingNotePage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="label">วันที่ออกเอกสาร *</label>
-                <input
-                  type="date"
-                  className="input"
+                <ThaiDateInput
+                  className="input w-full"
                   value={issuedDate}
                   onChange={(e) => setIssuedDate(e.target.value)}
                 />
               </div>
               <div>
                 <label className="label">กำหนดชำระ</label>
-                <input
-                  type="date"
-                  className="input bg-gray-50"
+                <ThaiDateInput
+                  className="input w-full bg-gray-50"
                   value={dueDate}
                   readOnly
-                  tabIndex={-1}
                 />
                 {customer && (
                   <p className="text-[11px] text-muted mt-1">

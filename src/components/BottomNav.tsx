@@ -13,7 +13,7 @@ import {
 const ITEMS = [
   { href: "/dashboard", label: "หน้าหลัก", Icon: LayoutDashboard },
   { href: "/customers", label: "ลูกค้า", Icon: Users },
-  { href: "/po", label: "PO", Icon: Package },
+  { href: "/po", label: "Quotation", Icon: Package },
   { href: "/invoices", label: "Invoice", Icon: FileText },
 ];
 
@@ -72,7 +72,7 @@ export function BottomNav() {
             className={`w-14 h-14 rounded-full bg-brand-600 text-white flex items-center justify-center shadow-lg ring-4 ring-background active:scale-95 transition ${
               path.endsWith("/new") ? "bg-brand-700" : ""
             }`}
-            aria-label={isInvoicePath ? "สร้าง Invoice" : "สร้าง PO"}
+            aria-label={isInvoicePath ? "สร้าง Invoice" : "สร้าง Quotation"}
           >
             <Plus className="w-7 h-7" />
           </Link>
@@ -88,7 +88,7 @@ export function BottomNav() {
           <Package
             className={`w-5 h-5 ${isPoPath && !path.endsWith("/new") ? "stroke-[2.5]" : ""}`}
           />
-          <span className="font-medium">PO</span>
+          <span className="font-medium">Quotation</span>
         </Link>
 
         {/* Invoice */}

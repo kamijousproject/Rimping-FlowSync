@@ -76,7 +76,7 @@ export function CustomerCreditNotesSection({ customerId }: { customerId: number 
           <thead className="text-xs text-muted border-b">
             <tr>
               <th className="text-left py-2">เลขที่</th>
-              <th className="text-left">PO ต้นทาง</th>
+              <th className="text-left">Quotation ต้นทาง</th>
               <th className="text-right">ยอดเครดิต</th>
               <th className="text-right">ใช้ไป</th>
               <th className="text-right">คงเหลือ</th>

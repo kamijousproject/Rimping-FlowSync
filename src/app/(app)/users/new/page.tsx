@@ -57,7 +57,7 @@ export default function NewUserPage() {
             <input
               className="input"
               required
-              placeholder="เช่น สมชาย ใจดี (จะแสดงในช่องเซ็นชื่อผู้ขายบนเอกสาร PO และ Invoice)"
+              placeholder="เช่น สมชาย ใจดี (จะแสดงในช่องเซ็นชื่อผู้ขายบนเอกสาร Quotation และ Invoice)"
               value={form.full_name}
               onChange={(e) => setForm({ ...form, full_name: e.target.value })}
             />

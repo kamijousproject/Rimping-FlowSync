@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { FolderOpen, X, Image as ImageIcon, FileText, Paperclip } from "lucide-react";
 
 type CustomerFile = {
   id: number;
@@ -13,10 +14,10 @@ type CustomerFile = {
 
 function FileIcon({ mime }: { mime: string }) {
   if (mime.startsWith("image/"))
-    return <span className="text-2xl">🖼️</span>;
+    return <ImageIcon className="w-5 h-5 text-muted" />;
   if (mime === "application/pdf")
-    return <span className="text-2xl">📄</span>;
-  return <span className="text-2xl">📎</span>;
+    return <FileText className="w-5 h-5 text-muted" />;
+  return <Paperclip className="w-5 h-5 text-muted" />;
 }
 
 export function CustomerFilesModal({
@@ -49,9 +50,10 @@ export function CustomerFilesModal({
     return (
       <button
         onClick={() => setOpen(true)}
-        className="btn-secondary relative"
+        className="btn-secondary relative gap-2"
       >
-        📁 ไฟล์ประกอบ
+        <FolderOpen className="w-4 h-4" />
+        ไฟล์ประกอบ
         {files.length > 0 && (
           <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-600 text-white text-xs">
             {files.length}
@@ -76,9 +78,9 @@ export function CustomerFilesModal({
             <h2 className="font-bold text-brand-800 text-lg">ไฟล์ประกอบลูกค้า</h2>
             <button
               onClick={() => { setOpen(false); setPreview(null); }}
-              className="text-muted hover:text-foreground text-xl leading-none"
+              className="text-muted hover:text-foreground"
             >
-              ✕
+              <X className="w-5 h-5" />
             </button>
           </div>
 
@@ -87,7 +89,7 @@ export function CustomerFilesModal({
               <p className="text-center text-muted py-8">ยังไม่มีไฟล์</p>
             )}
             {files.map((f) => (
-              <div key={f.id} className="border rounded-lg p-3 flex items-start gap-3 hover:bg-brand-50">
+              <div key={f.id} className="border border-border rounded-xl p-3 flex items-start gap-3 hover:bg-gray-50 transition-colors">
                 <div className="shrink-0 mt-0.5">
                   {f.mime_type.startsWith("image/") ? (
                     <img
@@ -117,7 +119,7 @@ export function CustomerFilesModal({
                     href={f.file_path}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-xs btn-secondary py-1 px-2"
+                    className="text-xs btn-secondary h-auto py-1 px-2"
                   >
                     เปิด
                   </a>

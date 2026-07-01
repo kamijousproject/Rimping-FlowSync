@@ -147,14 +147,14 @@ export default function PoListPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-brand-800">
-            Purchase Orders
+            Quotation
           </h1>
           <p className="text-xs md:text-sm text-muted">
             {total} รายการ ทั้งหมด (แสดง {startItem}-{endItem})
           </p>
         </div>
         <Link href="/po/new" className="btn-primary hidden md:inline-flex">
-          + สร้าง PO ใหม่
+          + สร้าง Quotation ใหม่
         </Link>
       </div>
 
@@ -193,7 +193,7 @@ export default function PoListPage() {
 
             {/* PO Number */}
             <div>
-              <label className="label text-xs">เลข PO</label>
+              <label className="label text-xs">เลข Quotation</label>
               <input
                 type="text"
                 value={poNumber}
@@ -238,52 +238,70 @@ export default function PoListPage() {
         </div>
       )}
 
-      {/* Filter — scrollable row on mobile */}
-      <div className="card p-3 space-y-2">
-        <div className="flex items-center gap-2 overflow-x-auto -mx-1 px-1 scrollbar-thin">
-          <span className="text-xs text-muted shrink-0">สถานะ:</span>
-          <FilterPill
-            href={buildFilterLink("status", null)}
-            active={!status && !paymentStatus}
-          >
-            ทั้งหมด
-          </FilterPill>
-          {STATUS_FILTERS.map((f) => (
-            <FilterPill
-              key={f.v}
-              href={buildFilterLink("status", f.v)}
-              active={status === f.v}
-            >
-              {f.label}
-            </FilterPill>
-          ))}
-        </div>
-        <div className="flex items-center gap-2 overflow-x-auto -mx-1 px-1">
-          <span className="text-xs text-muted shrink-0">ชำระ:</span>
-          {PAY_FILTERS.map((f) => (
-            <FilterPill
-              key={f.v}
-              href={buildFilterLink("payment_status", f.v)}
-              active={paymentStatus === f.v}
-            >
-              {f.label}
-            </FilterPill>
-          ))}
+      {/* Filter toolbar */}
+      <div className="card p-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Status segmented control */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted shrink-0">สถานะ</span>
+            <div className="inline-flex items-center gap-0.5 rounded-xl bg-gray-50 border border-border p-1 overflow-x-auto max-w-full">
+              <SegmentLink href={buildFilterLink("status", null)} active={!status}>
+                ทั้งหมด
+              </SegmentLink>
+              {STATUS_FILTERS.map((f) => (
+                <SegmentLink
+                  key={f.v}
+                  href={buildFilterLink("status", f.v)}
+                  active={status === f.v}
+                >
+                  {f.label}
+                </SegmentLink>
+              ))}
+            </div>
+          </div>
+
+          <div className="hidden sm:block h-6 w-px bg-border" />
+
+          {/* Payment segmented control */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted shrink-0">การชำระ</span>
+            <div className="inline-flex items-center gap-0.5 rounded-xl bg-gray-50 border border-border p-1">
+              <SegmentLink href={buildFilterLink("payment_status", null)} active={!paymentStatus}>
+                ทั้งหมด
+              </SegmentLink>
+              {PAY_FILTERS.map((f) => (
+                <SegmentLink
+                  key={f.v}
+                  href={buildFilterLink("payment_status", f.v)}
+                  active={paymentStatus === f.v}
+                >
+                  {f.label}
+                </SegmentLink>
+              ))}
+            </div>
+          </div>
+
+          <div className="hidden sm:block h-6 w-px bg-border" />
+
+          <Suspense>
+            <DateRangeFilter />
+          </Suspense>
+
           <button
             onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition flex items-center gap-1 ${
+            className={`shrink-0 h-8 px-3 rounded-lg text-xs font-medium transition inline-flex items-center gap-1.5 ml-auto border ${
               showAdvancedFilters || customerName || poNumber || minAmount || maxAmount
-                ? "bg-brand-600 text-white"
-                : "bg-brand-50 text-brand-700 hover:bg-brand-100"
+                ? "border-brand-200 bg-brand-50 text-brand-700"
+                : "border-border bg-white text-muted hover:text-foreground hover:bg-gray-50"
             }`}
           >
-            <Filter className="w-3 h-3" />
+            <Filter className="w-3.5 h-3.5" />
             ตัวกรองเพิ่มเติม
+            {(customerName || poNumber || minAmount || maxAmount) && (
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-600" />
+            )}
           </button>
         </div>
-        <Suspense>
-          <DateRangeFilter />
-        </Suspense>
       </div>
 
       {/* Mobile: card list */}
@@ -335,7 +353,7 @@ export default function PoListPage() {
         ))}
         {pos.length === 0 && (
           <div className="card p-8 text-center text-muted text-sm">
-            ไม่มี PO ที่ตรงเงื่อนไข
+            ไม่มี Quotation ที่ตรงเงื่อนไข
           </div>
         )}
 
@@ -368,9 +386,9 @@ export default function PoListPage() {
       {/* Desktop: full table */}
       <div className="hidden md:block card overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="text-xs text-muted bg-brand-50">
+          <thead className="text-xs font-medium text-muted bg-gray-50">
             <tr>
-              <th className="text-left p-3">PO No.</th>
+              <th className="text-left p-3.5">Quotation No.</th>
               <th className="text-left">ลูกค้า</th>
               <th className="text-right">ยอดรวม</th>
               <th className="text-right">ชำระแล้ว</th>
@@ -383,8 +401,8 @@ export default function PoListPage() {
           </thead>
           <tbody>
             {pos.map((p) => (
-              <tr key={p.id} className="border-t hover:bg-brand-50/40">
-                <td className="p-3">
+              <tr key={p.id} className="border-t border-border hover:bg-gray-50 transition-colors">
+                <td className="p-3.5">
                   <Link
                     href={`/po/${p.id}`}
                     className="text-brand-700 hover:underline font-medium"
@@ -426,7 +444,7 @@ export default function PoListPage() {
             {pos.length === 0 && (
               <tr>
                 <td colSpan={9} className="text-center py-8 text-muted">
-                  ยังไม่มี PO
+                  ยังไม่มี Quotation
                 </td>
               </tr>
             )}
@@ -467,7 +485,7 @@ export default function PoListPage() {
   );
 }
 
-function FilterPill({
+function SegmentLink({
   href,
   active,
   children,
@@ -479,10 +497,10 @@ function FilterPill({
   return (
     <Link
       href={href}
-      className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition ${
+      className={`shrink-0 h-7 px-3 inline-flex items-center rounded-lg text-xs font-medium transition ${
         active
-          ? "bg-brand-600 text-white"
-          : "bg-brand-50 text-brand-700 hover:bg-brand-100"
+          ? "bg-white text-foreground shadow-[0_1px_2px_rgba(16,24,40,0.08)]"
+          : "text-muted hover:text-foreground"
       }`}
     >
       {children}

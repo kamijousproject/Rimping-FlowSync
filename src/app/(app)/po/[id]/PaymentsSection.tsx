@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fmtMoney } from "@/components/StatusBadge";
-import { Edit2, RefreshCw } from "lucide-react";
+import { Edit2, RefreshCw, Check } from "lucide-react";
 import { PaymentEditModal } from "./PaymentEditModal";
 import { JdaProgressBar, type JdaPollData } from "@/components/JdaProgress";
 
@@ -96,8 +96,8 @@ function JdaBadge({
 
   if (state === "success") {
     return (
-      <span className="text-[10px] text-green-700 bg-green-50 border border-green-200 rounded px-1.5 py-0.5">
-        JDA ✓
+      <span className="text-[10px] text-green-700 bg-green-50 border border-green-200 rounded-md px-1.5 py-0.5 inline-flex items-center gap-0.5">
+        JDA <Check className="w-2.5 h-2.5" />
       </span>
     );
   }

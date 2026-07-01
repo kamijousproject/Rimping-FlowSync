@@ -199,7 +199,7 @@ export function UsersPageClient({ users: initialUsers, meId }: { users: User[]; 
               <input
                 className="input"
                 required
-                placeholder="เช่น สมชาย ใจดี (จะแสดงในช่องเซ็นชื่อบนเอกสาร PO และ Invoice)"
+                placeholder="เช่น สมชาย ใจดี (จะแสดงในช่องเซ็นชื่อบนเอกสาร Quotation และ Invoice)"
                 value={form.full_name}
                 onChange={(e) => setForm({ ...form, full_name: e.target.value })}
               />
@@ -244,20 +244,20 @@ export function UsersPageClient({ users: initialUsers, meId }: { users: User[]; 
       {/* Table */}
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="text-xs text-muted bg-brand-50">
+          <thead className="text-xs font-medium text-muted bg-gray-50">
             <tr>
-              <th className="text-left p-3">ชื่อ-นามสกุล</th>
-              <th className="text-left p-3">Username</th>
-              <th className="text-left p-3">Email</th>
-              <th className="text-center p-3">สิทธิ์</th>
-              <th className="text-center p-3">สิทธิ์ชั่วคราว</th>
-              <th className="text-left p-3">สร้างเมื่อ</th>
-              <th className="p-3" />
+              <th className="text-left p-3.5">ชื่อ-นามสกุล</th>
+              <th className="text-left p-3.5">Username</th>
+              <th className="text-left p-3.5">Email</th>
+              <th className="text-center p-3.5">สิทธิ์</th>
+              <th className="text-center p-3.5">สิทธิ์ชั่วคราว</th>
+              <th className="text-left p-3.5">สร้างเมื่อ</th>
+              <th className="p-3.5" />
             </tr>
           </thead>
           <tbody>
             {users.map((u) => (
-              <tr key={u.id} className={`border-t ${u.id === meId ? "bg-brand-50/50" : "hover:bg-brand-50/30"}`}>
+              <tr key={u.id} className={`border-t border-border transition-colors ${u.id === meId ? "bg-brand-50/50" : "hover:bg-gray-50"}`}>
                 <td className="p-3">
                   <div className="font-medium">{u.full_name}</div>
                   {u.id === meId && <div className="text-[10px] text-brand-600 font-medium">● บัญชีของคุณ</div>}

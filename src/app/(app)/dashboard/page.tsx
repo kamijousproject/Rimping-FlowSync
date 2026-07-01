@@ -2,7 +2,16 @@ import Link from "next/link";
 import { getDashboardStats } from "@/backend/services/dashboard";
 import { listCustomers } from "@/backend/services/customers";
 import { PaymentBadge, StatusBadge, fmtMoney } from "@/components/StatusBadge";
-import { AlertTriangle, Clock, TrendingUp } from "lucide-react";
+import { PoStatusDonut } from "@/components/charts/PoStatusDonut";
+import { PaymentBarChart } from "@/components/charts/PaymentBarChart";
+import {
+  AlertTriangle,
+  Clock,
+  TrendingUp,
+  Wallet,
+  CreditCard,
+  Users as UsersIcon,
+} from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -37,53 +46,69 @@ export default async function DashboardPage() {
       label: "ลูกหนี้คงค้างรวม",
       value: fmtMoney(stats.total_outstanding),
       sub: "บาท",
-      cls: "from-brand-600 to-brand-700",
+      Icon: Wallet,
+      iconCls: "bg-red-50 text-danger",
     },
     {
       label: "วงเงินรวมทั้งระบบ",
       value: fmtMoney(stats.total_credit_limit),
       sub: "บาท",
-      cls: "from-emerald-500 to-brand-600",
+      Icon: CreditCard,
+      iconCls: "bg-brand-50 text-brand-600",
     },
     {
       label: "จำนวนลูกหนี้",
       value: stats.total_debtors.toLocaleString(),
       sub: `จาก ${stats.total_customers.toLocaleString()} ราย`,
-      cls: "from-teal-500 to-brand-600",
+      Icon: UsersIcon,
+      iconCls: "bg-blue-50 text-blue-600",
     },
     {
-      label: "PO เกินกำหนด",
+      label: "Quotation เกินกำหนด",
       value: stats.overdue_count.toLocaleString(),
       sub: `${fmtMoney(stats.overdue_amount)} บาท`,
-      cls: "from-red-500 to-red-600",
+      Icon: AlertTriangle,
+      iconCls: "bg-amber-50 text-warning",
     },
   ];
+
+  const poStatusItems = STATUS_LIST.map((s) => ({
+    key: s,
+    label: STATUS_LABEL_TH[s],
+    count: stats.pos_by_status[s] || 0,
+  }));
+
+  const paymentItems = (["unpaid", "partial", "paid"] as const).map((s) => ({
+    key: s,
+    label: s === "unpaid" ? "ยังไม่ชำระ" : s === "partial" ? "ชำระบางส่วน" : "ชำระครบ",
+    count: stats.pos_by_payment[s] || 0,
+  }));
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-brand-800">
+          <h1 className="text-2xl md:text-[32px] font-bold text-foreground leading-tight">
             Dashboard
           </h1>
-          <p className="text-xs md:text-sm text-muted">ภาพรวมระบบ FlowSync</p>
+          <p className="text-xs md:text-sm text-muted mt-1">ภาพรวมระบบ FlowSync</p>
         </div>
         <Link href="/po/new" className="btn-primary hidden md:inline-flex">
-          + สร้าง PO ใหม่
+          + สร้าง Quotation ใหม่
         </Link>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         {cards.map((c) => (
-          <div
-            key={c.label}
-            className={`rounded-xl p-4 md:p-5 text-white bg-gradient-to-br ${c.cls} shadow-sm`}
-          >
-            <div className="text-[11px] md:text-xs opacity-90">{c.label}</div>
-            <div className="text-lg md:text-2xl font-bold mt-1 break-all">
+          <div key={c.label} className="card p-4 md:p-5">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${c.iconCls}`}>
+              <c.Icon className="w-[18px] h-[18px]" />
+            </div>
+            <div className="text-xs md:text-sm text-muted mt-3">{c.label}</div>
+            <div className="text-xl md:text-3xl font-semibold mt-1 text-foreground break-all">
               {c.value}
             </div>
-            <div className="text-[10px] md:text-xs opacity-90 mt-0.5">
+            <div className="text-[11px] md:text-xs text-muted mt-0.5">
               {c.sub}
             </div>
           </div>
@@ -92,86 +117,50 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="card p-5">
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-4">
             <TrendingUp className="w-4 h-4 text-brand-600" />
-            <h3 className="font-semibold">สถานะ PO ทั้งหมด</h3>
+            <h3 className="font-semibold text-[15px]">สถานะ Quotation ทั้งหมด</h3>
           </div>
-          <div className="space-y-3">
-            {STATUS_LIST.map((s) => {
-              const count = stats.pos_by_status[s] || 0;
-              const total = Object.values(stats.pos_by_status).reduce((sum, c) => sum + c, 0);
-              const percentage = total > 0 ? (count / total) * 100 : 0;
-              return (
-                <div key={s} className="space-y-1">
-                  <div className="flex items-center justify-between text-sm">
-                    <StatusBadge status={s} />
-                    <span className="font-medium text-brand-700">{count}</span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-brand-400 to-brand-600 transition-all duration-500"
-                      style={{ width: `${percentage}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+          <PoStatusDonut items={poStatusItems} />
+          <div className="mt-4 space-y-2">
+            {poStatusItems.map((it) => (
+              <div key={it.key} className="flex items-center justify-between text-sm">
+                <StatusBadge status={it.key} />
+                <span className="font-medium text-foreground">{it.count}</span>
+              </div>
+            ))}
           </div>
         </div>
         <div className="card p-5">
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-4">
             <Clock className="w-4 h-4 text-brand-600" />
-            <h3 className="font-semibold">สถานะการชำระเงิน</h3>
+            <h3 className="font-semibold text-[15px]">สถานะการชำระเงิน</h3>
           </div>
-          <div className="space-y-3">
-            {(["unpaid", "partial", "paid"] as const).map((s) => {
-              const count = stats.pos_by_payment[s] || 0;
-              const total = Object.values(stats.pos_by_payment).reduce((sum, c) => sum + c, 0);
-              const percentage = total > 0 ? (count / total) * 100 : 0;
-              return (
-                <div key={s} className="space-y-1">
-                  <div className="flex items-center justify-between text-sm">
-                    <PaymentBadge status={s} />
-                    <span className="font-medium text-brand-700">{count}</span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                    <div 
-                      className={`h-full transition-all duration-500 ${
-                        s === 'paid' ? 'bg-gradient-to-r from-emerald-400 to-emerald-600' :
-                        s === 'partial' ? 'bg-gradient-to-r from-amber-400 to-amber-600' :
-                        'bg-gradient-to-r from-red-400 to-red-600'
-                      }`}
-                      style={{ width: `${percentage}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <PaymentBarChart items={paymentItems} />
         </div>
         <div className="card p-5">
-          <h3 className="font-semibold mb-3">สรุปวงเงิน</h3>
-          <div className="space-y-2 text-sm">
+          <h3 className="font-semibold text-[15px] mb-4">สรุปวงเงิน</h3>
+          <div className="space-y-2.5 text-sm">
             <div className="flex justify-between">
               <span className="text-muted">วงเงินรวม</span>
-              <span>{fmtMoney(stats.total_credit_limit)} ฿</span>
+              <span className="font-medium">{fmtMoney(stats.total_credit_limit)} ฿</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted">ใช้ไป (ลูกหนี้)</span>
-              <span className="text-red-600">
+              <span className="text-danger font-medium">
                 {fmtMoney(stats.total_credit_used)} ฿
               </span>
             </div>
-            <div className="flex justify-between border-t pt-2">
+            <div className="flex justify-between border-t border-border pt-2.5">
               <span className="font-medium">วงเงินคงเหลือ</span>
-              <span className="font-bold text-brand-700">
+              <span className="font-semibold text-brand-700">
                 {fmtMoney(
                   stats.total_credit_limit - stats.total_credit_used
                 )}{" "}
                 ฿
               </span>
             </div>
-            <div className="h-2 rounded-full bg-brand-100 mt-2 overflow-hidden">
+            <div className="h-2 rounded-full bg-gray-100 mt-3 overflow-hidden">
               <div
                 className="h-full bg-brand-600"
                 style={{
@@ -191,11 +180,11 @@ export default async function DashboardPage() {
 
       {/* PO ที่เลยกำหนดชำระ */}
       {stats.overdue_pos.length > 0 && (
-        <div className="card p-5 border-red-200 bg-red-50/30">
-          <div className="flex items-center gap-2 mb-3">
-            <AlertTriangle className="w-5 h-5 text-red-600" />
-            <h3 className="font-semibold text-red-800">PO ที่เลยกำหนดชำระ</h3>
-            <span className="bg-red-600 text-white text-xs px-2 py-1 rounded-full">
+        <div className="card p-5 border-l-2 border-l-danger">
+          <div className="flex items-center gap-2 mb-4">
+            <AlertTriangle className="w-4 h-4 text-danger" />
+            <h3 className="font-semibold text-[15px] text-foreground">Quotation ที่เลยกำหนดชำระ</h3>
+            <span className="badge bg-red-50 text-danger">
               {stats.overdue_pos.length} รายการ
             </span>
           </div>
@@ -204,34 +193,34 @@ export default async function DashboardPage() {
               <Link
                 key={po.id}
                 href={`/po/${po.id}`}
-                className="block bg-white rounded-lg p-3 border border-red-200 hover:border-red-300 hover:shadow-sm transition-all"
+                className="block rounded-xl p-3.5 border border-border hover:border-red-200 hover:bg-red-50/40 transition-all"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-red-800">{po.po_number}</span>
+                      <span className="font-medium text-foreground">{po.po_number}</span>
                       <StatusBadge status={po.status} />
                       <PaymentBadge status={po.payment_status} />
                     </div>
-                    <div className="text-sm text-red-600 mt-1">
+                    <div className="text-sm text-danger mt-1">
                       {po.customer_name} · เลยกำหนด {po.days_overdue} วัน
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-semibold text-red-800">
+                    <div className="font-semibold text-foreground">
                       {fmtMoney(po.remaining_amount)}
                     </div>
-                    <div className="text-xs text-red-600">คงเหลือ</div>
+                    <div className="text-xs text-muted">คงเหลือ</div>
                   </div>
                 </div>
               </Link>
             ))}
           </div>
-          <div className="mt-3 pt-3 border-t border-red-200 flex items-center justify-between">
-            <span className="text-sm font-medium text-red-800">
+          <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
+            <span className="text-sm font-medium text-foreground">
               รวมยอดเลยกำหนด:
             </span>
-            <span className="font-bold text-red-800 text-lg">
+            <span className="font-semibold text-danger text-lg">
               {fmtMoney(stats.overdue_amount)}
             </span>
           </div>
@@ -240,7 +229,7 @@ export default async function DashboardPage() {
 
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-brand-800">ลูกค้าทั้งหมด</h3>
+          <h3 className="font-semibold text-[15px] text-foreground">ลูกค้าทั้งหมด</h3>
           <Link href="/customers" className="text-sm text-brand-700 hover:underline">
             จัดการลูกค้า →
           </Link>
@@ -296,7 +285,7 @@ export default async function DashboardPage() {
                   />
                 </div>
                 {Number(c.open_pos || 0) > 0 && (
-                  <div className="text-[11px] text-muted mt-2">PO เปิดอยู่ {Number(c.open_pos)} ใบ</div>
+                  <div className="text-[11px] text-muted mt-2">Quotation เปิดอยู่ {Number(c.open_pos)} ใบ</div>
                 )}
               </Link>
             );
@@ -309,14 +298,14 @@ export default async function DashboardPage() {
         {/* Desktop table */}
         <div className="hidden md:block card overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="text-xs text-muted bg-brand-50">
+            <thead className="text-xs font-medium text-muted bg-gray-50">
               <tr>
-                <th className="text-left p-3">รหัส / ชื่อ</th>
+                <th className="text-left p-3.5">รหัส / ชื่อ</th>
                 <th className="text-left">ติดต่อ</th>
                 <th className="text-right">วงเงิน</th>
                 <th className="text-right">ใช้ไป</th>
                 <th className="text-right">คงเหลือ</th>
-                <th className="text-center">PO เปิดอยู่</th>
+                <th className="text-center">Quotation เปิดอยู่</th>
                 <th className="text-center">Score</th>
                 <th></th>
               </tr>
@@ -327,8 +316,8 @@ export default async function DashboardPage() {
                   ? (Number(c.outstanding) / Number(c.effective_limit)) * 100
                   : 0;
                 return (
-                  <tr key={c.id} className="border-t hover:bg-brand-50/40">
-                    <td className="p-3">
+                  <tr key={c.id} className="border-t border-border hover:bg-gray-50 transition-colors">
+                    <td className="p-3.5">
                       <div className="font-medium">{c.name}</div>
                       <div className="text-xs text-muted">{c.code || "-"}</div>
                     </td>

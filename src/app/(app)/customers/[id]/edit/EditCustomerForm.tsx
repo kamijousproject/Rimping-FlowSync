@@ -2,7 +2,9 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { AlertTriangle } from "lucide-react";
 import { DeleteCustomerButton } from "../DeleteCustomerButton";
+import { ThaiDateInput } from "@/components/ThaiDateInput";
 
 type FormState = {
   code: string;
@@ -400,8 +402,9 @@ export function EditCustomerForm({ id, initial }: Props) {
         {creditDelta !== "" && Number(creditDelta) > 0 && (
           <p className="text-xs text-muted">
             {creditSign === "increase" ? (
-              <span className="text-yellow-700 font-medium">
-                ⚠️ การเพิ่มวงเงินจะถูกส่งคำขอไปยังผู้จัดการเพื่ออนุมัติก่อน
+              <span className="text-yellow-700 font-medium inline-flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                การเพิ่มวงเงินจะถูกส่งคำขอไปยังผู้จัดการเพื่ออนุมัติก่อน
               </span>
             ) : (
               <>
@@ -471,16 +474,14 @@ export function EditCustomerForm({ id, initial }: Props) {
           </div>
           <div>
             <label className="label">วันที่เริ่มต้น</label>
-            <input type="date" className="input" value={tempStart} onChange={(e) => setTempStart(e.target.value)} />
+            <ThaiDateInput className="input w-full" value={tempStart} onChange={(e) => setTempStart(e.target.value)} />
           </div>
           <div>
             <label className="label">วันที่สิ้นสุด (อัตโนมัติ)</label>
-            <input
-              type="date"
-              className="input bg-gray-50 text-muted cursor-not-allowed"
+            <ThaiDateInput
+              className="input w-full bg-gray-50 text-muted cursor-not-allowed"
               value={tempEnd}
               readOnly
-              tabIndex={-1}
             />
             <p className="text-[11px] text-muted mt-0.5">= วันเริ่มต้น + {form.default_credit_term_days} วัน (เครดิตของร้านนี้)</p>
           </div>
@@ -546,7 +547,7 @@ export function EditCustomerForm({ id, initial }: Props) {
                 </div>
                 <button
                   type="button"
-                  className="btn-danger text-sm px-3 py-1"
+                  className="btn-danger h-auto text-sm px-3 py-1"
                   disabled={deactivateLoading === temp.id}
                   onClick={() => deactivateTempCredit(temp.id)}
                 >
@@ -592,8 +593,11 @@ export function EditCustomerForm({ id, initial }: Props) {
       </div>
 
       {/* ── Danger Zone ───────────────────────────────────────────────── */}
-      <div className="card p-6 border-2 border-red-200 bg-red-50">
-        <h2 className="font-semibold text-red-800 mb-4">⚠️ บริเวณอันตราย</h2>
+      <div className="card p-6 border-red-200 bg-red-50/40">
+        <h2 className="font-semibold text-red-800 mb-4 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4" />
+          บริเวณอันตราย
+        </h2>
         <div className="space-y-3">
           <p className="text-sm text-red-700">
             การลบลูกค้าจะเป็นการถาวรและไม่สามารถย้อนกลับได้ ข้อมูลทั้งหมดจะถูกลบออกจากระบบ

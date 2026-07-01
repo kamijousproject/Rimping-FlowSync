@@ -2,6 +2,8 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
+import { X } from "lucide-react";
+import { ThaiDateInput } from "@/components/ThaiDateInput";
 
 export default function DateRangeFilter() {
   const router = useRouter();
@@ -34,28 +36,27 @@ export default function DateRangeFilter() {
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      <span className="text-xs text-muted shrink-0">วันที่:</span>
-      <input
-        type="date"
+      <span className="text-xs text-muted shrink-0">วันที่</span>
+      <ThaiDateInput
         value={startDate}
         onChange={(e) => update("start_date", e.target.value)}
-        className="text-xs border border-brand-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-400 text-foreground"
+        className="h-8 w-[148px] text-xs border border-border rounded-lg px-2.5 bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-100 text-foreground"
         placeholder="เริ่มต้น"
       />
       <span className="text-xs text-muted">—</span>
-      <input
-        type="date"
+      <ThaiDateInput
         value={endDate}
         onChange={(e) => update("end_date", e.target.value)}
-        className="text-xs border border-brand-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-brand-400 text-foreground"
+        className="h-8 w-[148px] text-xs border border-border rounded-lg px-2.5 bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-100 text-foreground"
         placeholder="สิ้นสุด"
       />
       {hasDate && (
         <button
           onClick={clear}
-          className="text-xs text-red-500 hover:text-red-700 underline shrink-0"
+          className="shrink-0 h-8 w-8 inline-flex items-center justify-center rounded-lg text-muted hover:text-danger hover:bg-red-50 transition"
+          title="ล้างวันที่"
         >
-          ล้าง
+          <X className="w-3.5 h-3.5" />
         </button>
       )}
     </div>

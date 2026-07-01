@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Info, X } from "lucide-react";
 import { fmtMoney } from "@/components/StatusBadge";
 
 type Item = {
@@ -142,7 +143,7 @@ export function EditPoForm({
               disabled
             />
             <div className="text-xs text-muted mt-1">
-              ไม่สามารถเปลี่ยนลูกค้าหลังออก PO ได้
+              ไม่สามารถเปลี่ยนลูกค้าหลังออก Quotation ได้
             </div>
           </div>
           <div>
@@ -159,14 +160,17 @@ export function EditPoForm({
             </select>
           </div>
           {tempExtra > 0 && (
-            <div className="md:col-span-3 rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-xs text-blue-800">
-              🔵 <strong>วงเงินชั่วคราวใช้งานอยู่:</strong> +{fmtMoney(tempExtra)} (วงเงินรวม{" "}
-              {fmtMoney(baseLimit + tempExtra)}, วงเงินหลัก {fmtMoney(baseLimit)})
+            <div className="md:col-span-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800 flex items-start gap-1.5">
+              <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span>
+                <strong>วงเงินชั่วคราวใช้งานอยู่:</strong> +{fmtMoney(tempExtra)} (วงเงินรวม{" "}
+                {fmtMoney(baseLimit + tempExtra)}, วงเงินหลัก {fmtMoney(baseLimit)})
+              </span>
             </div>
           )}
           {creditAvailableForThis !== null && (
             <div className="md:col-span-3 text-xs text-muted">
-              วงเงินที่ใช้ได้สำหรับ PO นี้:{" "}
+              วงเงินที่ใช้ได้สำหรับ Quotation นี้:{" "}
               <span className="font-semibold text-brand-800">{fmtMoney(creditAvailableForThis)}</span>
             </div>
           )}
@@ -268,10 +272,10 @@ export function EditPoForm({
                           <button
                             type="button"
                             onClick={() => removeItem(idx)}
-                            className="text-red-600 hover:bg-red-50 rounded px-2 py-1"
+                            className="text-red-600 hover:bg-red-50 rounded-lg px-2 py-1"
                             title="ลบ"
                           >
-                            ✕
+                            <X className="w-3.5 h-3.5" />
                           </button>
                         )}
                       </td>
@@ -324,13 +328,13 @@ export function EditPoForm({
 
         {belowPaid && (
           <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-            ยอด PO ใหม่ ({fmtMoney(total)}) ต่ำกว่ายอดที่ชำระไปแล้ว (
+            ยอด Quotation ใหม่ ({fmtMoney(total)}) ต่ำกว่ายอดที่ชำระไปแล้ว (
             {fmtMoney(paidAmount)})
           </div>
         )}
         {overLimit && (
           <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-            ยอดคงค้างใหม่ ({fmtMoney(newRemaining)}) เกินวงเงินที่เหลือสำหรับ PO นี้
+            ยอดคงค้างใหม่ ({fmtMoney(newRemaining)}) เกินวงเงินที่เหลือสำหรับ Quotation นี้
             ({creditAvailableForThis !== null ? fmtMoney(creditAvailableForThis) : "—"})
           </div>
         )}

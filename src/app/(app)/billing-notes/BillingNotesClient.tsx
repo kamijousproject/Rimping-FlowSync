@@ -19,6 +19,7 @@ import {
   FilePlus,
   Calendar,
 } from "lucide-react";
+import { ThaiDateInput } from "@/components/ThaiDateInput";
 
 interface Customer {
   id: number;
@@ -272,7 +273,7 @@ export default function BillingNotesClient() {
   // Create billing note
   const handleCreateBillingNote = () => {
     if (selectedPoIds.size === 0) {
-      alert("กรุณาเลือก PO อย่างน้อย 1 รายการ");
+      alert("กรุณาเลือก Quotation อย่างน้อย 1 รายการ");
       return;
     }
     
@@ -287,7 +288,7 @@ export default function BillingNotesClient() {
   // STEP 1: Select Customer
   if (step === "select-customer") {
     return (
-      <div className="p-6 max-w-6xl mx-auto">
+      <div>
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-xl font-semibold flex items-center gap-2">
@@ -327,7 +328,7 @@ export default function BillingNotesClient() {
               <button
                 key={customer.id}
                 onClick={() => handleSelectCustomer(customer)}
-                className="p-4 bg-white border border-border rounded-lg hover:border-brand-300 hover:shadow-md transition text-left"
+                className="p-4 card hover:border-brand-300 hover:-translate-y-px transition text-left"
               >
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 bg-brand-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -356,7 +357,7 @@ export default function BillingNotesClient() {
   // STEP 2: Select Date Range
   if (step === "select-date-range") {
     return (
-      <div className="p-6 max-w-2xl mx-auto">
+      <div>
         {/* Header */}
         <div className="mb-6">
           <button
@@ -371,13 +372,13 @@ export default function BillingNotesClient() {
             สร้างใบวางบิล
           </h1>
           <p className="text-sm text-muted mt-1">
-            ขั้นตอนที่ 2: เลือกช่วงวันที่ PO (ลูกค้า: {selectedCustomer?.name})
+            ขั้นตอนที่ 2: เลือกช่วงวันที่ Quotation (ลูกค้า: {selectedCustomer?.name})
           </p>
         </div>
 
         <div className="card p-6 space-y-6">
           <div className="text-sm text-gray-600 bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="font-medium text-blue-800 mb-1">ระบบจะค้นหา PO อัตโนมัติ:</p>
+            <p className="font-medium text-blue-800 mb-1">ระบบจะค้นหา Quotation อัตโนมัติ:</p>
             <ul className="list-disc list-inside space-y-1 text-blue-700">
               <li>สถานะ &quot;รับของแล้ว&quot; (Received)</li>
               <li>มีค้างชำระ (ยอดคงเหลือ {'>'} 0)</li>
@@ -438,18 +439,16 @@ export default function BillingNotesClient() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">วันที่เริ่มต้น *</label>
-              <input
-                type="date"
-                className="input"
+              <ThaiDateInput
+                className="input w-full"
                 value={dateRange.from}
                 onChange={(e) => setDateRange(prev => ({ ...prev, from: e.target.value }))}
               />
             </div>
             <div>
               <label className="label">วันที่สิ้นสุด *</label>
-              <input
-                type="date"
-                className="input"
+              <ThaiDateInput
+                className="input w-full"
                 value={dateRange.to}
                 onChange={(e) => setDateRange(prev => ({ ...prev, to: e.target.value }))}
               />
@@ -468,7 +467,7 @@ export default function BillingNotesClient() {
               disabled={!dateRange.from || !dateRange.to || loadingPos}
               className="btn-primary flex-1"
             >
-              {loadingPos ? "กำลังค้นหา..." : "ค้นหา PO อัตโนมัติ"}
+              {loadingPos ? "กำลังค้นหา..." : "ค้นหา Quotation อัตโนมัติ"}
             </button>
           </div>
         </div>
@@ -478,7 +477,7 @@ export default function BillingNotesClient() {
 
   // STEP 3: Select POs
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
         <button
@@ -493,7 +492,7 @@ export default function BillingNotesClient() {
             สร้างใบวางบิล
           </h1>
           <p className="text-sm text-muted">
-            ขั้นตอนที่ 3: ตรวจสอบ PO ของ {selectedCustomer?.name} ({selectedCustomer?.code})
+            ขั้นตอนที่ 3: ตรวจสอบ Quotation ของ {selectedCustomer?.name} ({selectedCustomer?.code})
           </p>
         </div>
       </div>
@@ -523,11 +522,11 @@ export default function BillingNotesClient() {
 
       {/* Filters */}
       {showFilters && (
-        <div className="mb-6 p-4 bg-white border border-border rounded-lg">
+        <div className="mb-6 p-4 card">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-medium flex items-center gap-2">
               <Filter className="w-4 h-4" />
-              ตัวกรอง PO
+              ตัวกรอง Quotation
             </h3>
             <button
               onClick={clearFilters}
@@ -539,7 +538,7 @@ export default function BillingNotesClient() {
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="label text-xs">เลข PO</label>
+              <label className="label text-xs">เลข Quotation</label>
               <input
                 type="text"
                 value={filters.poNumber}
@@ -602,7 +601,7 @@ export default function BillingNotesClient() {
       )}
 
       {/* Table */}
-      <div className="bg-white border border-border rounded-lg overflow-hidden">
+      <div className="card overflow-hidden">
         {/* Toolbar */}
         <div className="px-4 py-3 border-b border-border bg-gray-50 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -630,7 +629,7 @@ export default function BillingNotesClient() {
         ) : pos.length === 0 ? (
           <div className="p-8 text-center text-muted">
             <Package className="w-12 h-12 mx-auto mb-4" />
-            <p>ไม่พบ PO</p>
+            <p>ไม่พบ Quotation</p>
           </div>
         ) : (
           <>
@@ -648,7 +647,7 @@ export default function BillingNotesClient() {
                       </button>
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted uppercase">
-                      เลข PO
+                      เลข Quotation
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted uppercase">
                       เลขใบกำกับภาษี

@@ -1,23 +1,27 @@
 @import "tailwindcss";
 
-/* Rimping green theme for FlowSync */
+/* Rimping green theme for FlowSync — Enterprise SaaS palette */
 :root {
-  --background: #f5f8f4;
-  --foreground: #0f1f15;
+  --background: #f8fafc;
+  --foreground: #111827;
   --card: #ffffff;
-  --border: #e1e8df;
-  --muted: #6b7d70;
+  --border: #e5e7eb;
+  --muted: #6b7280;
 
-  --brand-50: #eef7ef;
-  --brand-100: #d6ecd9;
-  --brand-200: #afd9b4;
-  --brand-300: #84c38c;
-  --brand-400: #5fae6a;
-  --brand-500: #3f9a4d;
-  --brand-600: #2f8b46;  /* primary */
-  --brand-700: #226b34;
-  --brand-800: #185028;
-  --brand-900: #0e3a1c;
+  --success: #16a34a;
+  --warning: #f59e0b;
+  --danger: #dc2626;
+
+  --brand-50: #f0fdf4;
+  --brand-100: #dcfce7;
+  --brand-200: #bbf7d0;
+  --brand-300: #86efac;
+  --brand-400: #4ade80;
+  --brand-500: #22c55e;
+  --brand-600: #15803d;  /* primary */
+  --brand-700: #166534;
+  --brand-800: #14532d;
+  --brand-900: #052e16;
 }
 
 @theme inline {
@@ -26,6 +30,9 @@
   --color-card: var(--card);
   --color-border: var(--border);
   --color-muted: var(--muted);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
   --color-brand-50: var(--brand-50);
   --color-brand-100: var(--brand-100);
   --color-brand-200: var(--brand-200);
@@ -36,7 +43,7 @@
   --color-brand-700: var(--brand-700);
   --color-brand-800: var(--brand-800);
   --color-brand-900: var(--brand-900);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -62,30 +69,30 @@ body {
 
 @layer components {
   .btn-base {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 h-10 rounded-xl px-4 text-sm font-medium transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800;
+    @apply inline-flex items-center justify-center gap-2 h-10 rounded-xl px-4 text-sm font-medium transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed bg-brand-600 text-white hover:bg-brand-700 hover:-translate-y-px active:bg-brand-800 active:translate-y-0;
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed bg-white text-brand-700 border border-brand-200 hover:bg-brand-50;
+    @apply inline-flex items-center justify-center gap-2 h-10 rounded-xl px-4 text-sm font-medium transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed bg-white text-foreground border border-border hover:bg-gray-50 hover:-translate-y-px;
   }
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed text-brand-700 hover:bg-brand-50;
+    @apply inline-flex items-center justify-center gap-2 h-10 rounded-xl px-4 text-sm font-medium transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed text-brand-700 hover:bg-brand-50;
   }
   .btn-danger {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed bg-red-600 text-white hover:bg-red-700;
+    @apply inline-flex items-center justify-center gap-2 h-10 rounded-xl px-4 text-sm font-medium transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed bg-danger text-white hover:bg-red-700 hover:-translate-y-px;
   }
   .input {
-    @apply w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200;
+    @apply w-full min-h-[42px] rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100;
   }
   .label {
-    @apply block text-xs font-medium text-muted mb-1;
+    @apply block text-xs font-medium text-muted mb-1.5;
   }
   .card {
-    @apply bg-card border border-border rounded-xl shadow-sm;
+    @apply bg-card border border-border rounded-2xl shadow-[0_1px_2px_rgba(16,24,40,0.04)];
   }
   .badge {
-    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+    @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium;
   }
 }

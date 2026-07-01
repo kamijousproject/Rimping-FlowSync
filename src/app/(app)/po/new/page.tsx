@@ -2,7 +2,20 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import {
+  Info,
+  Search,
+  ChevronDown,
+  Trash2,
+  Plus,
+  Save,
+  AlertTriangle,
+  FileText,
+} from "lucide-react";
 import { fmtMoney } from "@/components/StatusBadge";
+
+const GRID_COLS =
+  "grid-cols-[28px_minmax(160px,1.6fr)_minmax(140px,1.4fr)_76px_72px_76px_104px_112px_36px]";
 
 export default function NewPoPage() {
   return (
@@ -273,295 +286,313 @@ function NewPoInner() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div>
-        <Link href="/po" className="text-sm text-brand-700 hover:underline">
+        <Link
+          href="/po"
+          className="text-sm text-muted hover:text-foreground transition inline-flex items-center gap-1"
+        >
           ← กลับ
         </Link>
-        <h1 className="text-2xl font-bold text-brand-800 mt-1">
-          สร้าง Purchase Order ใหม่
+        <h1 className="text-xl md:text-2xl font-bold text-brand-800 mt-1 flex items-center gap-2">
+          <FileText className="w-5 h-5 text-brand-600" />
+          สร้าง Quotation ใหม่
         </h1>
       </div>
 
-      <form onSubmit={handleSubmitClick} className="space-y-4">
-        <div className="card p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-2 relative">
-            <label className="label">ลูกค้า *</label>
-            <input
-              className="input"
-              placeholder="พิมพ์ชื่อหรือรหัสลูกค้า..."
-              value={custQuery}
-              autoComplete="off"
-              onFocus={() => setCustOpen(true)}
-              onBlur={() => setTimeout(() => setCustOpen(false), 150)}
-              onChange={(e) => {
-                setCustQuery(e.target.value);
-                setCustOpen(true);
-                if (!e.target.value) setCustomerId("");
-              }}
-            />
-            {custOpen && custMatches.length > 0 && (
-              <ul className="absolute z-30 mt-1 w-full bg-white border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto text-sm">
-                {custMatches.map((c) => (
-                  <li
-                    key={c.id}
-                    onMouseDown={() => selectCustomer(c)}
-                    className={`px-3 py-2 cursor-pointer hover:bg-brand-50 ${
-                      c.id === customerId ? "bg-brand-50 font-medium" : ""
-                    }`}
-                  >
-                    <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5">
-                      <span className="font-medium">
-                        {c.code ? <span className="text-muted mr-1">[{c.code}]</span> : null}
-                        {c.name}
-                      </span>
-                      {c.temp_extra > 0 && (
-                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">
-                          +{fmtMoney(c.temp_extra)} วงเงินชั่วคราว
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs text-muted mt-0.5">
-                      วงเงินเหลือ{" "}
-                      <span className={c.credit_available <= 0 ? "text-red-600 font-semibold" : "font-semibold text-brand-700"}>
-                        {fmtMoney(c.credit_available)} บ
-                      </span>
-                      {c.temp_extra > 0 && (
-                        <span className="text-muted ml-1">(รวมวงเงินหลัก {fmtMoney(c.credit_limit)} + ชั่วคราว {fmtMoney(c.temp_extra)})</span>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {custOpen && custQuery.trim() && custMatches.length === 0 && (
-              <div className="absolute z-30 mt-1 w-full bg-white border border-border rounded-lg shadow-lg px-3 py-2 text-sm text-muted">
-                ไม่พบลูกค้าที่ตรงกัน
+      <form onSubmit={handleSubmitClick} className="space-y-6">
+        {/* Section: ข้อมูลพื้นฐาน */}
+        <section className="bg-white border border-border rounded-[20px] p-7 md:p-8 space-y-5">
+          <h2 className="font-semibold text-[15px] text-foreground">ข้อมูลพื้นฐาน</h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="md:col-span-2 relative">
+              <label className="label">ลูกค้า *</label>
+              <div className="relative">
+                <input
+                  className="input h-12 rounded-xl pr-10"
+                  placeholder="พิมพ์ชื่อหรือรหัสลูกค้า..."
+                  value={custQuery}
+                  autoComplete="off"
+                  onFocus={() => setCustOpen(true)}
+                  onBlur={() => setTimeout(() => setCustOpen(false), 150)}
+                  onChange={(e) => {
+                    setCustQuery(e.target.value);
+                    setCustOpen(true);
+                    if (!e.target.value) setCustomerId("");
+                  }}
+                />
+                <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
               </div>
-            )}
-          </div>
-          <div>
-            <label className="label">เครดิต (วัน) *</label>
-            <input
-              className="input bg-gray-50 text-muted cursor-not-allowed"
-              value={creditTerm ? `${creditTerm} วัน` : "—"}
-              readOnly
-              tabIndex={-1}
-            />
-            <p className="text-[11px] text-muted mt-0.5">ตามเครดิตเริ่มต้นของร้าน</p>
-          </div>
-          {selected && (
-            <div className="md:col-span-3 space-y-2">
-              {selected.temp_extra > 0 && (
-                <div className="rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-xs text-blue-800">
-                  🔵 <strong>วงเงินชั่วคราวใช้งานอยู่:</strong> +{fmtMoney(selected.temp_extra)} (วงเงินรวม {fmtMoney(selected.effective_limit)})
+              {custOpen && custMatches.length > 0 && (
+                <ul className="absolute z-30 mt-1.5 w-full bg-white border border-border rounded-xl shadow-lg max-h-60 overflow-y-auto text-sm">
+                  {custMatches.map((c) => (
+                    <li
+                      key={c.id}
+                      onMouseDown={() => selectCustomer(c)}
+                      className={`px-3.5 py-2.5 cursor-pointer hover:bg-brand-50 transition ${
+                        c.id === customerId ? "bg-brand-50 font-medium" : ""
+                      }`}
+                    >
+                      <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5">
+                        <span className="font-medium">
+                          {c.code ? <span className="text-muted mr-1">[{c.code}]</span> : null}
+                          {c.name}
+                        </span>
+                        {c.temp_extra > 0 && (
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                            +{fmtMoney(c.temp_extra)} วงเงินชั่วคราว
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted mt-0.5">
+                        วงเงินเหลือ{" "}
+                        <span className={c.credit_available <= 0 ? "text-red-600 font-semibold" : "font-semibold text-brand-700"}>
+                          {fmtMoney(c.credit_available)} บ
+                        </span>
+                        {c.temp_extra > 0 && (
+                          <span className="text-muted ml-1">(รวมวงเงินหลัก {fmtMoney(c.credit_limit)} + ชั่วคราว {fmtMoney(c.temp_extra)})</span>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {custOpen && custQuery.trim() && custMatches.length === 0 && (
+                <div className="absolute z-30 mt-1.5 w-full bg-white border border-border rounded-xl shadow-lg px-3.5 py-2.5 text-sm text-muted">
+                  ไม่พบลูกค้าที่ตรงกัน
                 </div>
               )}
-              <div className="grid grid-cols-4 gap-3 text-sm bg-brand-50 rounded-lg p-3">
-                <div>
-                  <div className="text-xs text-muted">วงเงิน (effective)</div>
-                  <div className="font-semibold">
-                    {fmtMoney(selected.effective_limit)} บ
+            </div>
+
+            <div>
+              <label className="label">เครดิต (วัน) *</label>
+              <div className="h-12 rounded-xl border border-border bg-gray-50 px-3.5 flex items-center justify-between text-muted cursor-not-allowed select-none">
+                <span>{creditTerm ? `${creditTerm} วัน` : "—"}</span>
+                <ChevronDown className="w-4 h-4 shrink-0" />
+              </div>
+              <p className="text-xs text-muted mt-1">ตามเครดิตเริ่มต้นของร้าน</p>
+            </div>
+
+            {selected && (
+              <div className="md:col-span-3 space-y-2.5">
+                {selected.temp_extra > 0 && (
+                  <div className="rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2.5 text-xs text-blue-800 flex items-start gap-1.5">
+                    <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span><strong>วงเงินชั่วคราวใช้งานอยู่:</strong> +{fmtMoney(selected.temp_extra)} (วงเงินรวม {fmtMoney(selected.effective_limit)})</span>
                   </div>
-                  {selected.temp_extra > 0 && (
-                    <div className="text-xs text-muted">หลัก {fmtMoney(selected.credit_limit)}</div>
-                  )}
-                </div>
-                <div>
-                  <div className="text-xs text-muted">ลูกหนี้คงค้าง</div>
-                  <div className="font-semibold text-red-600">
-                    {fmtMoney(selected.outstanding)} บ
+                )}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm bg-gray-50 rounded-xl p-4">
+                  <div>
+                    <div className="text-xs text-muted">วงเงิน (effective)</div>
+                    <div className="font-semibold mt-0.5">
+                      {fmtMoney(selected.effective_limit)} บ
+                    </div>
+                    {selected.temp_extra > 0 && (
+                      <div className="text-xs text-muted">หลัก {fmtMoney(selected.credit_limit)}</div>
+                    )}
                   </div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted">เครดิตโน๊ต</div>
-                  <div className="font-semibold text-green-600">
-                    {fmtMoney(selected.credit_notes_balance)} บ
+                  <div>
+                    <div className="text-xs text-muted">ลูกหนี้คงค้าง</div>
+                    <div className="font-semibold text-danger mt-0.5">
+                      {fmtMoney(selected.outstanding)} บ
+                    </div>
                   </div>
-                  <div className="text-[10px] text-muted">ใช้ก่อนเสมอ</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted">วงเงินคงเหลือ</div>
-                  <div className="font-semibold text-brand-700">
-                    {fmtMoney(selected.credit_available)} บ
+                  <div>
+                    <div className="text-xs text-muted">เครดิตโน๊ต</div>
+                    <div className="font-semibold text-success mt-0.5">
+                      {fmtMoney(selected.credit_notes_balance)} บ
+                    </div>
+                    <div className="text-[10px] text-muted">ใช้ก่อนเสมอ</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted">วงเงินคงเหลือ</div>
+                    <div className="font-semibold text-brand-700 mt-0.5">
+                      {fmtMoney(selected.credit_available)} บ
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
-
-        <div className="card p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold">รายการสินค้า</h3>
-            <button
-              type="button"
-              onClick={() => setItems([...items, newItem()])}
-              className="btn-secondary text-sm"
-            >
-              + เพิ่มรายการ
-            </button>
+            )}
           </div>
+        </section>
+
+        {/* Section: รายการสินค้า */}
+        <section className="bg-white border border-border rounded-[20px] p-7 md:p-8">
+          <h2 className="font-semibold text-[15px] text-foreground mb-4">รายการสินค้า</h2>
+
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[680px] text-sm">
-              <thead className="text-xs text-muted">
-                <tr>
-                  <th className="text-left p-2">สินค้า (SKU) *</th>
-                  <th className="text-left p-2">รายละเอียด</th>
-                  <th className="text-right p-2 w-24">จำนวน *</th>
-                  <th className="text-left p-2 w-24">หน่วย</th>
-                  <th className="text-right p-2 w-24">Stock</th>
-                  <th className="text-right p-2 w-32">ราคา/หน่วย *</th>
-                  <th className="text-right p-2 w-32">รวม</th>
-                  <th className="w-10"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((it, idx) => {
-                  const line = Number(it.quantity || 0) * Number(it.unit_price || 0);
-                  return (
-                    <tr key={idx} className="border-t">
-                      <td className="p-1">
-                        <input
-                          type="text"
-                          className="input"
-                          required
-                          placeholder="ค้น SKU..."
-                          autoComplete="off"
-                          ref={(el) => { inputRefs.current[idx] = el; }}
-                          value={it._prodQuery ?? it.product_name}
-                          onFocus={() => { setOpenIdx(idx); recalcPos(idx); updateItem(idx, { _prodOpen: true }); }}
-                          onBlur={() => setTimeout(() => { updateItem(idx, { _prodOpen: false }); setOpenIdx(null); setDropdownPos(null); }, 150)}
-                          onChange={(e) => onProdQueryChange(idx, e.target.value)}
-                        />
-                      </td>
-                      <td className="p-1">
-                        <input
-                          className="input"
-                          value={it.description}
-                          onChange={(e) =>
-                            updateItem(idx, { description: e.target.value })
-                          }
-                        />
-                      </td>
-                      <td className="p-1">
-                        <input
-                          type="number"
-                          step="1"
-                          min="1"
-                          className="input text-right"
-                          required
-                          value={it.quantity}
-                          onChange={(e) =>
-                            updateItem(idx, {
-                              quantity: Number(e.target.value),
-                            })
-                          }
-                        />
-                      </td>
-                      <td className="p-1">
-                        <input
-                          className="input"
-                          value={it.unit}
-                          onChange={(e) =>
-                            updateItem(idx, { unit: e.target.value })
-                          }
-                        />
-                      </td>
-                      <td className="p-1 text-right">
-                        {it.product_name && stockInfo[it.product_name] !== undefined ? (
-                          <span className={
-                            stockInfo[it.product_name] < 0 ? "text-red-600 font-semibold" :
-                            stockInfo[it.product_name] < Number(it.quantity || 0) ? "text-orange-600 font-semibold" :
-                            "text-green-600"
-                          }>
-                            {stockInfo[it.product_name] < 0 ? `${stockInfo[it.product_name]} (ติดลบ)` : stockInfo[it.product_name]}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-                      <td className="p-1">
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          className="input text-right"
-                          required
-                          value={it.unit_price}
-                          onChange={(e) =>
-                            updateItem(idx, {
-                              unit_price: Number(e.target.value),
-                            })
-                          }
-                        />
-                      </td>
-                      <td className="p-2 text-right font-medium">
-                        {fmtMoney(line)}
-                      </td>
-                      <td className="p-1 text-center">
-                        {items.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removeItem(idx)}
-                            className="text-red-600 hover:bg-red-50 rounded px-2 py-1"
-                            title="ลบ"
-                          >
-                            ✕
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr className="border-t-2 font-bold">
-                  <td colSpan={6} className="p-2 text-right">
-                    รวมทั้งหมด
-                  </td>
-                  <td className="p-2 text-right text-brand-700 text-lg">
-                    {fmtMoney(total)} ฿
-                  </td>
-                  <td></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
+            <div className="min-w-[820px]">
+              {/* Grid header */}
+              <div className={`grid ${GRID_COLS} gap-3 px-2 pb-2.5 border-b border-gray-100`}>
+                <div />
+                <div className="text-xs font-medium text-muted uppercase tracking-wide">สินค้า (SKU) *</div>
+                <div className="text-xs font-medium text-muted uppercase tracking-wide">รายละเอียด</div>
+                <div className="text-xs font-medium text-muted uppercase tracking-wide text-right">จำนวน *</div>
+                <div className="text-xs font-medium text-muted uppercase tracking-wide">หน่วย</div>
+                <div className="text-xs font-medium text-muted uppercase tracking-wide text-right">Stock</div>
+                <div className="text-xs font-medium text-muted uppercase tracking-wide text-right">ราคา/หน่วย *</div>
+                <div className="text-xs font-medium text-muted uppercase tracking-wide text-right">รวม</div>
+                <div />
+              </div>
 
-        <div className="card p-5">
-          <label className="label">หมายเหตุ</label>
-          <textarea
-            className="input"
-            rows={2}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-          />
-        </div>
+              {/* Grid rows */}
+              {items.map((it, idx) => {
+                const line = Number(it.quantity || 0) * Number(it.unit_price || 0);
+                return (
+                  <div
+                    key={idx}
+                    className={`grid ${GRID_COLS} gap-3 px-2 items-center h-16 border-b border-gray-100 rounded-lg transition-colors duration-200 hover:bg-brand-50/40`}
+                  >
+                    <div className="text-xs text-muted">{idx + 1}</div>
+                    <input
+                      type="text"
+                      className="h-10 rounded-[10px] border border-border bg-white px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 transition"
+                      required
+                      placeholder="ค้น SKU..."
+                      autoComplete="off"
+                      ref={(el) => { inputRefs.current[idx] = el; }}
+                      value={it._prodQuery ?? it.product_name}
+                      onFocus={() => { setOpenIdx(idx); recalcPos(idx); updateItem(idx, { _prodOpen: true }); }}
+                      onBlur={() => setTimeout(() => { updateItem(idx, { _prodOpen: false }); setOpenIdx(null); setDropdownPos(null); }, 150)}
+                      onChange={(e) => onProdQueryChange(idx, e.target.value)}
+                    />
+                    <input
+                      className="h-10 rounded-[10px] border border-border bg-white px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 transition"
+                      value={it.description}
+                      onChange={(e) =>
+                        updateItem(idx, { description: e.target.value })
+                      }
+                    />
+                    <input
+                      type="number"
+                      step="1"
+                      min="1"
+                      className="h-10 rounded-[10px] border border-border bg-white px-2.5 text-sm text-right outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 transition"
+                      required
+                      value={it.quantity}
+                      onChange={(e) =>
+                        updateItem(idx, {
+                          quantity: Number(e.target.value),
+                        })
+                      }
+                    />
+                    <input
+                      className="h-10 rounded-[10px] border border-border bg-white px-2.5 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 transition"
+                      value={it.unit}
+                      onChange={(e) =>
+                        updateItem(idx, { unit: e.target.value })
+                      }
+                    />
+                    <div className="text-right text-sm">
+                      {it.product_name && stockInfo[it.product_name] !== undefined ? (
+                        <span className={
+                          stockInfo[it.product_name] < 0 ? "text-red-600 font-semibold" :
+                          stockInfo[it.product_name] < Number(it.quantity || 0) ? "text-orange-600 font-semibold" :
+                          "text-success font-medium"
+                        }>
+                          {stockInfo[it.product_name] < 0 ? `${stockInfo[it.product_name]} (ติดลบ)` : stockInfo[it.product_name]}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </div>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      className="h-10 rounded-[10px] border border-border bg-white px-2.5 text-sm text-right outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 transition"
+                      required
+                      value={it.unit_price}
+                      onChange={(e) =>
+                        updateItem(idx, {
+                          unit_price: Number(e.target.value),
+                        })
+                      }
+                    />
+                    <div className="text-right text-sm font-medium text-foreground">
+                      {fmtMoney(line)}
+                    </div>
+                    <div className="flex justify-center">
+                      {items.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeItem(idx)}
+                          className="text-muted hover:text-danger hover:bg-red-50 rounded-lg p-1.5 transition"
+                          title="ลบ"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setItems([...items, newItem()])}
+            className="mt-4 w-full h-11 rounded-xl border border-dashed border-border text-sm text-muted hover:text-brand-700 hover:border-brand-300 hover:bg-brand-50/40 transition flex items-center justify-center gap-1.5"
+          >
+            <Plus className="w-4 h-4" />
+            เพิ่มสินค้า
+          </button>
+
+          <div className="mt-6 flex justify-end">
+            <div className="text-right">
+              <div className="text-sm text-muted">รวมทั้งหมด</div>
+              <div className="text-3xl font-bold text-brand-700 mt-0.5">{fmtMoney(total)} บาท</div>
+            </div>
+          </div>
+        </section>
+
+        {/* Section: หมายเหตุ */}
+        <section className="bg-white border border-border rounded-[20px] p-7 md:p-8">
+          <h2 className="font-semibold text-[15px] text-foreground mb-3">หมายเหตุ</h2>
+          <div className="relative">
+            <textarea
+              className="w-full rounded-xl border border-border bg-white px-3.5 py-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 transition resize-none"
+              style={{ height: 120 }}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+            <span className="absolute bottom-2.5 right-3.5 text-xs text-gray-400 pointer-events-none">
+              {notes.length} ตัวอักษร
+            </span>
+          </div>
+        </section>
 
         {overLimit && (
-          <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-            ยอด PO ({fmtMoney(total)}) เกินวงเงินคงเหลือของลูกค้า (
-            {selected ? fmtMoney(selected.credit_available) : 0}) ไม่สามารถออก PO ได้
+          <div className="text-sm text-danger bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>
+              ยอด Quotation ({fmtMoney(total)}) เกินวงเงินคงเหลือของลูกค้า (
+              {selected ? fmtMoney(selected.credit_available) : 0}) ไม่สามารถออก Quotation ได้
+            </span>
           </div>
         )}
         {err && (
-          <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          <div className="text-sm text-danger bg-red-50 border border-red-200 rounded-xl px-4 py-3">
             {err}
           </div>
         )}
 
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           <button
             type="button"
             onClick={handleSubmitClick}
-            className="btn-primary"
+            className="h-11 px-5 rounded-xl bg-brand-600 text-white text-sm font-medium inline-flex items-center gap-2 transition-all duration-200 hover:bg-brand-700 hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
             disabled={loading || overLimit || !customerId}
           >
-            {loading ? "กำลังบันทึก..." : "บันทึก PO (สถานะ: ร่าง)"}
+            <Save className="w-4 h-4" />
+            {loading ? "กำลังบันทึก..." : "บันทึก Quotation (สถานะ: ร่าง)"}
           </button>
-          <Link href="/po" className="btn-secondary">
+          <Link
+            href="/po"
+            className="h-11 px-5 rounded-xl border border-border bg-white text-foreground text-sm font-medium inline-flex items-center gap-2 transition-all duration-200 hover:bg-gray-50 hover:-translate-y-px"
+          >
             ยกเลิก
           </Link>
         </div>
@@ -570,16 +601,14 @@ function NewPoInner() {
       {/* Confirmation Modal */}
       {showConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
-            <h2 className="text-lg font-semibold text-brand-800 flex items-center gap-2">
-              <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              ยืนยันการสร้าง PO
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-warning" />
+              ยืนยันการสร้าง Quotation
             </h2>
-            
+
             <div className="space-y-3 text-sm">
-              <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+              <div className="bg-gray-50 rounded-xl p-4 space-y-2">
                 <div className="flex justify-between">
                   <span className="text-muted">ลูกค้า:</span>
                   <span className="font-medium">{custQuery}</span>
@@ -599,12 +628,12 @@ function NewPoInner() {
                   <span className="font-medium">{creditTerm} วัน</span>
                 </div>
               </div>
-              
+
               <p className="text-muted text-center">
-                ต้องการสร้าง PO นี้ใช่หรือไม่?
+                ต้องการสร้าง Quotation นี้ใช่หรือไม่?
               </p>
             </div>
-            
+
             <div className="flex gap-2 justify-end pt-2">
               <button
                 type="button"
@@ -618,7 +647,7 @@ function NewPoInner() {
                 onClick={confirmSubmit}
                 className="btn-primary"
               >
-                ยืนยัน สร้าง PO
+                ยืนยัน สร้าง Quotation
               </button>
             </div>
           </div>

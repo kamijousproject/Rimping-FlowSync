@@ -45,7 +45,7 @@ function ItemTable({ items }: { items: NonNullable<PoSnapshot["items"]> }) {
   if (!Array.isArray(items) || items.length === 0) return null;
   return (
     <table className="w-full text-xs border border-border">
-      <thead className="bg-brand-50 text-muted">
+      <thead className="bg-gray-50 text-muted">
         <tr>
           <th className="text-left p-1.5">สินค้า</th>
           <th className="text-right p-1.5">จำนวน</th>
@@ -171,7 +171,7 @@ export function EditLogsSection({ logs }: { logs: Log[] }) {
     <div className="card p-5">
       <h3 className="font-semibold mb-3 flex items-center gap-2">
         <History className="w-4 h-4 text-brand-700" />
-        ประวัติการแก้ไข PO
+        ประวัติการแก้ไข Quotation
         <span className="text-xs text-muted font-normal">
           ({logs.length} ครั้ง)
         </span>

@@ -6,7 +6,7 @@ import { fmtMoney } from "@/components/StatusBadge";
 import { JdaProgressBar, type JdaPollData } from "@/components/JdaProgress";
 
 const FLOW: { from: string; to: string; label: string }[] = [
-  { from: "draft", to: "confirmed", label: "ยืนยัน PO (ลูกค้า confirm)" },
+  { from: "draft", to: "confirmed", label: "ยืนยัน Quotation (ลูกค้า confirm)" },
   { from: "confirmed", to: "packed", label: "แพ็คของแล้ว" },
   { from: "packed", to: "checked", label: "ตรวจของครบแล้ว" },
   { from: "checked", to: "delivered", label: "จัดส่งแล้ว" },
@@ -497,12 +497,12 @@ export function PoActions({
         {status !== "cancelled" && status !== "received" && (
           <button
             onClick={() => {
-              if (confirm("ยืนยันยกเลิก PO นี้?")) setStatus("cancelled");
+              if (confirm("ยืนยันยกเลิก Quotation นี้?")) setStatus("cancelled");
             }}
             disabled={busy}
             className="btn-danger"
           >
-            ยกเลิก PO
+            ยกเลิก Quotation
           </button>
         )}
       </div>
@@ -675,7 +675,7 @@ export function PoActions({
 
           {jdaPollStatus === "success" && jdaPoNumber ? (
             <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-sm">
-              <div className="text-xs text-green-600 mb-0.5">เลข PO ใน JDA</div>
+              <div className="text-xs text-green-600 mb-0.5">เลข Quotation ใน JDA</div>
               <div className="font-mono font-bold text-green-800 text-base">{jdaPoNumber}</div>
             </div>
           ) : jdaPollStatus === "pending" ? (
@@ -723,7 +723,7 @@ export function PoActions({
                 }}
                 disabled={busy || remaining <= 0 || !jdaReady}
                 className="btn-primary"
-                title={!jdaReady ? "รอให้ JDA ยืนยันเลข PO ก่อน" : undefined}
+                title={!jdaReady ? "รอให้ JDA ยืนยันเลข Quotation ก่อน" : undefined}
               >
                 <Wallet className="w-4 h-4" />
                 บันทึกการชำระเงิน
@@ -731,7 +731,7 @@ export function PoActions({
               {!jdaReady && (
                 <div className="text-xs text-amber-700 flex items-center gap-1">
                   <AlertCircle className="w-3 h-3" />
-                  รอเลข PO จาก JDA ก่อนบันทึกการชำระ
+                  รอเลข Quotation จาก JDA ก่อนบันทึกการชำระ
                 </div>
               )}
             </div>

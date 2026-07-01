@@ -19,6 +19,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import type { InvoiceWithDetails } from "@/app/api/invoices/route";
+import { ThaiDateInput } from "@/components/ThaiDateInput";
 
 interface FilterState {
   customerName: string;
@@ -217,9 +218,9 @@ export default function InvoicesClient() {
     .reduce((sum, inv) => sum + inv.amount, 0);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-xl font-semibold flex items-center gap-2">
           <FileText className="w-5 h-5" />
           Invoices
@@ -265,7 +266,7 @@ export default function InvoicesClient() {
 
       {/* Filters Panel */}
       {showFilters && (
-        <div className="mb-6 p-4 bg-white border border-border rounded-lg">
+        <div className="mb-6 p-4 card">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-medium flex items-center gap-2">
               <Search className="w-4 h-4" />
@@ -339,8 +340,7 @@ export default function InvoicesClient() {
             <div>
               <label className="label text-xs">วันที่ออก Invoice</label>
               <div className="flex items-center gap-2">
-                <input
-                  type="date"
+                <ThaiDateInput
                   value={filters.dateFrom}
                   onChange={(e) =>
                     setFilters((prev) => ({ ...prev, dateFrom: e.target.value }))
@@ -348,8 +348,7 @@ export default function InvoicesClient() {
                   className="input text-sm flex-1"
                 />
                 <span className="text-muted">-</span>
-                <input
-                  type="date"
+                <ThaiDateInput
                   value={filters.dateTo}
                   onChange={(e) =>
                     setFilters((prev) => ({ ...prev, dateTo: e.target.value }))
@@ -403,7 +402,7 @@ export default function InvoicesClient() {
       )}
 
       {/* Table */}
-      <div className="bg-white border border-border rounded-lg overflow-hidden">
+      <div className="card overflow-hidden">
         {loading ? (
           <div className="p-8 text-center text-muted">กำลังโหลด...</div>
         ) : error ? (
@@ -413,7 +412,7 @@ export default function InvoicesClient() {
             <FileText className="w-12 h-12 mx-auto mb-4 text-muted" />
             <p>ไม่พบ Invoice</p>
             <p className="text-sm mt-1">
-              สร้าง Invoice ได้จากหน้า PO
+              สร้าง Invoice ได้จากหน้า Quotation
             </p>
           </div>
         ) : (
@@ -438,7 +437,7 @@ export default function InvoicesClient() {
                       เลขใบกำกับภาษี
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted uppercase">
-                      PO
+                      Quotation
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted uppercase">
                       ลูกค้า

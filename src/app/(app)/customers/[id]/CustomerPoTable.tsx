@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FileText } from "lucide-react";
 import { fmtMoney, StatusBadge, PaymentBadge } from "@/components/StatusBadge";
+import { ThaiDateInput } from "@/components/ThaiDateInput";
 
 type Po = {
   id: number;
@@ -114,15 +115,15 @@ export function CustomerPoTable({
   return (
     <div className="card p-5">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-        <h3 className="font-semibold">ประวัติ Purchase Order</h3>
+        <h3 className="font-semibold">ประวัติ Quotation</h3>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1 text-sm">
             <label className="text-muted text-xs">ตั้งแต่</label>
-            <input type="date" className="input text-xs py-1 px-2 h-8" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+            <ThaiDateInput className="input w-[140px] text-xs py-1 px-2 h-8" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
           </div>
           <div className="flex items-center gap-1 text-sm">
             <label className="text-muted text-xs">ถึง</label>
-            <input type="date" className="input text-xs py-1 px-2 h-8" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+            <ThaiDateInput className="input w-[140px] text-xs py-1 px-2 h-8" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
           </div>
           {(dateFrom || dateTo) && (
             <button className="text-xs text-muted underline" onClick={() => { setDateFrom(""); setDateTo(""); }}>ล้าง</button>
@@ -133,7 +134,7 @@ export function CustomerPoTable({
               className="btn-primary text-xs flex items-center gap-1"
             >
               <FileText className="w-3.5 h-3.5" />
-              สร้างใบวางบิล ({selected.size} PO)
+              สร้างใบวางบิล ({selected.size} Quotation)
             </button>
           )}
         </div>
@@ -151,7 +152,7 @@ export function CustomerPoTable({
                   className="accent-brand-600"
                 />
               </th>
-              <th className="text-left py-2">PO</th>
+              <th className="text-left py-2">Quotation</th>
               <th className="text-right">ยอดรวม</th>
               <th className="text-right">ชำระแล้ว</th>
               <th className="text-right">คงค้าง</th>
@@ -190,7 +191,7 @@ export function CustomerPoTable({
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="text-center py-6 text-muted">ไม่พบ PO ในช่วงวันที่ที่เลือก</td>
+                <td colSpan={8} className="text-center py-6 text-muted">ไม่พบ Quotation ในช่วงวันที่ที่เลือก</td>
               </tr>
             )}
           </tbody>
@@ -207,11 +208,11 @@ export function CustomerPoTable({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="label text-xs">วันที่ออกใบ *</label>
-                <input type="date" className="input text-sm" value={issuedDate} onChange={(e) => setIssuedDate(e.target.value)} />
+                <ThaiDateInput className="input w-full text-sm" value={issuedDate} onChange={(e) => setIssuedDate(e.target.value)} />
               </div>
               <div>
                 <label className="label text-xs">กำหนดชำระ</label>
-                <input type="date" className="input text-sm" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+                <ThaiDateInput className="input w-full text-sm" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
               </div>
             </div>
 
@@ -221,12 +222,12 @@ export function CustomerPoTable({
             </div>
 
             <div>
-              <div className="text-xs font-semibold text-muted mb-1">PO ที่เลือก ({selectedPos.length} ใบ)</div>
-              <div className="border border-border rounded-lg overflow-hidden">
+              <div className="text-xs font-semibold text-muted mb-1">Quotation ที่เลือก ({selectedPos.length} ใบ)</div>
+              <div className="card overflow-hidden">
                 <table className="w-full text-xs">
-                  <thead className="bg-brand-50 text-muted">
+                  <thead className="bg-gray-50 text-muted">
                     <tr>
-                      <th className="text-left p-2">เลข PO</th>
+                      <th className="text-left p-2">เลข Quotation</th>
                       <th className="text-left p-2">เลขใบกำกับ</th>
                       <th className="text-right p-2">ยอด (หลัง CN)</th>
                     </tr>
