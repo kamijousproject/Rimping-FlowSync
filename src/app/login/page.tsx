@@ -122,7 +122,7 @@ function LoginInner() {
       </div>
 
       {/* Right — form */}
-      <div className="relative flex flex-1 items-center justify-center bg-white px-6 lg:justify-start lg:px-0 lg:pl-24">
+      <div className="relative flex flex-1 items-center justify-center bg-white px-6">
         {/* Language switcher */}
         <button
           type="button"
@@ -134,7 +134,7 @@ function LoginInner() {
           TH
         </button>
 
-        <div className="w-full max-w-[440px] py-16">
+        <div className="w-full max-w-[500px] py-16">
           {/* Mobile logo */}
           <div className="mb-10 flex justify-center lg:hidden">
             <Brand size={48} />
