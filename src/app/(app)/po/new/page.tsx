@@ -41,6 +41,7 @@ type Customer = {
 type ProductHit = {
   id: number;
   sku: string;
+  upc: string | null;
   description: string;
   current_price: number;
   dept: string | null;
@@ -450,7 +451,7 @@ function NewPoInner() {
                       type="text"
                       className="h-10 rounded-[10px] border border-border bg-white px-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 transition"
                       required
-                      placeholder="ค้น SKU..."
+                      placeholder="ค้น SKU / UPC / ชื่อสินค้า..."
                       autoComplete="off"
                       ref={(el) => { inputRefs.current[idx] = el; }}
                       value={it._prodQuery ?? it.product_name}
@@ -559,7 +560,7 @@ function NewPoInner() {
                       type="text"
                       className="input h-11 rounded-xl"
                       required
-                      placeholder="ค้น SKU..."
+                      placeholder="ค้น SKU / UPC / ชื่อสินค้า..."
                       autoComplete="off"
                       value={it._prodQuery ?? it.product_name}
                       onFocus={(e) => { setOpenIdx(idx); recalcPos(idx, e.currentTarget); updateItem(idx, { _prodOpen: true }); }}
@@ -795,9 +796,12 @@ function NewPoInner() {
                     <span className="text-brand-600 font-semibold">{fmtMoney(p.current_price)} บ</span>
                   </div>
                   <div className="text-muted truncate">{p.description}</div>
-                  {p.dept && (
+                  {(p.upc || p.dept) && (
                     <div className="text-[10px] text-muted">
-                      {p.dept}{p.vendor_name ? ` · ${p.vendor_name}` : ""}
+                      {p.upc ? `UPC ${p.upc}` : ""}
+                      {p.upc && p.dept ? " · " : ""}
+                      {p.dept ? p.dept : ""}
+                      {p.dept && p.vendor_name ? ` · ${p.vendor_name}` : ""}
                     </div>
                   )}
                 </li>

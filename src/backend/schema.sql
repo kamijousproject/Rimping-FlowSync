@@ -336,6 +336,7 @@ CREATE TABLE IF NOT EXISTS products (
   store         SMALLINT NOT NULL,
   currency      CHAR(3) NOT NULL DEFAULT 'THB',
   sku           VARCHAR(32) NOT NULL,
+  upc           VARCHAR(50) DEFAULT NULL,   -- barcode, sourced from inventory (matched by store+sku)
   description   VARCHAR(512) NOT NULL DEFAULT '',
 
   -- Current pricing
@@ -373,6 +374,7 @@ CREATE TABLE IF NOT EXISTS products (
 
   UNIQUE KEY uq_store_sku (store, sku),
   KEY idx_sku (sku),
+  KEY idx_upc (upc),
   KEY idx_dept (dept),
   KEY idx_vendor (vendor),
   FULLTEXT KEY ft_sku_desc (sku, description)

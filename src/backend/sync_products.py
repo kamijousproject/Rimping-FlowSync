@@ -352,6 +352,27 @@ def get_today_sales(conn) -> dict[str, int]:
     return result
 
 
+def propagate_upc_to_products(conn):
+    """คัดลอก UPC จากตาราง inventory → products (จับคู่ด้วย store+sku).
+
+    ไฟล์ราคา (price-event-store-500.csv) ไม่มีคอลัมน์ UPC — UPC มาจากไฟล์
+    inventory เท่านั้น จึงต้อง propagate หลัง sync inventory เสร็จ.
+    """
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE products p
+        JOIN inventory i ON p.store = i.store AND p.sku = i.sku
+        SET p.upc = i.upc
+        WHERE i.upc IS NOT NULL AND i.upc <> ''
+          AND (p.upc IS NULL OR p.upc <> i.upc)
+    """)
+    affected = cursor.rowcount
+    conn.commit()
+    cursor.close()
+    log.info(f"UPC propagated to products: {affected:,} rows updated")
+    return affected
+
+
 def upsert_inventory_rows(conn, rows: list[dict]):
     cursor = conn.cursor()
     total_affected = 0
@@ -455,6 +476,9 @@ def main():
 
             inv_processed, inv_affected, inv_skipped = upsert_inventory_rows(conn, inv_rows)
             log.info(f"Inventory: ประมวลผล {inv_processed:,} แถว | affected rows: {inv_affected:,} | ข้าม {inv_skipped:,}")
+
+            # ดึง UPC จาก inventory ที่เพิ่ง sync → เติมลง products (จับคู่ store+sku)
+            propagate_upc_to_products(conn)
         finally:
             conn.close()
     except Exception as e:
