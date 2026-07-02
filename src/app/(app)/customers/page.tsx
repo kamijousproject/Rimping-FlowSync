@@ -267,7 +267,7 @@ export default async function CustomersPage({
                 }`}
               >
                 <ChevronLeft className="w-4 h-4" />
-                ก่อนหน้า
+                <span className="hidden sm:inline">ก่อนหน้า</span>
               </Link>
               <span className="text-sm text-muted px-2">
                 หน้า {currentPage} / {totalPages}
@@ -279,7 +279,7 @@ export default async function CustomersPage({
                   currentPage >= totalPages ? "pointer-events-none opacity-50" : ""
                 }`}
               >
-                ถัดไป
+                <span className="hidden sm:inline">ถัดไป</span>
                 <ChevronRight className="w-4 h-4" />
               </Link>
             </div>

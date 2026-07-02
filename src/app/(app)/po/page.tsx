@@ -242,9 +242,9 @@ export default function PoListPage() {
       <div className="card p-3">
         <div className="flex flex-wrap items-center gap-3">
           {/* Status segmented control */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto min-w-0">
             <span className="text-xs text-muted shrink-0">สถานะ</span>
-            <div className="inline-flex items-center gap-0.5 rounded-xl bg-gray-50 border border-border p-1 overflow-x-auto max-w-full">
+            <div className="flex items-center gap-0.5 rounded-xl bg-gray-50 border border-border p-1 overflow-x-auto min-w-0">
               <SegmentLink href={buildFilterLink("status", null)} active={!status}>
                 ทั้งหมด
               </SegmentLink>

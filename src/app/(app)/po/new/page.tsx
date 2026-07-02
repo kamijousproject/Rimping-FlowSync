@@ -143,14 +143,14 @@ function NewPoInner() {
   const [dropdownPos, setDropdownPos] = useState<DropdownPos | null>(null);
   const [openIdx, setOpenIdx] = useState<number | null>(null);
 
-  const recalcPos = useCallback((idx: number) => {
-    const el = inputRefs.current[idx];
-    if (!el) return;
-    const r = el.getBoundingClientRect();
+  const recalcPos = useCallback((idx: number, el?: HTMLInputElement | null) => {
+    const node = el ?? inputRefs.current[idx];
+    if (!node) return;
+    const r = node.getBoundingClientRect();
     setDropdownPos({ top: r.bottom + 2, left: r.left, width: r.width });
   }, []);
 
-  function onProdQueryChange(idx: number, val: string) {
+  function onProdQueryChange(idx: number, val: string, el?: HTMLInputElement | null) {
     const cleared = !val.trim();
     setItems((prev) =>
       prev.map((it, i) =>
@@ -160,7 +160,7 @@ function NewPoInner() {
       )
     );
     setOpenIdx(idx);
-    recalcPos(idx);
+    recalcPos(idx, el);
     clearTimeout(searchTimers.current[idx]);
     if (cleared) { setItems((prev) => prev.map((it, i) => i === idx ? { ...it, _prodHits: [] } : it)); return; }
     searchTimers.current[idx] = setTimeout(async () => {
@@ -421,7 +421,8 @@ function NewPoInner() {
         <section className="bg-white border border-border rounded-[20px] p-7 md:p-8">
           <h2 className="font-semibold text-[15px] text-foreground mb-4">รายการสินค้า</h2>
 
-          <div className="overflow-x-auto">
+          {/* Desktop: grid table */}
+          <div className="hidden md:block overflow-x-auto">
             <div className="min-w-[820px]">
               {/* Grid header */}
               <div className={`grid ${GRID_COLS} gap-3 px-2 pb-2.5 border-b border-gray-100`}>
@@ -529,6 +530,114 @@ function NewPoInner() {
                 );
               })}
             </div>
+          </div>
+
+          {/* Mobile: stacked cards */}
+          <div className="md:hidden space-y-3">
+            {items.map((it, idx) => {
+              const line = Number(it.quantity || 0) * Number(it.unit_price || 0);
+              const stock = it.product_name ? stockInfo[it.product_name] : undefined;
+              return (
+                <div key={idx} className="rounded-xl border border-border p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-muted">รายการที่ {idx + 1}</span>
+                    {items.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeItem(idx)}
+                        className="text-muted hover:text-danger hover:bg-red-50 rounded-lg p-1.5 transition"
+                        title="ลบ"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="relative">
+                    <label className="label">สินค้า (SKU) *</label>
+                    <input
+                      type="text"
+                      className="input h-11 rounded-xl"
+                      required
+                      placeholder="ค้น SKU..."
+                      autoComplete="off"
+                      value={it._prodQuery ?? it.product_name}
+                      onFocus={(e) => { setOpenIdx(idx); recalcPos(idx, e.currentTarget); updateItem(idx, { _prodOpen: true }); }}
+                      onBlur={() => setTimeout(() => { updateItem(idx, { _prodOpen: false }); setOpenIdx(null); setDropdownPos(null); }, 150)}
+                      onChange={(e) => onProdQueryChange(idx, e.target.value, e.currentTarget)}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="label">รายละเอียด</label>
+                    <input
+                      className="input h-11 rounded-xl"
+                      value={it.description}
+                      onChange={(e) => updateItem(idx, { description: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">จำนวน *</label>
+                      <input
+                        type="number"
+                        step="1"
+                        min="1"
+                        className="input h-11 rounded-xl text-right"
+                        required
+                        value={it.quantity}
+                        onChange={(e) => updateItem(idx, { quantity: Number(e.target.value) })}
+                      />
+                    </div>
+                    <div>
+                      <label className="label">หน่วย</label>
+                      <input
+                        className="input h-11 rounded-xl"
+                        value={it.unit}
+                        onChange={(e) => updateItem(idx, { unit: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">ราคา/หน่วย *</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className="input h-11 rounded-xl text-right"
+                        required
+                        value={it.unit_price}
+                        onChange={(e) => updateItem(idx, { unit_price: Number(e.target.value) })}
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Stock</label>
+                      <div className="h-11 flex items-center text-sm">
+                        {stock !== undefined ? (
+                          <span className={
+                            stock < 0 ? "text-red-600 font-semibold" :
+                            stock < Number(it.quantity || 0) ? "text-orange-600 font-semibold" :
+                            "text-success font-medium"
+                          }>
+                            {stock < 0 ? `${stock} (ติดลบ)` : stock}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                    <span className="text-sm text-muted">รวม</span>
+                    <span className="text-base font-semibold text-brand-700">{fmtMoney(line)} บาท</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           <button
