@@ -6,6 +6,7 @@ import { getOrCreateQuotation } from "@/backend/services/quotations";
 import { fmtMoney } from "@/components/StatusBadge";
 import { bahtText } from "@/lib/bahtText";
 import { QuotationPrintBar } from "./QuotationPrintBar";
+import { QuotationPageCount } from "./QuotationPageCount";
 import { getUserById } from "@/backend/auth";
 
 export const dynamic = "force-dynamic";
@@ -80,6 +81,7 @@ export default async function QuotationPage({
               อ้างอิง Quotation:{" "}
               <span className="font-mono">{po.po_number}</span>
             </div>
+            <QuotationPageCount />
           </div>
         </div>
 
