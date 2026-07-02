@@ -223,7 +223,7 @@ export default async function QuotationPage({
         )}
 
         {/* Payment instructions */}
-        <div className="mt-6 grid grid-cols-2 gap-6 text-xs">
+        <div className="mt-6 grid grid-cols-2 gap-6 text-xs print-avoid-break">
           <div className="border border-border rounded p-3">
             <div className="font-semibold text-brand-800 mb-1">
               วิธีชำระเงิน / Payment Method
@@ -261,7 +261,7 @@ export default async function QuotationPage({
         </div>
 
         {/* Signatures */}
-        <div className="mt-12 grid grid-cols-2 gap-12 text-xs">
+        <div className="mt-12 grid grid-cols-2 gap-12 text-xs print-avoid-break">
           <div className="text-center">
             <div className="text-xs mb-2">ลงชื่อ ผู้เสนอราคา</div>
             <div className="h-10 flex items-end justify-center">

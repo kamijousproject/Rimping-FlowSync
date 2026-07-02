@@ -55,15 +55,40 @@ body {
 
 /* Reusable component classes (Tailwind v4: utilities only inside @apply) */
 @media print {
-  /* Remove browser-injected page headers/footers (URL, date, title)
-     by collapsing page margins. Document supplies its own padding. */
+  /* Per-page A4 margins so every page (incl. continuation pages for long
+     item lists) gets consistent top/bottom/side spacing. */
   @page {
     size: A4;
-    margin: 0;
+    margin: 12mm;
   }
   html,
   body {
     background: #ffffff !important;
+  }
+  /* The document fills the A4 printable width (page box handles margins). */
+  #quotation-doc {
+    width: auto;
+    max-width: none;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: 0 !important;
+  }
+  /* Repeat the table header on each printed page and keep rows intact. */
+  #quotation-doc thead {
+    display: table-header-group;
+  }
+  #quotation-doc tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  /* Grand Total should appear once at the end, not repeat on every page. */
+  #quotation-doc tfoot {
+    display: table-row-group;
+  }
+  /* Keep grouped blocks (payment info, signatures) from splitting mid-page. */
+  .print-avoid-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }
 
