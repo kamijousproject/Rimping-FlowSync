@@ -15,10 +15,10 @@ export default async function AppLayout({
   return (
     <div className="flex min-h-screen bg-background print:min-h-0 print:block">
       <Sidebar user={user} />
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden print:h-auto print:overflow-visible print:block">
         <MobileTopBar user={user} />
         <Navbar user={user} />
-        <main className="flex-1 p-4 md:p-6 pb-24 md:pb-6 print:p-0 print:pb-0 overflow-y-auto overflow-x-hidden">
+        <main className="flex-1 p-4 md:p-6 pb-24 md:pb-6 print:p-0 print:pb-0 overflow-y-auto overflow-x-hidden print:overflow-visible">
           {children}
         </main>
       </div>
