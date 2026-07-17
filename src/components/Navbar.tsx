@@ -18,6 +18,7 @@ const TITLE_RULES: { test: RegExp; title: string }[] = [
   { test: /^\/po\/[^/]+\/credit-note/, title: "ใบลดหนี้" },
   { test: /^\/po\/[^/]+/, title: "รายละเอียด Quotation" },
   { test: /^\/po/, title: "Quotation" },
+  { test: /^\/product-search/, title: "ค้นหาเมนูสินค้า" },
   { test: /^\/invoices\/new/, title: "สร้าง Invoice" },
   { test: /^\/invoices/, title: "Invoice ทั้งหมด" },
   { test: /^\/receipts/, title: "ใบเสร็จ" },

@@ -14,6 +14,7 @@ import {
   ChevronDown,
   Receipt,
   FileSpreadsheet,
+  PackageSearch,
   type LucideIcon,
 } from "lucide-react";
 
@@ -43,6 +44,7 @@ const MENU_GROUPS: MenuGroup[] = [
     items: [
       { href: "/po", label: "รายการ Quotation", Icon: FileText },
       { href: "/po/new", label: "สร้าง Quotation ใหม่", Icon: PlusCircle },
+      { href: "/product-search", label: "ค้นหาเมนูสินค้า", Icon: PackageSearch },
     ],
   },
   {
