@@ -164,8 +164,7 @@ export function SalesDocument({
               <td className="p-2">
                 <div>
                   {idx + 1}.{" "}
-                  <span className="font-semibold">{it.description || it.product_name}</span>{" "}
-                  <span className="text-muted">({it.product_name})</span>
+                  <span className="font-semibold">{it.description || it.product_name}</span>
                 </div>
               </td>
               <td className="text-right p-2">
