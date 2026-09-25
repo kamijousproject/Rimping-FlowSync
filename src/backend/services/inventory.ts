@@ -8,6 +8,7 @@ export type InventoryItem = {
   description: string;
   vendor: number | null;
   vendor_name: string | null;
+  sc: string | null; // 100 = ราคารวม VAT, 200 = ไม่มี VAT
   on_hand: number;
   on_order: number;
   on_transfer: number;
@@ -34,6 +35,12 @@ export async function getInventoryBySKUs(skus: string[], store: number = 500): P
     [...skus, store]
   );
   return rows as InventoryItem[];
+}
+
+/** SKU ที่ไม่มี VAT (sc = 200). SKU ที่ไม่พบใน inventory ถือว่ารวม VAT */
+export async function getNonVatSkus(skus: string[], store: number = 500): Promise<Set<string>> {
+  const rows = await getInventoryBySKUs(skus, store);
+  return new Set(rows.filter((r) => String(r.sc).trim() === "200").map((r) => r.sku));
 }
 
 export async function checkStockAvailability(
@@ -79,13 +86,13 @@ export async function checkStockAvailability(
 export async function checkMultipleStockAvailability(
   items: { sku: string; quantity: number }[],
   store: number = 500
-): Promise<{ sku: string; available: boolean; stock: number; message: string }[]> {
+): Promise<{ sku: string; available: boolean; stock: number; message: string; vatable: boolean }[]> {
   const skus = items.map(item => item.sku);
   const inventoryMap = new Map(
     (await getInventoryBySKUs(skus, store)).map(item => [item.sku, item])
   );
   
-  return items.map(item => {
+  const results = items.map(item => {
     const inventory = inventoryMap.get(item.sku);
     
     if (!inventory) {
@@ -124,4 +131,7 @@ export async function checkMultipleStockAvailability(
       message: `มี stock ${availableStock} ชิ้น`
     };
   });
+
+  // vatable: sc = 200 ไม่มี VAT, อย่างอื่น (รวมถึงไม่พบ) ถือว่ารวม VAT
+  return results.map(r => ({ ...r, vatable: String(inventoryMap.get(r.sku)?.sc).trim() !== "200" }));
 }

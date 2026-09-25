@@ -71,6 +71,7 @@ function ProductSearchInner() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [stockInfo, setStockInfo] = useState<Record<string, number>>({});
+  const [nonVatSkus, setNonVatSkus] = useState<Set<string>>(new Set());
   const [creatorName, setCreatorName] = useState<string | null>(null);
   // Stamped at print time, never during render — a render-time `new Date()` would
   // differ between SSR and client and break hydration.
@@ -132,10 +133,15 @@ function ProductSearchInner() {
         if (!r.ok || cancelled) return;
         const d = await r.json();
         const map: Record<string, number> = {};
-        d.items?.forEach((i: { sku: string; stock: number }) => {
+        const nonVat = new Set<string>();
+        d.items?.forEach((i: { sku: string; stock: number; vatable: boolean }) => {
           map[i.sku] = i.stock;
+          if (!i.vatable) nonVat.add(i.sku);
         });
-        if (!cancelled) setStockInfo(map);
+        if (!cancelled) {
+          setStockInfo(map);
+          setNonVatSkus(nonVat);
+        }
       } catch {
         /* stock display is best-effort */
       }
@@ -723,6 +729,7 @@ function ProductSearchInner() {
               : null
           }
           items={items}
+          nonVatSkus={nonVatSkus}
           notes={notes}
           creditTerm={creditTerm}
           issuedAt={issuedAt}
