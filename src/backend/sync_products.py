@@ -52,7 +52,7 @@ _env = _load_env()
 DB_CONFIG = {
     "host":     _env.get("DB_HOST", "127.0.0.1"),
     "port":     int(_env.get("DB_PORT", 3306)),
-    "user":     _env.get("DB_USER", "root"),
+    "user":     _env.get("DB_USER", "dev"),
     "password": _env.get("DB_PASSWORD", ""),
     "database": _env.get("DB_NAME", "flowsync"),
     "charset":  "utf8mb4",
@@ -373,6 +373,29 @@ def propagate_upc_to_products(conn):
     return affected
 
 
+def insert_missing_products_from_inventory(conn):
+    """สร้าง products row สำหรับ SKU ที่มีอยู่ใน inventory (มีสต๊อกจริง) แต่ยังไม่เคย
+    ปรากฏใน price feed (price-event-store) เลย — ถ้าไม่มี row ใน products, SKU นั้นจะ
+    หาไม่เจอในทุกหน้าที่ค้นหาสินค้า (searchProducts() ค้นเฉพาะตาราง products) เช่นตอน
+    สร้าง PO/Quotation ทั้งที่มีของอยู่ในคลังจริง
+
+    ตั้ง current_price = 0 ไปก่อน รอ sync รอบถัดไปจาก price feed มาอัปเดตราคาจริงถ้ามี.
+    """
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO products (store, currency, sku, upc, description, current_price, vendor, vendor_name)
+        SELECT i.store, 'THB', i.sku, i.upc, i.description, 0, i.vendor, i.vendor_name
+        FROM inventory i
+        LEFT JOIN products p ON p.store = i.store AND p.sku = i.sku
+        WHERE p.id IS NULL
+    """)
+    affected = cursor.rowcount
+    conn.commit()
+    cursor.close()
+    log.info(f"Products created from inventory-only SKUs: {affected:,} rows inserted")
+    return affected
+
+
 def upsert_inventory_rows(conn, rows: list[dict]):
     cursor = conn.cursor()
     total_affected = 0
@@ -476,6 +499,9 @@ def main():
 
             inv_processed, inv_affected, inv_skipped = upsert_inventory_rows(conn, inv_rows)
             log.info(f"Inventory: ประมวลผล {inv_processed:,} แถว | affected rows: {inv_affected:,} | ข้าม {inv_skipped:,}")
+
+            # สร้าง products row ให้ SKU ที่มีสต๊อกใน inventory แต่ยังไม่เคยอยู่ใน price feed
+            insert_missing_products_from_inventory(conn)
 
             # ดึง UPC จาก inventory ที่เพิ่ง sync → เติมลง products (จับคู่ store+sku)
             propagate_upc_to_products(conn)
