@@ -87,7 +87,7 @@ export async function createPo(input: {
   notes?: string;
   items: PoItemInput[];
   created_by: number;
-}): Promise<{ id: number; po_number: string; total: number; credit_notes_applied?: number }> {
+}): Promise<{ id: number; po_number: string; total: number }> {
   if (!input.items.length) throw new Error("PO must have at least 1 item");
 
   const subtotal = input.items.reduce(
@@ -96,27 +96,7 @@ export async function createPo(input: {
   );
   const total = subtotal;
 
-  // Credit check (uses effective limit = base + active temp credit + credit notes)
-  const outstanding = await getCustomerOutstanding(input.customer_id);
-  const { effective_limit, base_limit, temp_extra } = await getEffectiveCreditLimit(input.customer_id);
-  
-  // Get active credit notes for this customer
-  const creditNotes = await getActiveCreditNotesForCustomer(input.customer_id);
-  const creditNotesBalance = creditNotes.reduce((sum, cn) => sum + (cn.remaining || 0), 0);
-  
-  if (!effective_limit && effective_limit !== 0) throw new Error("Customer not found");
-  
-  // Total available credit = effective limit + credit notes
-  const totalAvailableCredit = effective_limit + creditNotesBalance;
-  
-  if (outstanding + total > totalAvailableCredit) {
-    const limitDesc = temp_extra > 0
-      ? `${base_limit.toLocaleString()} + วงเงินชั่วคราว ${temp_extra.toLocaleString()} + เครดิตโน๊ต ${creditNotesBalance.toLocaleString()} = ${totalAvailableCredit.toLocaleString()}`
-      : `${effective_limit.toLocaleString()} + เครดิตโน๊ต ${creditNotesBalance.toLocaleString()} = ${totalAvailableCredit.toLocaleString()}`;
-    throw new Error(
-      `เกินวงเงินสินเชื่อ: ลูกค้ามีหนี้คงค้าง ${outstanding.toLocaleString()} + PO นี้ ${total.toLocaleString()} > วงเงินรวม ${limitDesc}`
-    );
-  }
+  // ไม่ตรวจวงเงินตอนสร้าง (สถานะ draft) — ตรวจ/หักวงเงินตอน confirm ใน setPoStatus()
 
   const po_number = await generatePoNumber();
 
@@ -157,57 +137,17 @@ export async function createPo(input: {
       );
     }
 
-    // Auto-apply credit notes to this PO (use oldest first)
-    let remainingToCover = total;
-    let creditNotesApplied = 0;
-    
-    for (const cn of creditNotes) {
-      if (remainingToCover <= 0) break;
-      
-      const available = cn.remaining || 0;
-      if (available <= 0) continue;
-      
-      const amountToApply = Math.min(available, remainingToCover);
-      
-      // Create usage record
-      await conn.query(
-        `INSERT INTO customer_credit_note_usages 
-           (ccn_id, po_id, amount_used, usage_type, notes, created_by)
-         VALUES (?, ?, ?, 'applied_to_po', ?, ?)`,
-        [cn.id, poId, amountToApply, `ใช้เครดิตโน๊ต ${cn.ccn_number} กับ PO ใหม่ ${po_number}`, input.created_by]
-      );
-      
-      // Update credit note used_amount and status
-      const newUsed = cn.used_amount + amountToApply;
-      const newStatus = newUsed >= cn.amount ? "used" : "active";
-      await conn.query(
-        `UPDATE customer_credit_notes SET used_amount = ?, status = ? WHERE id = ?`,
-        [newUsed, newStatus, cn.id]
-      );
-      
-      remainingToCover -= amountToApply;
-      creditNotesApplied += amountToApply;
-    }
-    
-    // Update PO remaining_amount if credit notes were applied
-    if (creditNotesApplied > 0) {
-      await conn.query(
-        `UPDATE purchase_orders SET remaining_amount = remaining_amount - ? WHERE id = ?`,
-        [creditNotesApplied, poId]
-      );
-    }
-
     await conn.query(
       `INSERT INTO po_edit_logs (po_id, edited_by, summary, changes) VALUES (?,?,?,?)`,
       [
         poId,
         input.created_by,
-        `เปิด PO ใหม่: ${po_number} (${input.items.length} รายการ, รวม ${total.toLocaleString()} บาท${creditNotesApplied > 0 ? `, ใช้เครดิตโน๊ต ${creditNotesApplied.toLocaleString()} บาท` : ""})`,
-        JSON.stringify({ type: "create", po_number, total, items: input.items.length, credit_notes_applied: creditNotesApplied }),
+        `เปิด PO ใหม่: ${po_number} (${input.items.length} รายการ, รวม ${total.toLocaleString()} บาท)`,
+        JSON.stringify({ type: "create", po_number, total, items: input.items.length }),
       ]
     );
 
-    return { id: poId, po_number, total, credit_notes_applied: creditNotesApplied > 0 ? creditNotesApplied : undefined };
+    return { id: poId, po_number, total };
   });
 }
 
@@ -307,6 +247,92 @@ export async function getPo(
   return { po: rows[0], items };
 }
 
+/**
+ * เรียกตอน Quotation ออกจากสถานะ draft (เช่น confirm) — ตรวจวงเงินลูกค้า
+ * แล้วหักเครดิตโน๊ตที่มี (เก่าสุดก่อน) ออกจากยอดค้างของ PO นี้
+ */
+async function reserveCreditOnConfirm(po: PurchaseOrder, userId: number) {
+  const { effective_limit, base_limit, temp_extra } = await getEffectiveCreditLimit(po.customer_id);
+  const creditNotes = await getActiveCreditNotesForCustomer(po.customer_id);
+
+  await withTx(async (conn) => {
+    // lock ลูกค้า กัน confirm พร้อมกันหลายใบแล้วเกินวงเงิน
+    await conn.query("SELECT id FROM customers WHERE id = ? FOR UPDATE", [po.customer_id]);
+
+    const [outRows] = (await conn.query(
+      `SELECT COALESCE(SUM(remaining_amount),0) AS s
+       FROM purchase_orders
+       WHERE customer_id = ? AND status NOT IN ('cancelled','draft') AND id <> ?`,
+      [po.customer_id, po.id]
+    )) as unknown as [{ s: number }[]];
+    const outstanding = Number(outRows[0]?.s ?? 0);
+    const [poRows] = (await conn.query(
+      "SELECT remaining_amount FROM purchase_orders WHERE id = ? FOR UPDATE",
+      [po.id]
+    )) as unknown as [{ remaining_amount: number }[]];
+    const remaining = Number(poRows[0]?.remaining_amount ?? 0);
+
+    const creditNotesBalance = creditNotes.reduce((sum, cn) => sum + (cn.remaining || 0), 0);
+    const totalAvailableCredit = effective_limit + creditNotesBalance;
+
+    if (outstanding + remaining > totalAvailableCredit) {
+      const limitDesc = temp_extra > 0
+        ? `${base_limit.toLocaleString()} + วงเงินชั่วคราว ${temp_extra.toLocaleString()} + เครดิตโน๊ต ${creditNotesBalance.toLocaleString()} = ${totalAvailableCredit.toLocaleString()}`
+        : `${effective_limit.toLocaleString()} + เครดิตโน๊ต ${creditNotesBalance.toLocaleString()} = ${totalAvailableCredit.toLocaleString()}`;
+      throw new Error(
+        `เกินวงเงินสินเชื่อ ไม่สามารถยืนยันได้: ลูกค้ามีหนี้คงค้าง ${outstanding.toLocaleString()} + ${po.po_number} ${remaining.toLocaleString()} > วงเงินรวม ${limitDesc}`
+      );
+    }
+
+    // เคยใช้เครดิตโน๊ตกับ PO นี้แล้ว (เช่น draft เก่าก่อนเปลี่ยน flow) → ไม่ใช้ซ้ำ
+    const [used] = (await conn.query(
+      "SELECT COUNT(*) AS c FROM customer_credit_note_usages WHERE po_id = ?",
+      [po.id]
+    )) as unknown as [{ c: number }[]];
+    if (Number(used[0]?.c) > 0) return;
+
+    let remainingToCover = remaining;
+    let creditNotesApplied = 0;
+    for (const cn of creditNotes) {
+      if (remainingToCover <= 0) break;
+      const available = cn.remaining || 0;
+      if (available <= 0) continue;
+      const amountToApply = Math.min(available, remainingToCover);
+
+      await conn.query(
+        `INSERT INTO customer_credit_note_usages
+           (ccn_id, po_id, amount_used, usage_type, notes, created_by)
+         VALUES (?, ?, ?, 'applied_to_po', ?, ?)`,
+        [cn.id, po.id, amountToApply, `ใช้เครดิตโน๊ต ${cn.ccn_number} กับ ${po.po_number}`, userId]
+      );
+      const newUsed = cn.used_amount + amountToApply;
+      const newStatus = newUsed >= cn.amount ? "used" : "active";
+      await conn.query(
+        `UPDATE customer_credit_notes SET used_amount = ?, status = ? WHERE id = ?`,
+        [newUsed, newStatus, cn.id]
+      );
+      remainingToCover -= amountToApply;
+      creditNotesApplied += amountToApply;
+    }
+
+    if (creditNotesApplied > 0) {
+      await conn.query(
+        `UPDATE purchase_orders SET remaining_amount = remaining_amount - ? WHERE id = ?`,
+        [creditNotesApplied, po.id]
+      );
+      await conn.query(
+        `INSERT INTO po_edit_logs (po_id, edited_by, summary, changes) VALUES (?,?,?,?)`,
+        [
+          po.id,
+          userId,
+          `ใช้เครดิตโน๊ต ${creditNotesApplied.toLocaleString()} บาท ตอนยืนยัน`,
+          JSON.stringify({ type: "credit_notes_applied", credit_notes_applied: creditNotesApplied }),
+        ]
+      );
+    }
+  });
+}
+
 export async function setPoStatus(
   id: number,
   status: PurchaseOrder["status"],
@@ -315,6 +341,11 @@ export async function setPoStatus(
   const existing = await query<PurchaseOrder>("SELECT * FROM purchase_orders WHERE id=?", [id]);
   const before = existing[0];
   if (!before) throw new Error("ไม่พบ PO");
+
+  // ออกจาก draft → เริ่มกินวงเงิน: ตรวจวงเงิน + ใช้เครดิตโน๊ตตอนนี้
+  if (before.status === "draft" && status !== "draft" && status !== "cancelled") {
+    await reserveCreditOnConfirm(before, opts?.edited_by ?? before.created_by);
+  }
 
   if (status === "received" || status === "delivered") {
     await exec(
@@ -432,7 +463,8 @@ export async function updatePo(input: {
     (await getCustomerOutstanding(existing.po.customer_id)) -
     Number(existing.po.remaining_amount);
   const { effective_limit: effLimit, base_limit: baseLimit, temp_extra: tempExtra } = await getEffectiveCreditLimit(existing.po.customer_id);
-  if (effLimit !== undefined) {
+  // draft ยังไม่กินวงเงิน — ไปตรวจตอน confirm
+  if (existing.po.status !== "draft" && effLimit !== undefined) {
     if (otherOutstanding + newRemaining > effLimit) {
       const limitDesc = tempExtra > 0
         ? `${baseLimit.toLocaleString()} + วงเงินชั่วคราว ${tempExtra.toLocaleString()} = ${effLimit.toLocaleString()}`

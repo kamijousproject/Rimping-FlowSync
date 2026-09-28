@@ -27,6 +27,7 @@ export function EditPoForm({
   customerId,
   customerName,
   paidAmount,
+  isDraft,
   initialCreditTerm,
   initialNotes,
   initialItems,
@@ -36,6 +37,7 @@ export function EditPoForm({
   customerId: number;
   customerName: string;
   paidAmount: number;
+  isDraft: boolean;
   initialCreditTerm: number;
   initialNotes: string;
   initialItems: Item[];
@@ -77,7 +79,9 @@ export function EditPoForm({
     0
   );
   const newRemaining = total - paidAmount;
+  // draft ยังไม่กินวงเงิน — ตรวจตอน confirm
   const overLimit =
+    !isDraft &&
     creditAvailableForThis !== null &&
     newRemaining > creditAvailableForThis + 0.001;
   const belowPaid = total < paidAmount;

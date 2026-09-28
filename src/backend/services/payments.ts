@@ -311,7 +311,7 @@ export async function updatePayment(
         const [outstandingRow] = await conn.query(
           `SELECT COALESCE(SUM(remaining_amount),0) as total 
            FROM purchase_orders 
-           WHERE customer_id = ? AND status <> 'cancelled' AND id <> ?`,
+           WHERE customer_id = ? AND status NOT IN ('cancelled','draft') AND id <> ?`,
           [customerId, poId]
         ) as unknown as [{ total: number }[]];
         

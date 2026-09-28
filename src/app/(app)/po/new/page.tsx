@@ -675,11 +675,12 @@ function NewPoInner() {
         </section>
 
         {overLimit && (
-          <div className="text-sm text-danger bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-2">
+          <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
             <span>
               ยอด Quotation ({fmtMoney(total)}) เกินวงเงินคงเหลือของลูกค้า (
-              {selected ? fmtMoney(selected.credit_available) : 0}) ไม่สามารถออก Quotation ได้
+              {selected ? fmtMoney(selected.credit_available) : 0}) — บันทึกเป็นร่างได้
+              แต่จะยืนยัน (confirm) ไม่ได้จนกว่าวงเงินจะพอ
             </span>
           </div>
         )}
@@ -694,7 +695,7 @@ function NewPoInner() {
             type="button"
             onClick={handleSubmitClick}
             className="h-11 px-5 rounded-xl bg-brand-600 text-white text-sm font-medium inline-flex items-center gap-2 transition-all duration-200 hover:bg-brand-700 hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
-            disabled={loading || overLimit || !customerId}
+            disabled={loading || !customerId}
           >
             <Save className="w-4 h-4" />
             {loading ? "กำลังบันทึก..." : "บันทึก Quotation (สถานะ: ร่าง)"}

@@ -33,8 +33,8 @@ export type CustomerWithCredit = Customer & {
 
 const CUSTOMER_SELECT = `
   SELECT c.*,
-    COALESCE(SUM(po.remaining_amount),0) AS outstanding,
-    COALESCE(SUM(po.remaining_amount),0) AS credit_used,
+    COALESCE(SUM(CASE WHEN po.status <> 'draft' THEN po.remaining_amount ELSE 0 END),0) AS outstanding,
+    COALESCE(SUM(CASE WHEN po.status <> 'draft' THEN po.remaining_amount ELSE 0 END),0) AS credit_used,
     COALESCE((
       SELECT t.extra_amount FROM temp_credit_limits t
       WHERE t.customer_id = c.id AND t.is_active = 1
@@ -59,7 +59,7 @@ const CUSTOMER_SELECT = `
       WHERE t.customer_id = c.id AND t.is_active = 1
         AND CURDATE() BETWEEN t.start_date AND t.end_date
       ORDER BY t.extra_amount DESC LIMIT 1
-    ), 0) - COALESCE(SUM(po.remaining_amount),0) + COALESCE((
+    ), 0) - COALESCE(SUM(CASE WHEN po.status <> 'draft' THEN po.remaining_amount ELSE 0 END),0) + COALESCE((
       SELECT SUM(ccn.amount - ccn.used_amount) 
       FROM customer_credit_notes ccn 
       WHERE ccn.customer_id = c.id 
@@ -216,11 +216,12 @@ export async function updateCustomer(
   }
 }
 
+// Draft Quotations ไม่นับเป็นยอดค้าง/ไม่กินวงเงิน — จะเริ่มกินวงเงินเมื่อ confirm
 export async function getCustomerOutstanding(id: number): Promise<number> {
   const rows = await query<{ s: number }>(
     `SELECT COALESCE(SUM(remaining_amount),0) AS s
      FROM purchase_orders
-     WHERE customer_id = ? AND status <> 'cancelled'`,
+     WHERE customer_id = ? AND status NOT IN ('cancelled','draft')`,
     [id]
   );
   return Number(rows[0]?.s ?? 0);

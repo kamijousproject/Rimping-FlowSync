@@ -22,6 +22,7 @@ export default async function EditPoPage({
       customerId={data.po.customer_id}
       customerName={data.po.customer_name || ""}
       paidAmount={Number(data.po.paid_amount)}
+      isDraft={data.po.status === "draft"}
       initialCreditTerm={data.po.credit_term_days}
       initialNotes={data.po.notes || ""}
       initialItems={data.items.map((it) => ({
