@@ -49,7 +49,7 @@ export default async function CreditNotePage({
               <div className="text-base font-bold text-brand-800">
                 บริษัท ตันตราภัณฑ์ซุปเปอร์มาร์เก็ต (1994) จำกัด
               </div>
-              <div className="text-muted">Trntraphan Suppermarket (1944) Co., Ltd.</div>
+              <div className="text-muted">Tantraphan Suppermarket (1944) Co., Ltd.</div>
               <div className="mt-1">199/8 ถ.มหิดล ต.หายยา อ.เมือง จ.เชียงใหม่ 50100</div>
               <div>Tel. 063-535-0299, 093-130-0295 (คุณยา)</div>
             </div>

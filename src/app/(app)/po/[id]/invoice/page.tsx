@@ -134,6 +134,7 @@ export default async function InvoicePage({
           code: customer?.code || `C${String(po.customer_id).padStart(6, "0")}`,
         }}
         contactName={creator?.full_name}
+        contactEmail={creator?.email}
         items={items.map((it) => ({ ...it, vatable: !nonVat.has(it.product_name) }))}
         notes={po.notes}
         payment={
@@ -166,7 +167,7 @@ export default async function InvoicePage({
               <div>
                 ออมทรัพย์ <span className="font-mono font-semibold">251-5-01738-8</span>
               </div>
-              <div>TRNTRAPHAN SUPPERMARKET (1944) CO., LTD.</div>
+              <div>TANTRAPHAN SUPPERMARKET (1944) CO., LTD.</div>
             </div>
           </div>
         }

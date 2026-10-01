@@ -4,6 +4,7 @@ import { sendLineNotification } from "./notifications";
 export type Customer = {
   id: number;
   code: string | null;
+  group_id: number | null;
   name: string;
   contact_person: string | null;
   phone: string | null;
@@ -21,6 +22,7 @@ export type Customer = {
 };
 
 export type CustomerWithCredit = Customer & {
+  group_name: string | null;
   outstanding: number;
   credit_used: number;
   credit_available: number; // based on effective (base + temp) limit + credit notes
@@ -33,6 +35,7 @@ export type CustomerWithCredit = Customer & {
 
 const CUSTOMER_SELECT = `
   SELECT c.*,
+    (SELECT g.name FROM customer_groups g WHERE g.id = c.group_id) AS group_name,
     COALESCE(SUM(CASE WHEN po.status <> 'draft' THEN po.remaining_amount ELSE 0 END),0) AS outstanding,
     COALESCE(SUM(CASE WHEN po.status <> 'draft' THEN po.remaining_amount ELSE 0 END),0) AS credit_used,
     COALESCE((
@@ -72,11 +75,21 @@ const CUSTOMER_SELECT = `
   LEFT JOIN purchase_orders po
     ON po.customer_id = c.id AND po.status <> 'cancelled'`;
 
-export async function listCustomers(search?: string): Promise<CustomerWithCredit[]> {
-  const where = search
-    ? `WHERE (c.name LIKE ? OR c.code LIKE ? OR c.contact_person LIKE ?)`
-    : "";
-  const params = search ? [`%${search}%`, `%${search}%`, `%${search}%`] : [];
+export async function listCustomers(
+  search?: string,
+  groupId?: number
+): Promise<CustomerWithCredit[]> {
+  const conds: string[] = [];
+  const params: unknown[] = [];
+  if (search) {
+    conds.push(`(c.name LIKE ? OR c.code LIKE ? OR c.contact_person LIKE ?)`);
+    params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+  }
+  if (groupId) {
+    conds.push(`c.group_id = ?`);
+    params.push(groupId);
+  }
+  const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
   return query<CustomerWithCredit>(
     `${CUSTOMER_SELECT}
      ${where}
@@ -98,6 +111,7 @@ export async function getCustomer(id: number): Promise<CustomerWithCredit | null
 
 export async function createCustomer(input: {
   code?: string;
+  group_id?: number | null;
   name: string;
   contact_person?: string;
   phone?: string;
@@ -113,11 +127,12 @@ export async function createCustomer(input: {
 }): Promise<number> {
   const res = await exec(
     `INSERT INTO customers
-       (code, name, contact_person, phone, email, tax_id, address,
+       (code, group_id, name, contact_person, phone, email, tax_id, address,
         credit_limit, credit_score, credit_score_notes, default_credit_term_days, billing_note_due_days, notes)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       input.code || null,
+      input.group_id || null,
       input.name,
       input.contact_person || null,
       input.phone || null,
@@ -321,6 +336,7 @@ export async function updateCustomerWithLog(
   id: number,
   input: Partial<{
     code: string;
+    group_id: number | null;
     name: string;
     contact_person: string;
     phone: string;
@@ -342,6 +358,7 @@ export async function updateCustomerWithLog(
   if (!existing[0]) throw new Error("ไม่พบลูกค้า");
 
   const before = existing[0];
+  if ("group_id" in input) input.group_id = input.group_id ? Number(input.group_id) : null;
   const fields = Object.keys(input) as (keyof typeof input)[];
   if (fields.length === 0) return;
 
@@ -350,6 +367,8 @@ export async function updateCustomerWithLog(
   await exec(`UPDATE customers SET ${set} WHERE id = ?`, [...values, id]);
 
   const summaryParts: string[] = [];
+  if (input.group_id !== undefined && (input.group_id || null) !== before.group_id)
+    summaryParts.push("เปลี่ยนกลุ่มลูกค้า");
   if (input.name && input.name !== before.name)
     summaryParts.push(`ชื่อ: ${before.name} → ${input.name}`);
   if (input.phone !== undefined && input.phone !== before.phone)

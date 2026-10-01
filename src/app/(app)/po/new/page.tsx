@@ -11,6 +11,8 @@ import {
   Save,
   AlertTriangle,
   FileText,
+  Users,
+  User,
 } from "lucide-react";
 import { fmtMoney } from "@/components/StatusBadge";
 
@@ -29,6 +31,8 @@ type Customer = {
   id: number;
   name: string;
   code: string | null;
+  group_id: number | null;
+  group_name: string | null;
   credit_limit: number;
   outstanding: number;
   credit_available: number;
@@ -37,6 +41,10 @@ type Customer = {
   credit_notes_balance: number;
   default_credit_term_days: number;
 };
+
+type CustomerGroup = { id: number; name: string; member_count: number };
+
+type CreatedPo = { id: number; po_number: string; customer_id: number; total: number };
 
 type ProductHit = {
   id: number;
@@ -88,6 +96,20 @@ function NewPoInner() {
   const [loading, setLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [stockInfo, setStockInfo] = useState<Record<string, number>>({});
+  // ใบเสนอราคาแบบกลุ่ม: 1 ร้าน = 1 ใบ สินค้าชุดเดียวกัน
+  const [mode, setMode] = useState<"single" | "group">("single");
+  const [groups, setGroups] = useState<CustomerGroup[]>([]);
+  const [groupId, setGroupId] = useState<number | "">("");
+  const [memberIds, setMemberIds] = useState<number[]>([]);
+  const [memberQuery, setMemberQuery] = useState("");
+  const [created, setCreated] = useState<CreatedPo[] | null>(null);
+
+  useEffect(() => {
+    fetch("/api/customer-groups")
+      .then((r) => r.json())
+      .then((d) => setGroups(d.groups || []))
+      .catch(console.error);
+  }, []);
 
   useEffect(() => {
     fetch("/api/customers")
@@ -127,7 +149,29 @@ function NewPoInner() {
     setCustOpen(false);
   }
 
-  const selected = customers.find((c) => c.id === customerId);
+  const groupMembers = groupId ? customers.filter((c) => c.group_id === groupId) : [];
+  const memberMatches = memberQuery.trim()
+    ? groupMembers.filter(
+        (c) =>
+          c.name.toLowerCase().includes(memberQuery.toLowerCase()) ||
+          (c.code ?? "").toLowerCase().includes(memberQuery.toLowerCase())
+      )
+    : groupMembers;
+  const selectedGroup = groups.find((g) => g.id === groupId);
+  const hasTarget = mode === "single" ? !!customerId : memberIds.length > 0;
+
+  function selectGroup(id: number | "") {
+    setGroupId(id);
+    setMemberQuery("");
+    // เลือกทุกร้านในกลุ่มเป็นค่าเริ่มต้น
+    setMemberIds(id ? customers.filter((c) => c.group_id === id).map((c) => c.id) : []);
+  }
+
+  function toggleMember(id: number) {
+    setMemberIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  const selected = mode === "single" ? customers.find((c) => c.id === customerId) : undefined;
   const total = items.reduce(
     (s, it) => s + Number(it.quantity || 0) * Number(it.unit_price || 0),
     0
@@ -230,8 +274,12 @@ function NewPoInner() {
 
   // Validation function
   function validateForm(): boolean {
-    if (!customerId) {
+    if (mode === "single" && !customerId) {
       setErr("กรุณาเลือกลูกค้า");
+      return false;
+    }
+    if (mode === "group" && memberIds.length === 0) {
+      setErr("กรุณาเลือกร้านในกลุ่มอย่างน้อย 1 ร้าน");
       return false;
     }
     if (items.length === 0 || items.some((it) => !it.product_name)) {
@@ -260,6 +308,27 @@ function NewPoInner() {
     setErr(null);
     
     const cleanItems = items.map(({ _prodQuery: _q, _prodOpen: _o, _prodHits: _h, ...rest }) => rest);
+    if (mode === "group") {
+      const r = await fetch("/api/po/group", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          group_id: groupId,
+          customer_ids: memberIds,
+          notes,
+          items: cleanItems,
+        }),
+      });
+      setLoading(false);
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        setErr(d.error || "บันทึกไม่สำเร็จ");
+        return;
+      }
+      const data = await r.json();
+      setCreated(data.pos || []);
+      return;
+    }
     const r = await fetch("/api/po", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -304,8 +373,116 @@ function NewPoInner() {
       <form onSubmit={handleSubmitClick} className="space-y-6">
         {/* Section: ข้อมูลพื้นฐาน */}
         <section className="bg-white border border-border rounded-[20px] p-7 md:p-8 space-y-5">
-          <h2 className="font-semibold text-[15px] text-foreground">ข้อมูลพื้นฐาน</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-semibold text-[15px] text-foreground">ข้อมูลพื้นฐาน</h2>
+            <div className="inline-flex rounded-xl border border-border bg-gray-50 p-1 text-sm">
+              <button
+                type="button"
+                onClick={() => setMode("single")}
+                className={`h-9 px-3.5 rounded-lg inline-flex items-center gap-1.5 transition ${
+                  mode === "single" ? "bg-white shadow-sm font-medium text-brand-700" : "text-muted hover:text-foreground"
+                }`}
+              >
+                <User className="w-4 h-4" />
+                ลูกค้ารายเดียว
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("group")}
+                className={`h-9 px-3.5 rounded-lg inline-flex items-center gap-1.5 transition ${
+                  mode === "group" ? "bg-white shadow-sm font-medium text-brand-700" : "text-muted hover:text-foreground"
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                กลุ่มลูกค้า
+              </button>
+            </div>
+          </div>
 
+          {mode === "group" ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div className="md:col-span-2">
+                  <label className="label">กลุ่มลูกค้า *</label>
+                  <select
+                    className="input h-12 rounded-xl"
+                    value={groupId}
+                    onChange={(e) => selectGroup(e.target.value ? Number(e.target.value) : "")}
+                  >
+                    <option value="">— เลือกกลุ่มลูกค้า —</option>
+                    {groups.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name} ({g.member_count} ร้าน)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">เครดิต (วัน)</label>
+                  <div className="h-12 rounded-xl border border-border bg-gray-50 px-3.5 flex items-center text-muted cursor-not-allowed select-none text-sm">
+                    ตามเครดิตเริ่มต้นของแต่ละร้าน
+                  </div>
+                </div>
+              </div>
+
+              {groupId !== "" && (
+                <div className="rounded-xl border border-border">
+                  <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-border bg-gray-50 rounded-t-xl">
+                    <span className="text-sm font-medium">
+                      เลือกแล้ว {memberIds.length} / {groupMembers.length} ร้าน
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setMemberIds(groupMembers.map((c) => c.id))}
+                      className="text-xs text-brand-700 hover:underline"
+                    >
+                      เลือกทั้งหมด
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMemberIds([])}
+                      className="text-xs text-muted hover:underline"
+                    >
+                      ล้าง
+                    </button>
+                    <div className="relative ml-auto w-full sm:w-64">
+                      <input
+                        className="input h-9 rounded-lg pr-8 text-sm"
+                        placeholder="ค้นหาสาขา / รหัสร้าน..."
+                        value={memberQuery}
+                        onChange={(e) => setMemberQuery(e.target.value)}
+                      />
+                      <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
+                    </div>
+                  </div>
+                  <ul className="max-h-80 overflow-y-auto divide-y divide-gray-100 text-sm">
+                    {memberMatches.map((c) => (
+                      <li key={c.id}>
+                        <label className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-brand-50/40">
+                          <input
+                            type="checkbox"
+                            className="w-4 h-4 accent-brand-600"
+                            checked={memberIds.includes(c.id)}
+                            onChange={() => toggleMember(c.id)}
+                          />
+                          <span className="flex-1 min-w-0">
+                            {c.code ? <span className="text-muted mr-1">[{c.code}]</span> : null}
+                            {c.name}
+                          </span>
+                          <span className={`text-xs shrink-0 ${c.credit_available <= 0 ? "text-red-600" : "text-muted"}`}>
+                            วงเงินเหลือ {fmtMoney(c.credit_available)} บ
+                          </span>
+                        </label>
+                      </li>
+                    ))}
+                    {memberMatches.length === 0 && (
+                      <li className="px-4 py-3 text-muted">ไม่พบร้านที่ตรงกัน</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div className="md:col-span-2 relative">
               <label className="label">ลูกค้า *</label>
@@ -416,6 +593,7 @@ function NewPoInner() {
               </div>
             )}
           </div>
+          )}
         </section>
 
         {/* Section: รายการสินค้า */}
@@ -652,8 +830,14 @@ function NewPoInner() {
 
           <div className="mt-6 flex justify-end">
             <div className="text-right">
-              <div className="text-sm text-muted">รวมทั้งหมด</div>
+              <div className="text-sm text-muted">{mode === "group" ? "รวมต่อร้าน" : "รวมทั้งหมด"}</div>
               <div className="text-3xl font-bold text-brand-700 mt-0.5">{fmtMoney(total)} บาท</div>
+              {mode === "group" && memberIds.length > 0 && (
+                <div className="text-sm text-muted mt-1">
+                  {memberIds.length} ร้าน × {fmtMoney(total)} ={" "}
+                  <span className="font-semibold text-foreground">{fmtMoney(total * memberIds.length)} บาท</span>
+                </div>
+              )}
             </div>
           </div>
         </section>
@@ -695,10 +879,14 @@ function NewPoInner() {
             type="button"
             onClick={handleSubmitClick}
             className="h-11 px-5 rounded-xl bg-brand-600 text-white text-sm font-medium inline-flex items-center gap-2 transition-all duration-200 hover:bg-brand-700 hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
-            disabled={loading || !customerId}
+            disabled={loading || !hasTarget}
           >
             <Save className="w-4 h-4" />
-            {loading ? "กำลังบันทึก..." : "บันทึก Quotation (สถานะ: ร่าง)"}
+            {loading
+              ? "กำลังบันทึก..."
+              : mode === "group"
+              ? `บันทึก Quotation ${memberIds.length} ใบ (สถานะ: ร่าง)`
+              : "บันทึก Quotation (สถานะ: ร่าง)"}
           </button>
           <Link
             href="/po"
@@ -720,24 +908,44 @@ function NewPoInner() {
 
             <div className="space-y-3 text-sm">
               <div className="bg-gray-50 rounded-xl p-4 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-muted">ลูกค้า:</span>
-                  <span className="font-medium">{custQuery}</span>
-                </div>
+                {mode === "group" ? (
+                  <>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-muted shrink-0">กลุ่มลูกค้า:</span>
+                      <span className="font-medium text-right">{selectedGroup?.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted">จำนวนร้าน:</span>
+                      <span className="font-medium">{memberIds.length} ร้าน ({memberIds.length} ใบ เลขรันต่อกัน)</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex justify-between">
+                    <span className="text-muted">ลูกค้า:</span>
+                    <span className="font-medium">{custQuery}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-muted">จำนวนรายการ:</span>
                   <span className="font-medium">{items.length} รายการ</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted">ยอดรวม:</span>
+                  <span className="text-muted">{mode === "group" ? "ยอดรวมต่อร้าน:" : "ยอดรวม:"}</span>
                   <span className="font-medium text-brand-700">
                     {fmtMoney(items.reduce((sum, it) => sum + it.quantity * it.unit_price, 0))} บาท
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted">เครดิต:</span>
-                  <span className="font-medium">{creditTerm} วัน</span>
-                </div>
+                {mode === "group" ? (
+                  <div className="flex justify-between">
+                    <span className="text-muted">ยอดรวมทุกร้าน:</span>
+                    <span className="font-medium text-brand-700">{fmtMoney(total * memberIds.length)} บาท</span>
+                  </div>
+                ) : (
+                  <div className="flex justify-between">
+                    <span className="text-muted">เครดิต:</span>
+                    <span className="font-medium">{creditTerm} วัน</span>
+                  </div>
+                )}
               </div>
 
               <p className="text-muted text-center">
@@ -759,6 +967,40 @@ function NewPoInner() {
                 className="btn-primary"
               >
                 ยืนยัน สร้าง Quotation
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Group result modal */}
+      {created && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 space-y-4">
+            <h2 className="text-lg font-semibold text-foreground">
+              สร้าง Quotation แล้ว {created.length} ใบ
+            </h2>
+            {created.length > 0 && (
+              <p className="text-sm text-muted">
+                เลขที่ {created[0].po_number} – {created[created.length - 1].po_number} (สถานะ: ร่าง)
+              </p>
+            )}
+            <ul className="max-h-80 overflow-y-auto divide-y divide-gray-100 text-sm border border-border rounded-xl">
+              {created.map((po) => (
+                <li key={po.id} className="flex items-center gap-3 px-4 py-2">
+                  <Link href={`/po/${po.id}`} className="font-mono text-brand-700 hover:underline shrink-0">
+                    {po.po_number}
+                  </Link>
+                  <span className="flex-1 min-w-0 truncate text-muted">
+                    {customers.find((c) => c.id === po.customer_id)?.name}
+                  </span>
+                  <span className="shrink-0">{fmtMoney(po.total)}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex justify-end">
+              <button type="button" onClick={() => router.push("/po")} className="btn-primary">
+                ไปหน้ารายการ Quotation
               </button>
             </div>
           </div>

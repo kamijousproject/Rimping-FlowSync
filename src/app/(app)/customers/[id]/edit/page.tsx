@@ -18,6 +18,7 @@ export default async function EditCustomerPage({
       id={c.id}
       initial={{
         code: c.code ?? "",
+        group_id: c.group_id ?? "",
         name: c.name,
         contact_person: c.contact_person ?? "",
         phone: c.phone ?? "",

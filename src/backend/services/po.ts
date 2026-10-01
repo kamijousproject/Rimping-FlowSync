@@ -1,3 +1,4 @@
+import type { PoolConnection } from "mysql2/promise";
 import { query, exec, withTx } from "../db";
 import { getCustomerOutstanding, getEffectiveCreditLimit } from "./customers";
 import { getActiveCreditNotesForCustomer, applyCreditNoteToPo } from "./customer-credit-notes";
@@ -20,6 +21,7 @@ export type PurchaseOrder = {
   id: number;
   po_number: string;
   customer_id: number;
+  batch_id: number | null;
   customer_name?: string;
   status:
     | "draft"
@@ -67,14 +69,25 @@ export function nextStatus(
 }
 
 export async function generatePoNumber(): Promise<string> {
+  return (await generatePoNumbers(1))[0];
+}
+
+// เลข PO รันต่อกัน count ใบ (ใช้กับใบเสนอราคาแบบกลุ่ม) — ส่ง conn มาเพื่อ lock ภายใน transaction
+async function generatePoNumbers(
+  count: number,
+  conn?: PoolConnection
+): Promise<string[]> {
   const now = new Date();
   const ym = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const rows = await query<{ c: number }>(
-    "SELECT COUNT(*) AS c FROM purchase_orders WHERE po_number LIKE ?",
-    [`PO${ym}-%`]
+  const sql = "SELECT COUNT(*) AS c FROM purchase_orders WHERE po_number LIKE ?";
+  const rows = conn
+    ? ((await conn.query(`${sql} FOR UPDATE`, [`PO${ym}-%`]))[0] as { c: number }[])
+    : await query<{ c: number }>(sql, [`PO${ym}-%`]);
+  const base = Number(rows[0]?.c || 0);
+  return Array.from(
+    { length: count },
+    (_, i) => `PO${ym}-${String(base + i + 1).padStart(4, "0")}`
   );
-  const n = Number(rows[0]?.c || 0) + 1;
-  return `PO${ym}-${String(n).padStart(4, "0")}`;
 }
 
 export function invoiceNumberFromPo(po_number: string): string {
@@ -100,58 +113,172 @@ export async function createPo(input: {
 
   const po_number = await generatePoNumber();
 
-  return withTx(async (conn) => {
-    const [r] = await conn.query(
-      `INSERT INTO purchase_orders
-        (po_number, customer_id, status, payment_status, credit_term_days,
-         subtotal, total, paid_amount, remaining_amount, notes, created_by)
-       VALUES (?, ?, 'draft', 'unpaid', ?, ?, ?, 0, ?, ?, ?)`,
-      [
-        po_number,
-        input.customer_id,
-        input.credit_term_days,
-        subtotal,
-        total,
-        total,
-        input.notes || null,
-        input.created_by,
-      ]
-    );
-    const poId = (r as { insertId: number }).insertId;
+  return withTx((conn) =>
+    insertDraftPo(conn, { ...input, po_number, subtotal, total })
+  );
+}
 
-    for (const it of input.items) {
-      const lineTotal = Number(it.quantity) * Number(it.unit_price);
-      await conn.query(
-        `INSERT INTO po_items
-          (po_id, product_name, description, quantity, unit, unit_price, line_total)
-         VALUES (?,?,?,?,?,?,?)`,
-        [
-          poId,
-          it.product_name,
-          it.description || null,
-          it.quantity,
-          it.unit || "pcs",
-          it.unit_price,
-          lineTotal,
-        ]
-      );
-    }
+async function insertDraftPo(
+  conn: PoolConnection,
+  input: {
+    po_number: string;
+    customer_id: number;
+    credit_term_days: number;
+    notes?: string;
+    items: PoItemInput[];
+    created_by: number;
+    subtotal: number;
+    total: number;
+    log_note?: string;
+    batch_id?: number;
+  }
+): Promise<{ id: number; po_number: string; total: number }> {
+  const { po_number, subtotal, total } = input;
+  const [r] = await conn.query(
+    `INSERT INTO purchase_orders
+      (po_number, customer_id, batch_id, status, payment_status, credit_term_days,
+       subtotal, total, paid_amount, remaining_amount, notes, created_by)
+     VALUES (?, ?, ?, 'draft', 'unpaid', ?, ?, ?, 0, ?, ?, ?)`,
+    [
+      po_number,
+      input.customer_id,
+      input.batch_id ?? null,
+      input.credit_term_days,
+      subtotal,
+      total,
+      total,
+      input.notes || null,
+      input.created_by,
+    ]
+  );
+  const poId = (r as { insertId: number }).insertId;
 
+  for (const it of input.items) {
+    const lineTotal = Number(it.quantity) * Number(it.unit_price);
     await conn.query(
-      `INSERT INTO po_edit_logs (po_id, edited_by, summary, changes) VALUES (?,?,?,?)`,
+      `INSERT INTO po_items
+        (po_id, product_name, description, quantity, unit, unit_price, line_total)
+       VALUES (?,?,?,?,?,?,?)`,
       [
         poId,
-        input.created_by,
-        `เปิด PO ใหม่: ${po_number} (${input.items.length} รายการ, รวม ${total.toLocaleString()} บาท)`,
-        JSON.stringify({ type: "create", po_number, total, items: input.items.length }),
+        it.product_name,
+        it.description || null,
+        it.quantity,
+        it.unit || "pcs",
+        it.unit_price,
+        lineTotal,
       ]
     );
+  }
 
-    return { id: poId, po_number, total };
+  await conn.query(
+    `INSERT INTO po_edit_logs (po_id, edited_by, summary, changes) VALUES (?,?,?,?)`,
+    [
+      poId,
+      input.created_by,
+      `เปิด PO ใหม่: ${po_number} (${input.items.length} รายการ, รวม ${total.toLocaleString()} บาท)${input.log_note ?? ""}`,
+      JSON.stringify({ type: "create", po_number, total, items: input.items.length }),
+    ]
+  );
+
+  return { id: poId, po_number, total };
+}
+
+// ใบเสนอราคาแบบกลุ่ม: สินค้าชุดเดียวกัน สร้าง 1 ใบต่อ 1 ร้าน เลขรันต่อกัน (สถานะ draft ไม่ตรวจวงเงิน)
+export async function createGroupPos(input: {
+  group_id: number;
+  customer_ids: number[];
+  notes?: string;
+  items: PoItemInput[];
+  created_by: number;
+}): Promise<{ id: number; po_number: string; customer_id: number; total: number }[]> {
+  if (!input.items.length) throw new Error("PO must have at least 1 item");
+  const ids = [...new Set(input.customer_ids)];
+  if (!ids.length) throw new Error("กรุณาเลือกร้านอย่างน้อย 1 ร้าน");
+
+  const subtotal = input.items.reduce(
+    (s, it) => s + Number(it.quantity) * Number(it.unit_price),
+    0
+  );
+  const total = subtotal;
+
+  return withTx(async (conn) => {
+    const [custRows] = await conn.query(
+      `SELECT c.id, c.default_credit_term_days, g.name AS group_name
+       FROM customers c JOIN customer_groups g ON g.id = c.group_id
+       WHERE c.group_id = ? AND c.id IN (?)
+       ORDER BY c.id`,
+      [input.group_id, ids]
+    );
+    const customers = custRows as { id: number; default_credit_term_days: number | null; group_name: string }[];
+    if (customers.length !== ids.length)
+      throw new Error("มีร้านที่ไม่ได้อยู่ในกลุ่มลูกค้านี้");
+
+    const numbers = await generatePoNumbers(customers.length, conn);
+    const [b] = await conn.query(
+      "INSERT INTO po_batches (group_id, created_by) VALUES (?, ?)",
+      [input.group_id, input.created_by]
+    );
+    const batchId = (b as { insertId: number }).insertId;
+    const logNote = ` [ใบเสนอราคากลุ่ม ${customers[0].group_name}: ${numbers[0]}–${numbers[numbers.length - 1]}]`;
+    const created = [];
+    for (let i = 0; i < customers.length; i++) {
+      const c = customers[i];
+      const po = await insertDraftPo(conn, {
+        po_number: numbers[i],
+        customer_id: c.id,
+        credit_term_days: c.default_credit_term_days ?? 30,
+        notes: input.notes,
+        items: input.items,
+        created_by: input.created_by,
+        subtotal,
+        total,
+        log_note: logNote,
+        batch_id: batchId,
+      });
+      created.push({ ...po, customer_id: c.id });
+    }
+    return created;
   });
 }
 
+export type PoBatch = {
+  id: number;
+  group_name: string | null;
+  created_at: Date;
+  created_by_name: string | null;
+  po_count: number;
+  first_po: string;
+  last_po: string;
+  total: number;
+  remaining: number;
+  draft_count: number;
+  cancelled_count: number;
+};
+
+// ชุดใบเสนอราคากลุ่ม (ใบที่สร้างพร้อมกัน) — หน้า /po แสดงเป็นก้อนเดียวแทน 50 แถว
+export async function listPoBatches(): Promise<PoBatch[]> {
+  return query<PoBatch>(
+    `SELECT b.id, g.name AS group_name, b.created_at, u.full_name AS created_by_name,
+            COUNT(po.id) AS po_count,
+            MIN(po.po_number) AS first_po,
+            MAX(po.po_number) AS last_po,
+            COALESCE(SUM(CASE WHEN po.status <> 'cancelled' THEN po.total ELSE 0 END), 0) AS total,
+            COALESCE(SUM(CASE WHEN po.status <> 'cancelled' THEN po.remaining_amount ELSE 0 END), 0) AS remaining,
+            SUM(po.status = 'draft') AS draft_count,
+            SUM(po.status = 'cancelled') AS cancelled_count
+     FROM po_batches b
+     JOIN purchase_orders po ON po.batch_id = b.id
+     LEFT JOIN customer_groups g ON g.id = b.group_id
+     LEFT JOIN users u ON u.id = b.created_by
+     GROUP BY b.id
+     ORDER BY b.created_at DESC`
+  );
+}
+
 export async function listPos(filter?: {
+  batch_id?: number;
+  exclude_batched?: boolean;
   customer_id?: number;
   customer_name?: string;
   po_number?: string;
@@ -166,6 +293,12 @@ export async function listPos(filter?: {
 }): Promise<{ pos: PurchaseOrder[]; total: number }> {
   const where: string[] = [];
   const params: unknown[] = [];
+  if (filter?.batch_id) {
+    where.push("po.batch_id = ?");
+    params.push(filter.batch_id);
+  } else if (filter?.exclude_batched) {
+    where.push("po.batch_id IS NULL");
+  }
   if (filter?.customer_id) {
     where.push("po.customer_id = ?");
     params.push(filter.customer_id);
@@ -222,7 +355,7 @@ export async function listPos(filter?: {
                FROM purchase_orders po
                JOIN customers c ON c.id = po.customer_id
                ${whereClause}
-               ORDER BY po.created_at DESC
+               ORDER BY ${filter?.batch_id ? "po.po_number ASC" : "po.created_at DESC, po.id DESC"}
                LIMIT ? OFFSET ?`;
   const pos = await query<PurchaseOrder>(sql, [...params, limit, offset]);
 

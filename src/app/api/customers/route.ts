@@ -8,8 +8,9 @@ export async function GET(req: Request) {
   if (!auth.ok) return auth.res;
   const { searchParams } = new URL(req.url);
   const search = searchParams.get("search") || undefined;
+  const groupId = Number(searchParams.get("group_id")) || undefined;
   try {
-    const customers = await listCustomers(search);
+    const customers = await listCustomers(search, groupId);
     return NextResponse.json({ customers });
   } catch (e) {
     return serverError(e);
@@ -18,6 +19,9 @@ export async function GET(req: Request) {
 
 const Schema = z.object({
   code: z.string().optional(),
+  group_id: z
+    .preprocess((v) => (v === "" || v == null ? null : Number(v)), z.number().int().positive().nullable())
+    .optional(),
   name: z.string().min(1),
   contact_person: z.string().optional(),
   phone: z.string().optional(),

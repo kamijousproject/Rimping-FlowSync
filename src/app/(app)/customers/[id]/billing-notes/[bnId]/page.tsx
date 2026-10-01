@@ -170,7 +170,7 @@ export default async function BillingNotePrintPage({
                 <div>เลขที่บัญชี : <span className="font-mono">251-5-01738-8</span> ประเภทบัญชี ออมทรัพย์</div>
                 <div className="mt-1">Bangkok Bank : Account No. : 251-5-01738-8</div>
                 <div>Account Name:</div>
-                <div>TRNTRAPHAN SUPPERMARKET (1944) CO., LTD.</div>
+                <div>TANTRAPHAN SUPPERMARKET (1944) CO., LTD.</div>
               </div>
             </div>
             <div>

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
-import { Phone, Mail, User, ClipboardList, Banknote, MessageSquare, PenLine } from "lucide-react";
+import { Mail, User, ClipboardList, Banknote, MessageSquare, PenLine } from "lucide-react";
 import { fmtMoney } from "@/components/StatusBadge";
 import { bahtText } from "@/lib/bahtText";
 import { vatBreakdown } from "@/lib/vat";
@@ -29,8 +29,6 @@ export type SalesDocCustomer = {
 const SELLER = {
   name: "บริษัท ตันตราภัณฑ์ซุปเปอร์มาร์เก็ต (1994) จำกัด",
   address: "199/8 ถ.มหิดล ต.หายยา อ.เมือง จ.เชียงใหม่ 50100",
-  phone: "063-535-0299, 093-130-0295 (คุณยา)",
-  email: "Dararat@rimping.com, Foodservice@rimping.com",
 };
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
@@ -65,10 +63,13 @@ export function SalesDocument({
   headerExtra,
   customer,
   contactName,
+  contactEmail,
   items,
   notes,
   payment,
   signatures,
+  showGrossColumn = false,
+  showVat = true,
 }: {
   id: string;
   title: string;
@@ -76,12 +77,26 @@ export function SalesDocument({
   headerExtra?: ReactNode;
   customer: SalesDocCustomer;
   contactName?: string | null;
+  /** ติดต่อกลับที่ = ข้อมูลผู้สร้างเอกสาร */
+  contactEmail?: string | null;
   items: SalesDocItem[];
   notes?: string | null;
   payment: ReactNode;
   signatures: { label: string; name?: string | null }[];
+  /** ใบเสนอราคา: แสดงคอลัมน์ "ราคารวม VAT" (ราคาต่อหน่วย + 7% สำหรับสินค้าที่มี VAT) ต่อจากคอลัมน์ VAT */
+  showGrossColumn?: boolean;
+  /** false = ใบเสนอราคาปกติ ไม่ถอด VAT (ราคา/หน่วย + จำนวนเงิน, สรุปแค่ยอดรวม) */
+  showVat?: boolean;
 }) {
-  const { rows, vatBase, vat, exempt, total } = vatBreakdown(items);
+  const { rows, vatBase, vat, exempt, total: netTotal } = vatBreakdown(items);
+  // ราคารวม VAT ต่อหน่วย (ลูกค้ากลุ่ม): ราคา + 7% สำหรับสินค้าที่มี VAT
+  const grossOf = (it: SalesDocItem) =>
+    it.vatable ? Math.round(Number(it.unit_price) * 107) / 100 : Number(it.unit_price);
+  // ลูกค้ากลุ่ม: จำนวนเงินทั้งสิ้น = Σ (ราคารวม VAT × จำนวน)
+  const total =
+    showVat && showGrossColumn
+      ? Math.round(items.reduce((s, it) => s + grossOf(it) * Number(it.quantity), 0) * 100) / 100
+      : netTotal;
 
   return (
     <div
@@ -137,12 +152,11 @@ export function SalesDocument({
                 <User className="w-3 h-3" /> {contactName}
               </div>
             )}
-            <div className="flex items-center gap-2">
-              <Phone className="w-3 h-3 shrink-0" /> {SELLER.phone}
-            </div>
-            <div className="flex items-center gap-2">
-              <Mail className="w-3 h-3 shrink-0" /> {SELLER.email}
-            </div>
+            {contactEmail && (
+              <div className="flex items-center gap-2">
+                <Mail className="w-3 h-3 shrink-0" /> {contactEmail}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -154,8 +168,9 @@ export function SalesDocument({
             <th className="text-left p-2">คำอธิบาย</th>
             <th className="text-right p-2 w-16">จำนวน</th>
             <th className="text-right p-2 w-24">ราคา</th>
-            <th className="text-right p-2 w-14">VAT</th>
-            <th className="text-right p-2 w-28">มูลค่าก่อนภาษี</th>
+            {showVat && <th className="text-right p-2 w-14">VAT</th>}
+            {showVat && showGrossColumn && <th className="text-right p-2 w-28">ราคารวม VAT</th>}
+            <th className="text-right p-2 w-28">{showVat ? "มูลค่าก่อนภาษี" : "จำนวนเงิน"}</th>
           </tr>
         </thead>
         <tbody>
@@ -171,8 +186,15 @@ export function SalesDocument({
                 {Number(it.quantity).toFixed(2)} {it.unit}
               </td>
               <td className="text-right p-2">{fmtMoney(it.unit_price)}</td>
-              <td className="text-right p-2">{it.vatable ? "7%" : "-"}</td>
-              <td className="text-right p-2">{fmtMoney(it.pre_tax)}</td>
+              {showVat && <td className="text-right p-2">{it.vatable ? "7%" : "-"}</td>}
+              {showVat && showGrossColumn && (
+                <td className="text-right p-2">
+                  {fmtMoney(grossOf(it))}
+                </td>
+              )}
+              <td className="text-right p-2">
+                {fmtMoney(showVat ? it.pre_tax : Number(it.line_total))}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -182,15 +204,21 @@ export function SalesDocument({
       <Section icon={<ClipboardList className="w-4 h-4" />} label="สรุป">
         <div className="grid grid-cols-[1fr_240px] gap-6">
           <div className="space-y-1">
-            <div className="flex justify-between">
-              <span className="font-semibold">มูลค่าที่คำนวณภาษี 7%</span>
-              <span>{fmtMoney(vatBase)} บาท</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="font-semibold">ภาษีมูลค่าเพิ่ม 7%</span>
-              <span>{fmtMoney(vat)} บาท</span>
-            </div>
-            {exempt > 0 && (
+            {showVat ? (
+              <>
+                <div className="flex justify-between">
+                  <span className="font-semibold">มูลค่าที่คำนวณภาษี 7%</span>
+                  <span>{fmtMoney(vatBase)} บาท</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-semibold">ภาษีมูลค่าเพิ่ม 7%</span>
+                  <span>{fmtMoney(vat)} บาท</span>
+                </div>
+              </>
+            ) : (
+              <div className="text-muted">ราคารวมภาษีมูลค่าเพิ่มแล้ว</div>
+            )}
+            {showVat && exempt > 0 && (
               <div className="flex justify-between">
                 <span className="font-semibold">มูลค่าที่ไม่มีภาษี</span>
                 <span>{fmtMoney(exempt)} บาท</span>
@@ -244,7 +272,7 @@ export function QuotePaymentTerms({ creditTerm }: { creditTerm: number }) {
         <div>
           ออมทรัพย์ <span className="font-mono font-semibold">251-5-01738-8</span>
         </div>
-        <div>TRNTRAPHAN SUPPERMARKET (1944) CO., LTD.</div>
+        <div>TANTRAPHAN SUPPERMARKET (1944) CO., LTD.</div>
       </div>
       <ul className="list-disc list-inside space-y-0.5">
         <li>ยืนราคา 30 วันนับจากวันที่เสนอ</li>

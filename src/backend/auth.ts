@@ -64,9 +64,9 @@ export async function listUsers(): Promise<UserWithTempGrant[]> {
   `);
 }
 
-export async function getUserById(id: number): Promise<Pick<SessionUser, "id" | "full_name" | "username"> | null> {
-  const rows = await query<Pick<SessionUser, "id" | "full_name" | "username">>(
-    "SELECT id, full_name, username FROM users WHERE id=? LIMIT 1",
+export async function getUserById(id: number): Promise<Pick<SessionUser, "id" | "full_name" | "username" | "email"> | null> {
+  const rows = await query<Pick<SessionUser, "id" | "full_name" | "username" | "email">>(
+    "SELECT id, full_name, username, email FROM users WHERE id=? LIMIT 1",
     [id]
   );
   return rows[0] ?? null;

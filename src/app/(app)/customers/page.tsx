@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, Users } from "lucide-react";
 import { listCustomers } from "@/backend/services/customers";
+import { listCustomerGroups } from "@/backend/services/customer-groups";
 import { fmtMoney } from "@/components/StatusBadge";
 import { getCurrentUser, isSuperAdmin } from "@/backend/auth";
 import CustomerSearch from "@/components/CustomerSearch";
@@ -10,20 +11,51 @@ export const dynamic = "force-dynamic";
 export default async function CustomersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ denied?: string; search?: string; page?: string }>;
+  searchParams: Promise<{ denied?: string; search?: string; page?: string; group?: string }>;
 }) {
-  const customers = await listCustomers();
+  const [customers, groups] = await Promise.all([listCustomers(), listCustomerGroups()]);
   const user = await getCurrentUser();
   const canCreate = isSuperAdmin(user);
   const sp = await searchParams;
 
+  // แยกลูกค้ากลุ่ม (เช่น 7-11) ออกจากลูกค้าเดี่ยว:
+  // ค่าเริ่มต้น = ลูกค้าเดี่ยว, "all" = ทั้งหมด, <id> = สมาชิกกลุ่มนั้น
+  const activeGroup = sp.group && sp.group !== "all" ? groups.find((g) => g.id === Number(sp.group)) : undefined;
+  const groupFiltered =
+    sp.group === "all"
+      ? customers
+      : activeGroup
+      ? customers.filter((c) => c.group_id === activeGroup.id)
+      : customers.filter((c) => !c.group_id);
+
+  const groupSummaries = groups.map((g) => {
+    const members = customers.filter((c) => c.group_id === g.id);
+    return {
+      ...g,
+      limit: members.reduce((s, c) => s + Number(c.effective_limit || 0), 0),
+      outstanding: members.reduce((s, c) => s + Number(c.outstanding || 0), 0),
+      open_pos: members.reduce((s, c) => s + Number(c.open_pos || 0), 0),
+    };
+  });
+
   // Filter customers based on search term
   const filteredCustomers = sp.search
-    ? customers.filter((c) =>
+    ? groupFiltered.filter((c) =>
         c.name.toLowerCase().includes(sp.search!.toLowerCase()) ||
         (c.code && c.code.toLowerCase().includes(sp.search!.toLowerCase()))
       )
-    : customers;
+    : groupFiltered;
+
+  // ค้นหาในหน้าลูกค้าเดี่ยว แต่ไปเจอร้านในกลุ่ม → บอกให้กดไปดูทั้งหมด
+  const groupMatchCount =
+    sp.search && !sp.group
+      ? customers.filter(
+          (c) =>
+            c.group_id &&
+            (c.name.toLowerCase().includes(sp.search!.toLowerCase()) ||
+              (c.code && c.code.toLowerCase().includes(sp.search!.toLowerCase())))
+        ).length
+      : 0;
 
   // Pagination (frontend-only; slices the already-fetched list)
   const limit = 10;
@@ -40,10 +72,25 @@ export default async function CustomersPage({
   function buildPageLink(p: number) {
     const params = new URLSearchParams();
     if (sp.search) params.set("search", sp.search);
+    if (sp.group) params.set("group", sp.group);
     if (p > 1) params.set("page", String(p));
     const qs = params.toString();
     return qs ? `/customers?${qs}` : "/customers";
   }
+
+  function buildGroupLink(g?: string) {
+    const params = new URLSearchParams();
+    if (sp.search) params.set("search", sp.search);
+    if (g) params.set("group", g);
+    const qs = params.toString();
+    return qs ? `/customers?${qs}` : "/customers";
+  }
+
+  const groupChips = [
+    { key: undefined, label: `ลูกค้าเดี่ยว (${customers.filter((c) => !c.group_id).length})` },
+    ...groups.map((g) => ({ key: String(g.id), label: `${g.name} (${g.member_count})` })),
+    { key: "all", label: `ทั้งหมด (${customers.length})` },
+  ];
 
   return (
     <div className="space-y-4">
@@ -54,8 +101,17 @@ export default async function CustomersPage({
       )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
+          {activeGroup && (
+            <Link href="/customers" className="text-sm text-muted hover:text-foreground transition">
+              ← ลูกค้าเดี่ยว
+            </Link>
+          )}
           <h1 className="text-xl md:text-2xl font-bold text-brand-800">
-            ลูกค้าทั้งหมด
+            {activeGroup
+              ? `กลุ่มลูกค้า ${activeGroup.name}`
+              : sp.group === "all"
+              ? "ลูกค้าทั้งหมด"
+              : "ลูกค้าเดี่ยว"}
           </h1>
           <p className="text-xs md:text-sm text-muted">
             {filteredCustomers.length} รายจาก {customers.length} รายทั้งหมด · จัดการวงเงิน · ลูกหนี้คงค้าง
@@ -68,14 +124,75 @@ export default async function CustomersPage({
         )}
       </div>
 
+      {/* Group cards — ลูกค้ากลุ่มแยกออกมาเป็นก้อน คลิกเพื่อดูรายร้าน */}
+      {!sp.group && groupSummaries.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {groupSummaries.map((g) => (
+            <Link
+              key={g.id}
+              href={buildGroupLink(String(g.id))}
+              className="card p-4 hover:border-brand-300 hover:bg-brand-50/30 transition flex items-start gap-3"
+            >
+              <div className="w-10 h-10 rounded-xl bg-brand-100 text-brand-700 flex items-center justify-center shrink-0">
+                <Users className="w-5 h-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold truncate">{g.name}</div>
+                <div className="text-xs text-muted">กลุ่มลูกค้า · {g.member_count} ร้าน</div>
+                <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
+                  <div>
+                    <div className="text-muted">วงเงินรวม</div>
+                    <div className="font-semibold">{fmtMoney(g.limit)}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted">คงค้างรวม</div>
+                    <div className="font-semibold text-danger">{fmtMoney(g.outstanding)}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted">Quotation เปิด</div>
+                    <div className="font-semibold">{g.open_pos} ใบ</div>
+                  </div>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted shrink-0 mt-1" />
+            </Link>
+          ))}
+        </div>
+      )}
+
       <div className="card overflow-hidden">
         {/* Toolbar */}
-        <div className="px-4 py-3 border-b border-border bg-gray-50 flex items-center justify-between gap-3">
+        <div className="px-4 py-3 border-b border-border bg-gray-50 flex flex-wrap items-center justify-between gap-3">
           <CustomerSearch />
+          <div className="flex flex-wrap gap-1.5 flex-1">
+            {groups.length > 0 &&
+              groupChips.map((g) => (
+                <Link
+                  key={g.key ?? "all"}
+                  href={buildGroupLink(g.key)}
+                  className={`text-xs px-2.5 py-1 rounded-full border transition ${
+                    sp.group === g.key
+                      ? "bg-brand-600 border-brand-600 text-white"
+                      : "bg-white border-border text-muted hover:text-foreground"
+                  }`}
+                >
+                  {g.label}
+                </Link>
+              ))}
+          </div>
           <p className="text-sm text-muted shrink-0 hidden sm:block">
             {filteredCustomers.length} รายการ
           </p>
         </div>
+
+        {groupMatchCount > 0 && (
+          <div className="px-4 py-2 border-b border-border bg-brand-50/40 text-xs text-brand-800">
+            พบร้านในกลุ่มลูกค้าที่ตรงกับ &quot;{sp.search}&quot; อีก {groupMatchCount} ร้าน —{" "}
+            <Link href={buildGroupLink("all")} className="underline font-medium">
+              ดูทั้งหมด
+            </Link>
+          </div>
+        )}
 
         {/* Mobile cards */}
         <div className="md:hidden p-3 space-y-2">
@@ -102,6 +219,7 @@ export default async function CustomersPage({
                     <div className="text-xs text-muted">
                       {c.code || "—"}
                       {c.phone ? ` · ${c.phone}` : ""}
+                      {c.group_name ? ` · กลุ่ม ${c.group_name}` : ""}
                     </div>
                   </div>
                   {c.credit_score != null && (
@@ -196,7 +314,14 @@ export default async function CustomersPage({
                           <span className="text-[10px] bg-amber-100 text-amber-700 border border-amber-300 px-1.5 py-0.5 rounded-full font-semibold">วงเงินชั่วคราว</span>
                         )}
                       </div>
-                      <div className="text-xs text-muted">{c.code || "-"}</div>
+                      <div className="text-xs text-muted">
+                        {c.code || "-"}
+                        {c.group_name && (
+                          <span className="ml-1.5 text-[10px] bg-brand-50 text-brand-700 border border-brand-200 px-1.5 py-0.5 rounded-full">
+                            กลุ่ม {c.group_name}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td>
                       <div className="text-xs">{c.phone || "-"}</div>

@@ -5,9 +5,11 @@ import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { DeleteCustomerButton } from "../DeleteCustomerButton";
 import { ThaiDateInput } from "@/components/ThaiDateInput";
+import { CustomerGroupSelect } from "@/components/CustomerGroupSelect";
 
 type FormState = {
   code: string;
+  group_id: number | "";
   name: string;
   contact_person: string;
   phone: string;
@@ -30,6 +32,7 @@ export function EditCustomerForm({ id, initial }: Props) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>({
     code: initial.code,
+    group_id: initial.group_id,
     name: initial.name,
     contact_person: initial.contact_person,
     phone: initial.phone,
@@ -96,6 +99,7 @@ export function EditCustomerForm({ id, initial }: Props) {
     setLoading(true);
     const payload = {
       ...form,
+      group_id: form.group_id || null,
       credit_score: form.credit_score === "" ? null : Number(form.credit_score),
     };
     const r = await fetch(`/api/customers/${id}`, {
@@ -283,6 +287,7 @@ export function EditCustomerForm({ id, initial }: Props) {
             <label className="label">เลขผู้เสียภาษี</label>
             <input className="input" value={form.tax_id} onChange={(e) => set("tax_id", e.target.value)} />
           </div>
+          <CustomerGroupSelect value={form.group_id} onChange={(v) => set("group_id", v)} />
           <div className="col-span-2">
             <label className="label">ที่อยู่</label>
             <textarea className="input" rows={2} value={form.address} onChange={(e) => set("address", e.target.value)} />

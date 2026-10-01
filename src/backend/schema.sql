@@ -14,9 +14,18 @@ CREATE TABLE IF NOT EXISTS users (
 ) ENGINE=InnoDB;
 
 -- Customers
+-- Customer groups (e.g. 7-11 stores) — group quotations create 1 PO per member store
+CREATE TABLE IF NOT EXISTS customer_groups (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(191) NOT NULL UNIQUE,
+  notes TEXT,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS customers (
   id INT AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(32) UNIQUE,
+  group_id INT DEFAULT NULL,
   name VARCHAR(191) NOT NULL,
   contact_person VARCHAR(128),
   phone VARCHAR(32),
@@ -31,17 +40,30 @@ CREATE TABLE IF NOT EXISTS customers (
   billing_note_due_days INT DEFAULT 5,
   notes TEXT,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_customer_group FOREIGN KEY (group_id) REFERENCES customer_groups(id) ON DELETE SET NULL,
+  INDEX idx_customer_group (group_id)
 ) ENGINE=InnoDB;
 
 -- Purchase Orders (PO)
 -- status flow:
 --   draft -> confirmed -> packed -> checked -> delivered -> received
 --   payment status: unpaid / partial / paid (computed but stored for index)
+-- ชุดใบเสนอราคากลุ่ม: ใบที่สร้างพร้อมกันจาก 1 ครั้ง (1 ร้าน = 1 ใบ)
+CREATE TABLE IF NOT EXISTS po_batches (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  group_id INT NULL,
+  created_by INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_pob_group FOREIGN KEY (group_id) REFERENCES customer_groups(id) ON DELETE SET NULL,
+  CONSTRAINT fk_pob_user FOREIGN KEY (created_by) REFERENCES users(id)
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS purchase_orders (
   id INT AUTO_INCREMENT PRIMARY KEY,
   po_number VARCHAR(32) UNIQUE NOT NULL,
   customer_id INT NOT NULL,
+  batch_id INT DEFAULT NULL,
   status ENUM('draft','confirmed','packed','checked','delivered','received','cancelled') NOT NULL DEFAULT 'draft',
   payment_status ENUM('unpaid','partial','paid') NOT NULL DEFAULT 'unpaid',
   credit_term_days INT NOT NULL DEFAULT 30,
@@ -57,6 +79,7 @@ CREATE TABLE IF NOT EXISTS purchase_orders (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_po_customer FOREIGN KEY (customer_id) REFERENCES customers(id),
+  CONSTRAINT fk_po_batch FOREIGN KEY (batch_id) REFERENCES po_batches(id) ON DELETE SET NULL,
   CONSTRAINT fk_po_user FOREIGN KEY (created_by) REFERENCES users(id),
   INDEX idx_po_customer (customer_id),
   INDEX idx_po_status (status),

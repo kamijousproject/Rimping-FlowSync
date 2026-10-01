@@ -33,6 +33,9 @@ export default async function QuotationPage({
     <div className="max-w-[820px] mx-auto">
       <QuotationPrintBar />
       <SalesDocument
+        // ลูกค้ากลุ่ม (เช่น 7-11) = ถอด VAT + คอลัมน์ "ราคารวม VAT", ลูกค้าทั่วไป = ใบเสนอราคาปกติ
+        showVat={!!customer?.group_id}
+        showGrossColumn={!!customer?.group_id}
         id="quotation-doc"
         title="ใบเสนอราคา"
         headerExtra={<QuotationPageCount />}
@@ -44,6 +47,7 @@ export default async function QuotationPage({
         ]}
         customer={{ ...customer, name: po.customer_name ?? customer?.name ?? "" }}
         contactName={creator?.full_name}
+        contactEmail={creator?.email}
         items={items.map((it) => ({ ...it, vatable: !nonVat.has(it.product_name) }))}
         notes={po.notes}
         payment={<QuotePaymentTerms creditTerm={po.credit_term_days} />}

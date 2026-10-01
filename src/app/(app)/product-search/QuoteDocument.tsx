@@ -15,6 +15,7 @@ export type QuoteDocCustomer = {
   address: string | null;
   phone: string | null;
   tax_id: string | null;
+  group_id: number | null;
 };
 
 /**
@@ -30,6 +31,7 @@ export function QuoteDocument({
   creditTerm,
   issuedAt,
   creatorName,
+  creatorEmail,
 }: {
   customer: QuoteDocCustomer | null;
   items: QuoteDocItem[];
@@ -38,6 +40,7 @@ export function QuoteDocument({
   creditTerm: number;
   issuedAt: Date | null;
   creatorName: string | null;
+  creatorEmail: string | null;
 }) {
   const validUntil = issuedAt
     ? new Date(issuedAt.getTime() + 30 * 24 * 60 * 60 * 1000)
@@ -45,6 +48,9 @@ export function QuoteDocument({
 
   return (
     <SalesDocument
+      // ลูกค้ากลุ่ม (เช่น 7-11) = ถอด VAT + คอลัมน์ "ราคารวม VAT", ลูกค้าทั่วไป = ใบเสนอราคาปกติ
+      showVat={!!customer?.group_id}
+      showGrossColumn={!!customer?.group_id}
       id="quotation-doc"
       title="ใบเสนอราคา"
       meta={[
@@ -54,6 +60,7 @@ export function QuoteDocument({
       ]}
       customer={customer ?? { name: "………………………………………………" }}
       contactName={creatorName}
+      contactEmail={creatorEmail}
       items={items.map((it, idx) => ({
         ...it,
         id: idx,

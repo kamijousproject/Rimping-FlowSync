@@ -8,7 +8,7 @@ import {
   fmtMoney,
 } from "@/components/StatusBadge";
 import DateRangeFilter from "@/components/DateRangeFilter";
-import { ChevronLeft, ChevronRight, Search, X, Filter } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, X, Filter, Users } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 
 const STATUS_FILTERS = [
@@ -40,6 +40,20 @@ type PurchaseOrder = {
   due_date: string | null;
 };
 
+type PoBatch = {
+  id: number;
+  group_name: string | null;
+  created_at: string;
+  created_by_name: string | null;
+  po_count: number;
+  first_po: string;
+  last_po: string;
+  total: number;
+  remaining: number;
+  draft_count: number;
+  cancelled_count: number;
+};
+
 export default function PoListPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -50,6 +64,8 @@ export default function PoListPage() {
   const paymentStatus = searchParams.get("payment_status") || "";
   const startDate = searchParams.get("start_date") || "";
   const endDate = searchParams.get("end_date") || "";
+  // ใบเสนอราคากลุ่ม: ค่าเริ่มต้นซ่อนใบในชุด (แสดงเป็นก้อน), ?batch=<id> = ดูใบในชุดนั้น
+  const batchId = searchParams.get("batch") || "";
 
   // Advanced filter states
   const [customerName, setCustomerName] = useState(searchParams.get("customer_name") || "");
@@ -62,6 +78,17 @@ export default function PoListPage() {
   const [pos, setPos] = useState<PurchaseOrder[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [batches, setBatches] = useState<PoBatch[]>([]);
+
+  useEffect(() => {
+    fetch("/api/po/batches")
+      .then((r) => (r.ok ? r.json() : { batches: [] }))
+      .then((d) => setBatches(d.batches || []))
+      .catch(console.error);
+  }, []);
+  const activeBatch = batchId ? batches.find((b) => String(b.id) === batchId) : undefined;
+  // ค้นด้วยชื่อลูกค้า/เลขที่ → ค้นรวมใบในชุดด้วย จะได้หาเจอ
+  const searchingAll = !!(searchParams.get("customer_name") || searchParams.get("po_number"));
 
   const limit = 10;
   const totalPages = Math.ceil(total / limit);
@@ -74,6 +101,8 @@ export default function PoListPage() {
       const params = new URLSearchParams();
       params.set("page", page.toString());
       params.set("limit", limit.toString());
+      if (batchId) params.set("batch", batchId);
+      else if (!searchingAll) params.set("exclude_batched", "1");
       if (status) params.set("status", status);
       if (paymentStatus) params.set("payment_status", paymentStatus);
       if (startDate) params.set("start_date", startDate);
@@ -94,7 +123,7 @@ export default function PoListPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, status, paymentStatus, startDate, endDate, customerName, poNumber, minAmount, maxAmount]);
+  }, [page, status, paymentStatus, startDate, endDate, customerName, poNumber, minAmount, maxAmount, batchId, searchingAll]);
 
   useEffect(() => {
     fetchData();
@@ -146,9 +175,23 @@ export default function PoListPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
+          {batchId && (
+            <Link href="/po" className="text-sm text-muted hover:text-foreground transition">
+              ← Quotation ทั้งหมด
+            </Link>
+          )}
           <h1 className="text-xl md:text-2xl font-bold text-brand-800">
-            Quotation
+            {batchId
+              ? `ใบเสนอราคากลุ่ม ${activeBatch?.group_name ?? ""}`
+              : "Quotation"}
           </h1>
+          {activeBatch && (
+            <p className="text-xs md:text-sm text-muted">
+              {activeBatch.first_po} – {activeBatch.last_po} · สร้าง{" "}
+              {new Date(activeBatch.created_at).toLocaleString("th-TH")}
+              {activeBatch.created_by_name ? ` โดย ${activeBatch.created_by_name}` : ""}
+            </p>
+          )}
           <p className="text-xs md:text-sm text-muted">
             {total} รายการ ทั้งหมด (แสดง {startItem}-{endItem})
           </p>
@@ -157,6 +200,56 @@ export default function PoListPage() {
           + สร้าง Quotation ใหม่
         </Link>
       </div>
+
+      {/* ใบเสนอราคากลุ่ม — 1 ชุดแสดงเป็น 1 การ์ด กดเพื่อดูใบทั้งหมดในชุด */}
+      {!batchId && !searchingAll && batches.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+            <Users className="w-4 h-4 text-brand-600" />
+            ใบเสนอราคากลุ่ม
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {batches.map((b) => (
+              <Link
+                key={b.id}
+                href={`/po?batch=${b.id}`}
+                className="card p-4 hover:border-brand-300 hover:bg-brand-50/30 transition block"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-semibold truncate">{b.group_name ?? "กลุ่มลูกค้า"}</div>
+                    <div className="text-xs text-brand-700 font-mono">
+                      {b.first_po} – {b.last_po}
+                    </div>
+                  </div>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-brand-100 text-brand-800 shrink-0">
+                    {b.po_count} ใบ
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 mt-3 text-xs">
+                  <div>
+                    <div className="text-muted">ยอดรวม</div>
+                    <div className="font-semibold">{fmtMoney(b.total)}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted">ร่าง</div>
+                    <div className="font-semibold">{Number(b.draft_count)} ใบ</div>
+                  </div>
+                  <div>
+                    <div className="text-muted">ยกเลิก</div>
+                    <div className="font-semibold">{Number(b.cancelled_count)} ใบ</div>
+                  </div>
+                </div>
+                <div className="text-[11px] text-muted mt-2">
+                  สร้าง {new Date(b.created_at).toLocaleString("th-TH")}
+                  {b.created_by_name ? ` · ${b.created_by_name}` : ""}
+                </div>
+              </Link>
+            ))}
+          </div>
+          <h2 className="text-sm font-semibold text-foreground pt-2">Quotation รายใบ</h2>
+        </div>
+      )}
 
       {/* Advanced Filters */}
       {showAdvancedFilters && (

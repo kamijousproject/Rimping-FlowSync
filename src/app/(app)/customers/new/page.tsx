@@ -2,11 +2,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { CustomerGroupSelect } from "@/components/CustomerGroupSelect";
 
 export default function NewCustomerPage() {
   const router = useRouter();
   const [form, setForm] = useState({
     code: "",
+    group_id: "" as number | "",
     name: "",
     contact_person: "",
     phone: "",
@@ -34,6 +36,7 @@ export default function NewCustomerPage() {
     setLoading(true);
     const payload = {
       ...form,
+      group_id: form.group_id || null,
       credit_score: form.credit_score === "" ? null : Number(form.credit_score),
     };
     const r = await fetch("/api/customers", {
@@ -121,6 +124,7 @@ export default function NewCustomerPage() {
               onChange={(e) => set("tax_id", e.target.value)}
             />
           </div>
+          <CustomerGroupSelect value={form.group_id} onChange={(v) => set("group_id", v)} />
           <div className="col-span-2">
             <label className="label">ที่อยู่</label>
             <textarea

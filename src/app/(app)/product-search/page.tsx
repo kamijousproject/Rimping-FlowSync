@@ -37,6 +37,7 @@ type Customer = {
   phone: string | null;
   tax_id: string | null;
   address: string | null;
+  group_id: number | null;
   credit_limit: number;
   outstanding: number;
   credit_available: number;
@@ -73,6 +74,7 @@ function ProductSearchInner() {
   const [stockInfo, setStockInfo] = useState<Record<string, number>>({});
   const [nonVatSkus, setNonVatSkus] = useState<Set<string>>(new Set());
   const [creatorName, setCreatorName] = useState<string | null>(null);
+  const [creatorEmail, setCreatorEmail] = useState<string | null>(null);
   // Stamped at print time, never during render — a render-time `new Date()` would
   // differ between SSR and client and break hydration.
   const [issuedAt, setIssuedAt] = useState<Date | null>(null);
@@ -87,7 +89,10 @@ function ProductSearchInner() {
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setCreatorName(d?.user?.full_name ?? null))
+      .then((d) => {
+        setCreatorName(d?.user?.full_name ?? null);
+        setCreatorEmail(d?.user?.email ?? null);
+      })
       .catch(() => {});
   }, []);
 
@@ -725,6 +730,7 @@ function ProductSearchInner() {
                   address: selected.address,
                   phone: selected.phone,
                   tax_id: selected.tax_id,
+                  group_id: selected.group_id,
                 }
               : null
           }
@@ -734,6 +740,7 @@ function ProductSearchInner() {
           creditTerm={creditTerm}
           issuedAt={issuedAt}
           creatorName={creatorName}
+          creatorEmail={creatorEmail}
         />
       </div>
 
