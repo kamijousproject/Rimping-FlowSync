@@ -70,6 +70,7 @@ export function SalesDocument({
   signatures,
   showGrossColumn = false,
   showVat = true,
+  showSku = false,
 }: {
   id: string;
   title: string;
@@ -87,6 +88,8 @@ export function SalesDocument({
   showGrossColumn?: boolean;
   /** false = ใบเสนอราคาปกติ ไม่ถอด VAT (ราคา/หน่วย + จำนวนเงิน, สรุปแค่ยอดรวม) */
   showVat?: boolean;
+  /** ใบเสนอราคา: แสดงรหัส SKU ต่อท้ายชื่อสินค้า */
+  showSku?: boolean;
 }) {
   const { rows, vatBase, vat, exempt, total: netTotal } = vatBreakdown(items);
   // ราคารวม VAT ต่อหน่วย (ลูกค้ากลุ่ม): ราคา + 7% สำหรับสินค้าที่มี VAT
@@ -180,6 +183,9 @@ export function SalesDocument({
                 <div>
                   {idx + 1}.{" "}
                   <span className="font-semibold">{it.description || it.product_name}</span>
+                  {showSku && it.description && (
+                    <span className="text-muted"> (SKU {it.product_name})</span>
+                  )}
                 </div>
               </td>
               <td className="text-right p-2">

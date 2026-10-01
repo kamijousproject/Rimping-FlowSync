@@ -51,6 +51,7 @@ export function QuoteDocument({
       // ลูกค้ากลุ่ม (เช่น 7-11) = ถอด VAT + คอลัมน์ "ราคารวม VAT", ลูกค้าทั่วไป = ใบเสนอราคาปกติ
       showVat={!!customer?.group_id}
       showGrossColumn={!!customer?.group_id}
+      showSku
       id="quotation-doc"
       title="ใบเสนอราคา"
       meta={[
