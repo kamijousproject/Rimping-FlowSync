@@ -61,6 +61,14 @@ export default async function TaxInvoicePage({
   const isGroup = !!customer?.group_id;
   // ลูกค้ากลุ่ม (7-11) → ผู้ซื้อเป็นนิติบุคคลของกลุ่ม + สาขาตามรหัสร้าน
   const buyer = billingParty({ ...customer, name: po.customer_name ?? customer?.name ?? "" });
+  // ผู้ติดต่อ: ลูกค้ากลุ่มแสดงชื่อร้าน(รหัสร้าน) แทนผู้จัดการร้าน
+  const storeName = po.customer_name ?? customer?.name ?? "";
+  const storeNo = customer?.code?.match(/(\d+)\s*$/)?.[1];
+  const contactName = buyer.branch
+    ? storeNo && !storeName.includes(storeNo)
+      ? `${storeName} (${storeNo})`
+      : storeName
+    : customer?.contact_person;
   const r2 = (n: number) => Math.round(n * 100) / 100;
 
   // ลูกค้ากลุ่ม (7-11): คิดแบบเดียวกับใบเสนอราคากลุ่ม — ราคาในระบบ = ราคาก่อน VAT,
@@ -137,9 +145,6 @@ export default async function TaxInvoicePage({
             <div>
               <span className="text-muted">เลขประจำตัวผู้เสียภาษี</span> {COMPANY.taxId}
             </div>
-            <div>
-              <span className="text-muted">สาขา</span> {COMPANY.branch}
-            </div>
           </PartyBox>
           <PartyBox title="ผู้ซื้อ">
             <div className="font-semibold text-[14px]">{buyer.name}</div>
@@ -154,11 +159,11 @@ export default async function TaxInvoicePage({
                 <span className="text-muted">สาขาที่</span> {buyer.branch.replace(/^สาขาที่\s*/, "")}
               </div>
             )}
-            {(customer?.contact_person || customer?.phone || customer?.email) && (
+            {(contactName || customer?.phone || customer?.email) && (
               <div className="border-t border-border mt-1.5 pt-1.5 flex flex-wrap gap-x-4">
-                {customer?.contact_person && (
+                {contactName && (
                   <span>
-                    <span className="text-muted">ผู้ติดต่อ</span> {customer.contact_person}
+                    <span className="text-muted">ผู้ติดต่อ</span> {contactName}
                   </span>
                 )}
                 {customer?.phone && (
