@@ -7,6 +7,7 @@ import { SalesDocument, QuotePaymentTerms } from "@/components/SalesDocument";
 import { QuotationPrintBar } from "./QuotationPrintBar";
 import { QuotationPageCount } from "./QuotationPageCount";
 import { getUserById } from "@/backend/auth";
+import { billingParty } from "@/lib/billing";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,8 @@ export default async function QuotationPage({
     getNonVatSkus(items.map((it) => it.product_name)),
   ]);
 
+  // ลูกค้ากลุ่ม (7-11) → ผู้ซื้อเป็นนิติบุคคลของกลุ่ม + สาขาตามรหัสร้าน
+  const buyer = billingParty({ ...customer, name: po.customer_name ?? customer?.name ?? "" });
   const issuedAt = new Date(quote.generated_at);
   const validUntil = new Date(issuedAt.getTime() + 30 * 24 * 60 * 60 * 1000);
 
@@ -46,7 +49,10 @@ export default async function QuotationPage({
           ["ยืนราคาถึง :", validUntil.toLocaleDateString("th-TH")],
           ["อ้างอิง :", po.po_number],
         ]}
-        customer={{ ...customer, name: po.customer_name ?? customer?.name ?? "" }}
+        customer={{
+          ...buyer,
+          tax_id: buyer.tax_id ? [buyer.tax_id, buyer.branch].filter(Boolean).join(" ") : null,
+        }}
         contactName={creator?.full_name}
         contactEmail={creator?.email}
         items={items.map((it) => ({ ...it, vatable: !nonVat.has(it.product_name) }))}

@@ -1,5 +1,6 @@
 "use client";
 import { SalesDocument, QuotePaymentTerms } from "@/components/SalesDocument";
+import { billingParty } from "@/lib/billing";
 
 export type QuoteDocItem = {
   product_name: string;
@@ -16,6 +17,10 @@ export type QuoteDocCustomer = {
   phone: string | null;
   tax_id: string | null;
   group_id: number | null;
+  code: string | null;
+  group_billing_name: string | null;
+  group_billing_address: string | null;
+  group_billing_tax_id: string | null;
 };
 
 /**
@@ -59,7 +64,15 @@ export function QuoteDocument({
         ["วันที่ออก :", issuedAt ? issuedAt.toLocaleDateString("th-TH") : "—"],
         ["ยืนราคาถึง :", validUntil ? validUntil.toLocaleDateString("th-TH") : "—"],
       ]}
-      customer={customer ?? { name: "………………………………………………" }}
+      customer={
+        customer
+          ? (() => {
+              // ลูกค้ากลุ่ม (7-11) → ผู้ซื้อเป็นนิติบุคคลของกลุ่ม + สาขาตามรหัสร้าน
+              const b = billingParty(customer);
+              return { ...b, code: null, tax_id: b.tax_id ? [b.tax_id, b.branch].filter(Boolean).join(" ") : null };
+            })()
+          : { name: "………………………………………………" }
+      }
       contactName={creatorName}
       contactEmail={creatorEmail}
       items={items.map((it, idx) => ({

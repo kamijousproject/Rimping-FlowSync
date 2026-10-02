@@ -507,8 +507,8 @@ export function PoActions({
         )}
       </div>
 
-      {/* Tax invoice number display / edit */}
-      {(status === "delivered" || status === "received") && (
+      {/* Tax invoice number display / edit — กรอกได้ตั้งแต่ confirmed (ใช้บนใบส่งของ/ใบกำกับภาษี) */}
+      {status !== "draft" && status !== "cancelled" && (
         <div className="border-t pt-3 text-sm">
           <div className="font-medium mb-1">เลขที่ใบกำกับภาษีเต็มรูปแบบ</div>
           {editingTaxInv ? (

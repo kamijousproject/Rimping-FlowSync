@@ -29,13 +29,17 @@ export type SalesDocCustomer = {
 const SELLER = {
   name: "บริษัท ตันตราภัณฑ์ซุปเปอร์มาร์เก็ต (1994) จำกัด",
   address: "199/8 ถ.มหิดล ต.หายยา อ.เมือง จ.เชียงใหม่ 50100",
+  taxId: "0505537001981 (สำนักงานใหญ่)",
 };
 
-function Row({ label, children }: { label: string; children: ReactNode }) {
+function PartyBox({ title, badge, children }: { title: string; badge?: ReactNode; children: ReactNode }) {
   return (
-    <div className="grid grid-cols-[80px_1fr] gap-2">
-      <span className="font-semibold">{label}</span>
-      <span className="whitespace-pre-wrap">{children}</span>
+    <div className="border border-border rounded-lg p-3 print-avoid-break">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] font-semibold tracking-wide text-brand-700">{title}</span>
+        {badge}
+      </div>
+      <div className="space-y-0.5 leading-relaxed">{children}</div>
     </div>
   );
 }
@@ -126,18 +130,48 @@ export function SalesDocument({
 
       {/* Parties + doc info */}
       <div className="grid grid-cols-[1fr_260px] gap-6 mt-6">
-        <div className="space-y-1">
-          <Row label="ผู้ขาย :">{SELLER.name}</Row>
-          <Row label="ที่อยู่ :">{SELLER.address}</Row>
-          <div className="border-t border-border my-3" />
-          <Row label="ลูกค้า :">
-            {customer.code && <span className="font-mono mr-1">{customer.code}</span>}
-            {customer.name}
-          </Row>
-          {customer.address && <Row label="ที่อยู่ :">{customer.address}</Row>}
-          {customer.tax_id && <Row label="เลขที่ภาษี :">{customer.tax_id}</Row>}
-          {customer.phone && <Row label="โทร :">{customer.phone}</Row>}
-          {customer.contact_person && <Row label="เรียนคุณ :">{customer.contact_person}</Row>}
+        <div className="space-y-3">
+          <PartyBox title="ผู้ขาย / SELLER">
+            <div className="font-semibold text-[13px]">{SELLER.name}</div>
+            <div className="text-muted">{SELLER.address}</div>
+            <div>
+              <span className="text-muted">เลขประจำตัวผู้เสียภาษี</span> {SELLER.taxId}
+            </div>
+          </PartyBox>
+          <PartyBox
+            title="ลูกค้า / CUSTOMER"
+            badge={
+              customer.code && (
+                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-brand-50 text-brand-800">
+                  {customer.code}
+                </span>
+              )
+            }
+          >
+            <div className="font-semibold text-[13px]">{customer.name}</div>
+            {customer.address && (
+              <div className="text-muted whitespace-pre-wrap">{customer.address}</div>
+            )}
+            {customer.tax_id && (
+              <div>
+                <span className="text-muted">เลขประจำตัวผู้เสียภาษี</span> {customer.tax_id}
+              </div>
+            )}
+            {(customer.contact_person || customer.phone) && (
+              <div className="flex flex-wrap gap-x-4">
+                {customer.contact_person && (
+                  <span>
+                    <span className="text-muted">เรียนคุณ</span> {customer.contact_person}
+                  </span>
+                )}
+                {customer.phone && (
+                  <span>
+                    <span className="text-muted">โทร</span> {customer.phone}
+                  </span>
+                )}
+              </div>
+            )}
+          </PartyBox>
         </div>
         <div className="space-y-4">
           <div className="bg-brand-50 rounded p-3 space-y-1">

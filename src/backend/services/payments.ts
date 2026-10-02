@@ -5,6 +5,7 @@ import { getCustomer, getCustomerOutstanding, getEffectiveCreditLimit } from "./
 export type Payment = {
   id: number;
   po_id: number;
+  receipt_number: string | null;
   amount: number;
   paid_at: Date;
   method: string;
@@ -36,6 +37,44 @@ export async function listPayments(po_id: number): Promise<(Payment & { is_overp
      ORDER BY p.paid_at DESC, p.id DESC`,
     [po_id]
   ) as Promise<(Payment & { is_overpayment: boolean })[]>;
+}
+
+/**
+ * เลขที่ใบเสร็จรับเงินของการชำระ 1 ครั้ง — ออกครั้งแรกที่เปิดใบเสร็จ (RC{YYMM}-{NNNN} รันต่อเดือน)
+ * ครั้งต่อไปคืนเลขเดิม
+ */
+export async function getOrCreateReceiptNumber(paymentId: number): Promise<string> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const rows = await query<{ receipt_number: string | null }>(
+      "SELECT receipt_number FROM payments WHERE id = ?",
+      [paymentId]
+    );
+    if (!rows[0]) throw new Error("ไม่พบรายการชำระเงิน");
+    if (rows[0].receipt_number) return rows[0].receipt_number;
+
+    const now = new Date();
+    const yymm = `${String(now.getFullYear()).slice(-2)}${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const c = await query<{ c: number }>(
+      "SELECT COUNT(*) AS c FROM payments WHERE receipt_number LIKE ?",
+      [`RC${yymm}-%`]
+    );
+    const receipt_number = `RC${yymm}-${String(Number(c[0]?.c || 0) + 1).padStart(4, "0")}`;
+    try {
+      // receipt_number IS NULL กันเขียนทับ ถ้ามีอีก request ออกเลขไปก่อน
+      await exec(
+        "UPDATE payments SET receipt_number = ? WHERE id = ? AND receipt_number IS NULL",
+        [receipt_number, paymentId]
+      );
+    } catch (e: unknown) {
+      if ((e as { code?: string })?.code !== "ER_DUP_ENTRY") throw e;
+    }
+  }
+  const rows = await query<{ receipt_number: string | null }>(
+    "SELECT receipt_number FROM payments WHERE id = ?",
+    [paymentId]
+  );
+  if (rows[0]?.receipt_number) return rows[0].receipt_number;
+  throw new Error("ไม่สามารถออกเลขที่ใบเสร็จได้");
 }
 
 export async function getPaymentById(id: number): Promise<Payment | null> {

@@ -23,6 +23,9 @@ export type Customer = {
 
 export type CustomerWithCredit = Customer & {
   group_name: string | null;
+  group_billing_name: string | null;
+  group_billing_address: string | null;
+  group_billing_tax_id: string | null;
   outstanding: number;
   credit_used: number;
   credit_available: number; // based on effective (base + temp) limit + credit notes
@@ -36,6 +39,9 @@ export type CustomerWithCredit = Customer & {
 const CUSTOMER_SELECT = `
   SELECT c.*,
     (SELECT g.name FROM customer_groups g WHERE g.id = c.group_id) AS group_name,
+    (SELECT g.billing_name FROM customer_groups g WHERE g.id = c.group_id) AS group_billing_name,
+    (SELECT g.billing_address FROM customer_groups g WHERE g.id = c.group_id) AS group_billing_address,
+    (SELECT g.billing_tax_id FROM customer_groups g WHERE g.id = c.group_id) AS group_billing_tax_id,
     COALESCE(SUM(CASE WHEN po.status <> 'draft' THEN po.remaining_amount ELSE 0 END),0) AS outstanding,
     COALESCE(SUM(CASE WHEN po.status <> 'draft' THEN po.remaining_amount ELSE 0 END),0) AS credit_used,
     COALESCE((

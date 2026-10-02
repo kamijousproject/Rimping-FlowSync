@@ -19,6 +19,10 @@ CREATE TABLE IF NOT EXISTS customer_groups (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(191) NOT NULL UNIQUE,
   notes TEXT,
+  -- ผู้ซื้อบนเอกสาร (เช่น บจก.ซีพี ออลล์) + สาขาจากรหัสร้าน
+  billing_name VARCHAR(191) DEFAULT NULL,
+  billing_address TEXT,
+  billing_tax_id VARCHAR(32) DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
@@ -104,6 +108,7 @@ CREATE TABLE IF NOT EXISTS po_items (
 CREATE TABLE IF NOT EXISTS payments (
   id INT AUTO_INCREMENT PRIMARY KEY,
   po_id INT NOT NULL,
+  receipt_number VARCHAR(32) UNIQUE DEFAULT NULL, -- RC{YYMM}-{NNNN} ออกตอนเปิดใบเสร็จครั้งแรก
   amount DECIMAL(14,2) NOT NULL,
   paid_at DATETIME NOT NULL,
   method VARCHAR(32) DEFAULT 'transfer',

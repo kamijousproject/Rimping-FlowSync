@@ -38,6 +38,9 @@ type Customer = {
   tax_id: string | null;
   address: string | null;
   group_id: number | null;
+  group_billing_name: string | null;
+  group_billing_address: string | null;
+  group_billing_tax_id: string | null;
   credit_limit: number;
   outstanding: number;
   credit_available: number;
@@ -731,6 +734,10 @@ function ProductSearchInner() {
                   phone: selected.phone,
                   tax_id: selected.tax_id,
                   group_id: selected.group_id,
+                  code: selected.code,
+                  group_billing_name: selected.group_billing_name,
+                  group_billing_address: selected.group_billing_address,
+                  group_billing_tax_id: selected.group_billing_tax_id,
                 }
               : null
           }

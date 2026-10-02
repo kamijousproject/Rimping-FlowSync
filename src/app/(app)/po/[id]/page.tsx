@@ -135,6 +135,14 @@ export default async function PoDetailPage({
             >
               ดาวน์โหลดใบเสนอราคา
             </Link>
+            {po.status !== "draft" && po.status !== "cancelled" && (
+              <Link
+                href={`/po/${po.id}/tax-invoice`}
+                className="btn-secondary text-xs"
+              >
+                ใบส่งของ/ใบกำกับภาษี
+              </Link>
+            )}
           </div>
         </div>
       </div>

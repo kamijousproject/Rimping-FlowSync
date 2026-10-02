@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fmtMoney } from "@/components/StatusBadge";
-import { Edit2, RefreshCw, Check } from "lucide-react";
+import { Edit2, RefreshCw, Check, ReceiptText } from "lucide-react";
 import { PaymentEditModal } from "./PaymentEditModal";
 import { JdaProgressBar, type JdaPollData } from "@/components/JdaProgress";
 
@@ -216,7 +216,14 @@ export function PaymentsSection({ payments: initialPayments, poId }: PaymentsSec
                 <td className="text-center">
                   <JdaBadge payment={p} poId={poId} onSynced={handleSynced} />
                 </td>
-                <td className="text-center">
+                <td className="text-center whitespace-nowrap">
+                  <a
+                    href={`/po/${poId}/receipt/${p.id}`}
+                    className="text-brand-600 hover:text-brand-800 p-1 inline-block align-middle"
+                    title="ใบเสร็จรับเงิน"
+                  >
+                    <ReceiptText className="w-4 h-4" />
+                  </a>
                   {!p.is_overpayment ? (
                     <button
                       onClick={() => setEditingPayment(p)}
