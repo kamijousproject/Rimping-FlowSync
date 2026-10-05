@@ -109,17 +109,9 @@ export async function createPo(input: {
   notes?: string;
   items: PoItemInput[];
   created_by: number;
-} & DocRef): Promise<{ id: number; po_number: string; total: number }> {
+}): Promise<{ id: number; po_number: string; total: number }> {
   if (!input.items.length) throw new Error("PO must have at least 1 item");
 
-  // ลูกค้ากลุ่ม (7-11) ต้องกรอกเลขที่เอกสาร + อ้างอิงเอง
-  const doc = cleanDocRef(input);
-  const [cust] = await query<{ group_id: number | null }>(
-    "SELECT group_id FROM customers WHERE id = ?",
-    [input.customer_id]
-  );
-  if (cust?.group_id && (!doc.doc_number || !doc.doc_reference))
-    throw new Error("ลูกค้ากลุ่มต้องกรอกเลขที่เอกสารและอ้างอิง");
 
   const subtotal = input.items.reduce(
     (s, it) => s + Number(it.quantity) * Number(it.unit_price),
@@ -132,7 +124,7 @@ export async function createPo(input: {
   const po_number = await generatePoNumber();
 
   return withTx((conn) =>
-    insertDraftPo(conn, { ...input, ...doc, po_number, subtotal, total })
+    insertDraftPo(conn, { ...input, po_number, subtotal, total })
   );
 }
 
@@ -149,20 +141,16 @@ async function insertDraftPo(
     total: number;
     log_note?: string;
     batch_id?: number;
-    doc_number?: string | null;
-    doc_reference?: string | null;
   }
 ): Promise<{ id: number; po_number: string; total: number }> {
   const { po_number, subtotal, total } = input;
   const [r] = await conn.query(
     `INSERT INTO purchase_orders
-      (po_number, doc_number, doc_reference, customer_id, batch_id, status, payment_status,
-       credit_term_days, subtotal, total, paid_amount, remaining_amount, notes, created_by)
-     VALUES (?, ?, ?, ?, ?, 'draft', 'unpaid', ?, ?, ?, 0, ?, ?, ?)`,
+      (po_number, customer_id, batch_id, status, payment_status, credit_term_days,
+       subtotal, total, paid_amount, remaining_amount, notes, created_by)
+     VALUES (?, ?, ?, 'draft', 'unpaid', ?, ?, ?, 0, ?, ?, ?)`,
     [
       po_number,
-      input.doc_number ?? null,
-      input.doc_reference ?? null,
       input.customer_id,
       input.batch_id ?? null,
       input.credit_term_days,
@@ -210,8 +198,6 @@ async function insertDraftPo(
 export async function createGroupPos(input: {
   group_id: number;
   customer_ids: number[];
-  /** เลขที่เอกสาร/อ้างอิง รายร้าน (key = customer_id) — บังคับกรอกทุกร้าน */
-  docs: Record<number, DocRef>;
   notes?: string;
   items: PoItemInput[];
   created_by: number;
@@ -219,9 +205,6 @@ export async function createGroupPos(input: {
   if (!input.items.length) throw new Error("PO must have at least 1 item");
   const ids = [...new Set(input.customer_ids)];
   if (!ids.length) throw new Error("กรุณาเลือกร้านอย่างน้อย 1 ร้าน");
-  const docs = new Map(ids.map((id) => [id, cleanDocRef(input.docs[id])]));
-  if ([...docs.values()].some((d) => !d.doc_number || !d.doc_reference))
-    throw new Error("กรุณากรอกเลขที่เอกสารและอ้างอิงให้ครบทุกร้าน");
 
   const subtotal = input.items.reduce(
     (s, it) => s + Number(it.quantity) * Number(it.unit_price),
@@ -262,7 +245,6 @@ export async function createGroupPos(input: {
         total,
         log_note: logNote,
         batch_id: batchId,
-        ...docs.get(c.id),
       });
       created.push({ ...po, customer_id: c.id });
     }
@@ -506,11 +488,25 @@ async function reserveCreditOnConfirm(po: PurchaseOrder, userId: number) {
 export async function setPoStatus(
   id: number,
   status: PurchaseOrder["status"],
-  opts?: { tax_invoice_number?: string; edited_by?: number }
+  opts?: { tax_invoice_number?: string; edited_by?: number } & DocRef
 ) {
   const existing = await query<PurchaseOrder>("SELECT * FROM purchase_orders WHERE id=?", [id]);
   const before = existing[0];
   if (!before) throw new Error("ไม่พบ PO");
+
+  // ลูกค้ากลุ่ม (7-11): ต้องกรอกเลขที่เอกสาร + อ้างอิงตอนยืนยัน (draft → confirmed)
+  const doc = cleanDocRef(opts);
+  if (before.status === "draft" && status === "confirmed") {
+    const [cust] = await query<{ group_id: number | null }>(
+      "SELECT group_id FROM customers WHERE id = ?",
+      [before.customer_id]
+    );
+    if (
+      cust?.group_id &&
+      (!(doc.doc_number || before.doc_number) || !(doc.doc_reference || before.doc_reference))
+    )
+      throw new Error("ลูกค้ากลุ่มต้องกรอกเลขที่เอกสารและอ้างอิงก่อนยืนยัน");
+  }
 
   // ออกจาก draft → เริ่มกินวงเงิน: ตรวจวงเงิน + ใช้เครดิตโน๊ตตอนนี้
   if (before.status === "draft" && status !== "draft" && status !== "cancelled") {
@@ -529,10 +525,20 @@ export async function setPoStatus(
   } else {
     await exec("UPDATE purchase_orders SET status=? WHERE id=?", [status, id]);
   }
+  if (doc.doc_number || doc.doc_reference) {
+    await exec(
+      `UPDATE purchase_orders
+       SET doc_number = COALESCE(?, doc_number), doc_reference = COALESCE(?, doc_reference)
+       WHERE id=?`,
+      [doc.doc_number, doc.doc_reference, id]
+    );
+  }
 
   if (opts?.edited_by) {
     const summaryParts: string[] = [`เปลี่ยนสถานะ: ${before.status} → ${status}`];
     if (opts.tax_invoice_number) summaryParts.push(`เลขใบกำกับภาษี: ${opts.tax_invoice_number}`);
+    if (doc.doc_number) summaryParts.push(`เลขที่เอกสาร: ${doc.doc_number}`);
+    if (doc.doc_reference) summaryParts.push(`อ้างอิง: ${doc.doc_reference}`);
     await exec(
       `INSERT INTO po_edit_logs (po_id, edited_by, summary, changes) VALUES (?,?,?,?)`,
       [

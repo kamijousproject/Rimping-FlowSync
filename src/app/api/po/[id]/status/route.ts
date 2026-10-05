@@ -55,6 +55,8 @@ export async function POST(
   try {
     await setPoStatus(Number(id), body.status, {
       tax_invoice_number: body.tax_invoice_number?.trim() || undefined,
+      doc_number: typeof body.doc_number === "string" ? body.doc_number.slice(0, 64) : undefined,
+      doc_reference: typeof body.doc_reference === "string" ? body.doc_reference.slice(0, 64) : undefined,
       edited_by: auth.user.id,
     });
     const updated = await getPo(Number(id));

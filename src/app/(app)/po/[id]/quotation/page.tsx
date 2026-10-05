@@ -5,7 +5,6 @@ import { getOrCreateQuotation } from "@/backend/services/quotations";
 import { getNonVatSkus } from "@/backend/services/inventory";
 import { SalesDocument, QuotePaymentTerms } from "@/components/SalesDocument";
 import { QuotationPrintBar } from "./QuotationPrintBar";
-import { QuotationPageCount } from "./QuotationPageCount";
 import { getUserById } from "@/backend/auth";
 import { billingParty } from "@/lib/billing";
 
@@ -42,7 +41,6 @@ export default async function QuotationPage({
         showSku
         id="quotation-doc"
         title="ใบเสนอราคา"
-        headerExtra={<QuotationPageCount />}
         meta={[
           ["เลขที่เอกสาร :", po.doc_number || quote.quote_number],
           ["วันที่ออก :", issuedAt.toLocaleDateString("th-TH")],

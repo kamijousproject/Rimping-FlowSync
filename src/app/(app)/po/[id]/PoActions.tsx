@@ -29,6 +29,9 @@ export function PoActions({
   creditNotes: initialCreditNotes,
   jda_job_id: initialJdaJobId,
   jda_po_number: initialJdaPoNumber,
+  requireDocRef = false,
+  doc_number: initialDocNumber = null,
+  doc_reference: initialDocReference = null,
 }: {
   poId: number;
   status: string;
@@ -41,6 +44,10 @@ export function PoActions({
   creditNotes: CreditNote[];
   jda_job_id: string | null;
   jda_po_number: string | null;
+  /** ลูกค้ากลุ่ม (7-11): ต้องกรอกเลขที่เอกสาร/อ้างอิงตอนยืนยัน */
+  requireDocRef?: boolean;
+  doc_number?: string | null;
+  doc_reference?: string | null;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -80,6 +87,11 @@ export function PoActions({
   const [taxInvInput, setTaxInvInput] = useState("");
   const [editingTaxInv, setEditingTaxInv] = useState(false);
   const [editTaxInvInput, setEditTaxInvInput] = useState("");
+
+  // เลขที่เอกสาร/อ้างอิง (ลูกค้ากลุ่ม) — กรอกตอน draft → confirmed
+  const [showDocModal, setShowDocModal] = useState(false);
+  const [docNumberInput, setDocNumberInput] = useState("");
+  const [docReferenceInput, setDocReferenceInput] = useState("");
 
   // Sign upload (multi-file)
   const [signFiles, setSignFiles] = useState<File[]>([]);
@@ -312,6 +324,15 @@ export function PoActions({
     setTaxInvInput("");
   }
 
+  async function submitDocModal() {
+    if (!docNumberInput.trim() || !docReferenceInput.trim()) return;
+    setShowDocModal(false);
+    await setStatus("confirmed", {
+      doc_number: docNumberInput.trim(),
+      doc_reference: docReferenceInput.trim(),
+    });
+  }
+
   async function saveTaxInvEdit() {
     if (!editTaxInvInput.trim()) return;
     setBusy(true);
@@ -484,6 +505,11 @@ export function PoActions({
               if (next.to === "delivered") {
                 setTaxInvInput("");
                 setShowTaxModal(true);
+              } else if (next.to === "confirmed" && requireDocRef) {
+                setDocNumberInput(initialDocNumber ?? "");
+                setDocReferenceInput(initialDocReference ?? "");
+                setErr(null);
+                setShowDocModal(true);
               } else {
                 setStatus(next.to);
               }
@@ -793,6 +819,53 @@ export function PoActions({
       )}
 
       {/* Tax invoice number modal */}
+      {showDocModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <h2 className="text-lg font-semibold text-brand-800">ยืนยัน Quotation</h2>
+            <p className="text-sm text-muted">
+              ลูกค้ากลุ่มต้องกรอก <strong>เลขที่เอกสาร</strong> และ <strong>อ้างอิง</strong> ก่อนยืนยัน
+              (แก้ไขได้ภายหลัง)
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">เลขที่เอกสาร *</label>
+                <input
+                  className="input"
+                  value={docNumberInput}
+                  onChange={(e) => setDocNumberInput(e.target.value)}
+                  maxLength={64}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="label">อ้างอิง *</label>
+                <input
+                  className="input"
+                  value={docReferenceInput}
+                  onChange={(e) => setDocReferenceInput(e.target.value)}
+                  maxLength={64}
+                  onKeyDown={(e) => { if (e.key === "Enter") submitDocModal(); }}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button type="button" onClick={() => setShowDocModal(false)} className="btn-secondary">
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={submitDocModal}
+                disabled={!docNumberInput.trim() || !docReferenceInput.trim() || busy}
+                className="btn-primary"
+              >
+                ยืนยัน Quotation
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showTaxModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">

@@ -205,7 +205,7 @@ export default async function TaxInvoicePage({
         <table className="w-full mt-6 border-collapse">
           <thead>
             <tr className="border-y border-border font-semibold">
-              <th className="p-2 w-10 text-center">#</th>
+              <th className="p-2 w-28 text-left">รหัสสินค้า</th>
               <th className="p-2 text-center">รายละเอียด</th>
               <th className="p-2 w-24 text-right">จำนวน</th>
               <th className="p-2 w-32 text-center">ราคาต่อหน่วย</th>
@@ -215,13 +215,10 @@ export default async function TaxInvoicePage({
             </tr>
           </thead>
           <tbody>
-            {rows.map((it, idx) => (
+            {rows.map((it) => (
               <tr key={it.id} className="border-b border-border align-top">
-                <td className="p-2 text-center">{idx + 1}</td>
-                <td className="p-2">
-                  {it.description || it.product_name}
-                  {it.description && <span className="text-muted"> · {it.product_name}</span>}
-                </td>
+                <td className="p-2 font-mono whitespace-nowrap">{it.product_name}</td>
+                <td className="p-2">{it.description || it.product_name}</td>
                 <td className="p-2 text-right">
                   {Number(it.quantity)} {it.unit}
                 </td>

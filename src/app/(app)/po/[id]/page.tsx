@@ -31,8 +31,10 @@ export default async function PoDetailPage({
   if (!data) notFound();
   const { po, items } = data;
   const customer = await getCustomer(po.customer_id);
-  // ลูกค้ากลุ่ม (7-11) ใช้เลขที่เอกสาร/อ้างอิงที่กรอกเอง
-  const showDocRef = !!customer?.group_id || !!po.doc_number || !!po.doc_reference;
+  // ลูกค้ากลุ่ม (7-11) ใช้เลขที่เอกสาร/อ้างอิงที่กรอกเอง — กรอกตอนยืนยัน (draft → confirmed)
+  const isGroup = !!customer?.group_id;
+  const showDocRef =
+    !!po.doc_number || !!po.doc_reference || (isGroup && po.status !== "draft" && po.status !== "cancelled");
   const [payments, editLogs, creditNotes, cnLogs, customerCreditUsages] = await Promise.all([
     listPayments(Number(id)),
     listPoEditLogs(Number(id)),
@@ -216,6 +218,9 @@ export default async function PoDetailPage({
         remaining={Number(po.remaining_amount)}
         signed_doc_path={po.signed_doc_path}
         tax_invoice_number={po.tax_invoice_number}
+        requireDocRef={isGroup}
+        doc_number={po.doc_number}
+        doc_reference={po.doc_reference}
         items={items.map((it) => ({
           id: it.id,
           product_name: it.product_name,

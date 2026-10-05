@@ -47,8 +47,6 @@ export async function GET(req: Request) {
 const Schema = z.object({
   customer_id: z.coerce.number().int().positive(),
   credit_term_days: z.coerce.number().int().min(0).max(365),
-  doc_number: z.string().max(64).optional(),
-  doc_reference: z.string().max(64).optional(),
   notes: z.string().optional(),
   items: z
     .array(

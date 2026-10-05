@@ -92,7 +92,7 @@ export function SalesDocument({
   showGrossColumn?: boolean;
   /** false = ใบเสนอราคาปกติ ไม่ถอด VAT (ราคา/หน่วย + จำนวนเงิน, สรุปแค่ยอดรวม) */
   showVat?: boolean;
-  /** ใบเสนอราคา: แสดงรหัส SKU ต่อท้ายชื่อสินค้า */
+  /** ใบเสนอราคา: แสดงคอลัมน์ "รหัสสินค้า" (SKU) หน้าคำอธิบาย */
   showSku?: boolean;
 }) {
   const { rows, vatBase, vat, exempt, total: netTotal } = vatBreakdown(items);
@@ -202,6 +202,7 @@ export function SalesDocument({
       <table className="w-full mt-6 border-collapse">
         <thead>
           <tr className="bg-brand-50 font-semibold">
+            {showSku && <th className="text-left p-2 w-28">รหัสสินค้า</th>}
             <th className="text-left p-2">คำอธิบาย</th>
             <th className="text-right p-2 w-16">จำนวน</th>
             <th className="text-right p-2 w-24">ราคา</th>
@@ -211,16 +212,11 @@ export function SalesDocument({
           </tr>
         </thead>
         <tbody>
-          {rows.map((it, idx) => (
+          {rows.map((it) => (
             <tr key={it.id} className="border-b border-border align-top">
+              {showSku && <td className="p-2 font-mono whitespace-nowrap">{it.product_name}</td>}
               <td className="p-2">
-                <div>
-                  {idx + 1}.{" "}
-                  <span className="font-semibold">{it.description || it.product_name}</span>
-                  {showSku && it.description && (
-                    <span className="text-muted"> (SKU {it.product_name})</span>
-                  )}
-                </div>
+                <div className="font-semibold">{it.description || it.product_name}</div>
               </td>
               <td className="text-right p-2">
                 {Number(it.quantity).toFixed(2)} {it.unit}
