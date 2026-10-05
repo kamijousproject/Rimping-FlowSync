@@ -192,7 +192,7 @@ export default async function TaxInvoicePage({
             ["เครดิต", `${po.credit_term_days} วัน`],
             ["ครบกำหนด", po.due_date ? thDate(po.due_date) : "-"],
             ["พนักงานขาย", creator?.full_name ?? "-"],
-            ["อ้างอิง", po.po_number],
+            ["อ้างอิง", po.doc_reference || po.po_number],
           ].map(([label, value], i) => (
             <div key={label} className="px-2 py-2">
               <div className="text-[11px] text-brand-700">{label}</div>

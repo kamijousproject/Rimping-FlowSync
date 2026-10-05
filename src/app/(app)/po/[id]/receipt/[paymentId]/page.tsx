@@ -85,7 +85,7 @@ export default async function ReceiptPage({
             label="วันที่ใบกำกับภาษี"
             value={po.tax_invoice_number ? thDate(taxInvoiceDate(po)) : "-"}
           />
-          <Row label="อ้างอิงคำสั่งซื้อ" value={po.po_number} />
+          <Row label="อ้างอิงคำสั่งซื้อ" value={po.doc_reference || po.po_number} />
         </div>
 
         <div className="bg-gray-50 rounded-lg px-3 py-2 mt-3">

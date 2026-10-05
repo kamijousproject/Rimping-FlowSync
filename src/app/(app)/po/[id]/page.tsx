@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Check, AlertTriangle } from "lucide-react";
 import { getPo, listPoEditLogs } from "@/backend/services/po";
+import { getCustomer } from "@/backend/services/customers";
 import { listPayments } from "@/backend/services/payments";
 import { listCreditNotes, listCreditNoteLogs } from "@/backend/services/credit-notes";
 import { getCreditNoteUsagesForPo } from "@/backend/services/customer-credit-notes";
@@ -13,6 +14,7 @@ import {
 import { PoActions } from "./PoActions";
 import { EditLogsSection } from "./EditLogsSection";
 import { PaymentsSection } from "./PaymentsSection";
+import { DocRefEditor } from "./DocRefEditor";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +30,9 @@ export default async function PoDetailPage({
   const data = await getPo(Number(id));
   if (!data) notFound();
   const { po, items } = data;
+  const customer = await getCustomer(po.customer_id);
+  // ลูกค้ากลุ่ม (7-11) ใช้เลขที่เอกสาร/อ้างอิงที่กรอกเอง
+  const showDocRef = !!customer?.group_id || !!po.doc_number || !!po.doc_reference;
   const [payments, editLogs, creditNotes, cnLogs, customerCreditUsages] = await Promise.all([
     listPayments(Number(id)),
     listPoEditLogs(Number(id)),
@@ -63,6 +68,9 @@ export default async function PoDetailPage({
             {" · "}
             สร้างเมื่อ {new Date(po.created_at).toLocaleString("th-TH")}
           </div>
+          {showDocRef && (
+            <DocRefEditor poId={po.id} docNumber={po.doc_number} docReference={po.doc_reference} />
+          )}
         </div>
         <div className="flex flex-col items-end gap-2">
           <div className="flex gap-2">

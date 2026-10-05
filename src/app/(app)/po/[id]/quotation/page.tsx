@@ -44,10 +44,10 @@ export default async function QuotationPage({
         title="ใบเสนอราคา"
         headerExtra={<QuotationPageCount />}
         meta={[
-          ["เลขที่เอกสาร :", quote.quote_number],
+          ["เลขที่เอกสาร :", po.doc_number || quote.quote_number],
           ["วันที่ออก :", issuedAt.toLocaleDateString("th-TH")],
           ["ยืนราคาถึง :", validUntil.toLocaleDateString("th-TH")],
-          ["อ้างอิง :", po.po_number],
+          ["อ้างอิง :", po.doc_reference || po.po_number],
         ]}
         customer={{
           ...buyer,

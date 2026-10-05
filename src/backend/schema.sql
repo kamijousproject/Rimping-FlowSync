@@ -66,6 +66,8 @@ CREATE TABLE IF NOT EXISTS po_batches (
 CREATE TABLE IF NOT EXISTS purchase_orders (
   id INT AUTO_INCREMENT PRIMARY KEY,
   po_number VARCHAR(32) UNIQUE NOT NULL,
+  doc_number VARCHAR(64) NULL,     -- เลขที่เอกสารที่กรอกเอง (ลูกค้ากลุ่ม)
+  doc_reference VARCHAR(64) NULL,  -- อ้างอิงที่กรอกเอง (ลูกค้ากลุ่ม)
   customer_id INT NOT NULL,
   batch_id INT DEFAULT NULL,
   status ENUM('draft','confirmed','packed','checked','delivered','received','cancelled') NOT NULL DEFAULT 'draft',

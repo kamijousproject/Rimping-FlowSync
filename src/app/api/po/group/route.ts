@@ -6,6 +6,10 @@ import { createGroupPos } from "@/backend/services/po";
 const Schema = z.object({
   group_id: z.coerce.number().int().positive(),
   customer_ids: z.array(z.coerce.number().int().positive()).min(1),
+  docs: z.record(
+    z.string(),
+    z.object({ doc_number: z.string().max(64), doc_reference: z.string().max(64) })
+  ),
   notes: z.string().optional(),
   items: z
     .array(

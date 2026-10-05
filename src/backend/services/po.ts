@@ -40,6 +40,8 @@ export type PurchaseOrder = {
   signed_doc_path: string | null;  // JSON array string or single path (legacy)
   signed_at: Date | null;
   tax_invoice_number: string | null;
+  doc_number: string | null;
+  doc_reference: string | null;
   jda_job_id: string | null;
   jda_po_number: string | null;
   jda_synced_at: Date | null;
@@ -94,14 +96,30 @@ export function invoiceNumberFromPo(po_number: string): string {
   return po_number.replace(/^PO/, "INV").replace(/^QT/, "INV");
 }
 
+export type DocRef = { doc_number?: string | null; doc_reference?: string | null };
+
+const cleanDocRef = (d?: DocRef) => ({
+  doc_number: d?.doc_number?.trim() || null,
+  doc_reference: d?.doc_reference?.trim() || null,
+});
+
 export async function createPo(input: {
   customer_id: number;
   credit_term_days: number;
   notes?: string;
   items: PoItemInput[];
   created_by: number;
-}): Promise<{ id: number; po_number: string; total: number }> {
+} & DocRef): Promise<{ id: number; po_number: string; total: number }> {
   if (!input.items.length) throw new Error("PO must have at least 1 item");
+
+  // ลูกค้ากลุ่ม (7-11) ต้องกรอกเลขที่เอกสาร + อ้างอิงเอง
+  const doc = cleanDocRef(input);
+  const [cust] = await query<{ group_id: number | null }>(
+    "SELECT group_id FROM customers WHERE id = ?",
+    [input.customer_id]
+  );
+  if (cust?.group_id && (!doc.doc_number || !doc.doc_reference))
+    throw new Error("ลูกค้ากลุ่มต้องกรอกเลขที่เอกสารและอ้างอิง");
 
   const subtotal = input.items.reduce(
     (s, it) => s + Number(it.quantity) * Number(it.unit_price),
@@ -114,7 +132,7 @@ export async function createPo(input: {
   const po_number = await generatePoNumber();
 
   return withTx((conn) =>
-    insertDraftPo(conn, { ...input, po_number, subtotal, total })
+    insertDraftPo(conn, { ...input, ...doc, po_number, subtotal, total })
   );
 }
 
@@ -131,16 +149,20 @@ async function insertDraftPo(
     total: number;
     log_note?: string;
     batch_id?: number;
+    doc_number?: string | null;
+    doc_reference?: string | null;
   }
 ): Promise<{ id: number; po_number: string; total: number }> {
   const { po_number, subtotal, total } = input;
   const [r] = await conn.query(
     `INSERT INTO purchase_orders
-      (po_number, customer_id, batch_id, status, payment_status, credit_term_days,
-       subtotal, total, paid_amount, remaining_amount, notes, created_by)
-     VALUES (?, ?, ?, 'draft', 'unpaid', ?, ?, ?, 0, ?, ?, ?)`,
+      (po_number, doc_number, doc_reference, customer_id, batch_id, status, payment_status,
+       credit_term_days, subtotal, total, paid_amount, remaining_amount, notes, created_by)
+     VALUES (?, ?, ?, ?, ?, 'draft', 'unpaid', ?, ?, ?, 0, ?, ?, ?)`,
     [
       po_number,
+      input.doc_number ?? null,
+      input.doc_reference ?? null,
       input.customer_id,
       input.batch_id ?? null,
       input.credit_term_days,
@@ -188,6 +210,8 @@ async function insertDraftPo(
 export async function createGroupPos(input: {
   group_id: number;
   customer_ids: number[];
+  /** เลขที่เอกสาร/อ้างอิง รายร้าน (key = customer_id) — บังคับกรอกทุกร้าน */
+  docs: Record<number, DocRef>;
   notes?: string;
   items: PoItemInput[];
   created_by: number;
@@ -195,6 +219,9 @@ export async function createGroupPos(input: {
   if (!input.items.length) throw new Error("PO must have at least 1 item");
   const ids = [...new Set(input.customer_ids)];
   if (!ids.length) throw new Error("กรุณาเลือกร้านอย่างน้อย 1 ร้าน");
+  const docs = new Map(ids.map((id) => [id, cleanDocRef(input.docs[id])]));
+  if ([...docs.values()].some((d) => !d.doc_number || !d.doc_reference))
+    throw new Error("กรุณากรอกเลขที่เอกสารและอ้างอิงให้ครบทุกร้าน");
 
   const subtotal = input.items.reduce(
     (s, it) => s + Number(it.quantity) * Number(it.unit_price),
@@ -235,6 +262,7 @@ export async function createGroupPos(input: {
         total,
         log_note: logNote,
         batch_id: batchId,
+        ...docs.get(c.id),
       });
       created.push({ ...po, customer_id: c.id });
     }
@@ -244,6 +272,7 @@ export async function createGroupPos(input: {
 
 export type PoBatch = {
   id: number;
+  group_id: number | null;
   group_name: string | null;
   created_at: Date;
   created_by_name: string | null;
@@ -259,7 +288,7 @@ export type PoBatch = {
 // ชุดใบเสนอราคากลุ่ม (ใบที่สร้างพร้อมกัน) — หน้า /po แสดงเป็นก้อนเดียวแทน 50 แถว
 export async function listPoBatches(): Promise<PoBatch[]> {
   return query<PoBatch>(
-    `SELECT b.id, g.name AS group_name, b.created_at, u.full_name AS created_by_name,
+    `SELECT b.id, b.group_id, g.name AS group_name, b.created_at, u.full_name AS created_by_name,
             COUNT(po.id) AS po_count,
             MIN(po.po_number) AS first_po,
             MAX(po.po_number) AS last_po,
@@ -279,6 +308,8 @@ export async function listPoBatches(): Promise<PoBatch[]> {
 export async function listPos(filter?: {
   batch_id?: number;
   exclude_batched?: boolean;
+  /** "none" = ลูกค้าเดี่ยว (ไม่มีกลุ่ม), ตัวเลข = group_id */
+  group?: string;
   customer_id?: number;
   customer_name?: string;
   po_number?: string;
@@ -303,13 +334,19 @@ export async function listPos(filter?: {
     where.push("po.customer_id = ?");
     params.push(filter.customer_id);
   }
+  if (filter?.group === "none") {
+    where.push("c.group_id IS NULL");
+  } else if (filter?.group) {
+    where.push("c.group_id = ?");
+    params.push(Number(filter.group));
+  }
   if (filter?.customer_name) {
     where.push("c.name LIKE ?");
     params.push(`%${filter.customer_name}%`);
   }
   if (filter?.po_number) {
-    where.push("po.po_number LIKE ?");
-    params.push(`%${filter.po_number}%`);
+    where.push("(po.po_number LIKE ? OR po.doc_number LIKE ? OR po.doc_reference LIKE ?)");
+    params.push(`%${filter.po_number}%`, `%${filter.po_number}%`, `%${filter.po_number}%`);
   }
   if (filter?.status) {
     where.push("po.status = ?");
@@ -339,7 +376,7 @@ export async function listPos(filter?: {
   const whereClause = where.length ? "WHERE " + where.join(" AND ") : "";
 
   // Count total (need JOIN if filtering by customer name)
-  const needCustomerJoin = filter?.customer_name;
+  const needCustomerJoin = filter?.customer_name || filter?.group;
   const countSql = needCustomerJoin
     ? `SELECT COUNT(*) as total FROM purchase_orders po JOIN customers c ON c.id = po.customer_id ${whereClause}`
     : `SELECT COUNT(*) as total FROM purchase_orders po ${whereClause}`;
@@ -524,6 +561,37 @@ export async function setTaxInvoiceNumber(
       edited_by,
       `แก้ไขเลขใบกำกับภาษี: ${before.tax_invoice_number ?? "(ว่าง)"} → ${tax_invoice_number}`.slice(0, 255),
       JSON.stringify({ before: { tax_invoice_number: before.tax_invoice_number }, after: { tax_invoice_number } }),
+    ]
+  );
+}
+
+// แก้เลขที่เอกสาร/อ้างอิงที่กรอกเอง (ลูกค้ากลุ่ม)
+export async function setPoDocRef(
+  id: number,
+  input: DocRef,
+  edited_by: number
+): Promise<void> {
+  const existing = await query<PurchaseOrder>("SELECT * FROM purchase_orders WHERE id=?", [id]);
+  const before = existing[0];
+  if (!before) throw new Error("ไม่พบ PO");
+  const doc = cleanDocRef(input);
+  if (!doc.doc_number || !doc.doc_reference)
+    throw new Error("กรุณากรอกเลขที่เอกสารและอ้างอิง");
+  await exec("UPDATE purchase_orders SET doc_number=?, doc_reference=? WHERE id=?", [
+    doc.doc_number,
+    doc.doc_reference,
+    id,
+  ]);
+  await exec(
+    `INSERT INTO po_edit_logs (po_id, edited_by, summary, changes) VALUES (?,?,?,?)`,
+    [
+      id,
+      edited_by,
+      `แก้ไขเลขที่เอกสาร/อ้างอิง: ${before.doc_number ?? "(ว่าง)"} / ${before.doc_reference ?? "(ว่าง)"} → ${doc.doc_number} / ${doc.doc_reference}`.slice(0, 255),
+      JSON.stringify({
+        before: { doc_number: before.doc_number, doc_reference: before.doc_reference },
+        after: doc,
+      }),
     ]
   );
 }

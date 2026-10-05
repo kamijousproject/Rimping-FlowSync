@@ -46,6 +46,8 @@ type CustomerGroup = { id: number; name: string; member_count: number };
 
 type CreatedPo = { id: number; po_number: string; customer_id: number; total: number };
 
+type DocRef = { doc_number: string; doc_reference: string };
+
 type ProductHit = {
   id: number;
   sku: string;
@@ -103,6 +105,8 @@ function NewPoInner() {
   const [memberIds, setMemberIds] = useState<number[]>([]);
   const [memberQuery, setMemberQuery] = useState("");
   const [created, setCreated] = useState<CreatedPo[] | null>(null);
+  // ลูกค้ากลุ่ม (7-11): เลขที่เอกสาร/อ้างอิง กรอกเองรายร้าน (อิงเลขจากเครื่องขายอีกเครื่อง)
+  const [docs, setDocs] = useState<Record<number, DocRef>>({});
 
   useEffect(() => {
     fetch("/api/customer-groups")
@@ -178,6 +182,24 @@ function NewPoInner() {
   );
   const overLimit =
     selected && total > Number(selected.credit_available || 0);
+
+  // ร้านที่ต้องกรอกเลขที่เอกสาร/อ้างอิง: โหมดกลุ่ม = ทุกร้านที่เลือก, รายเดียว = ถ้าลูกค้าอยู่ในกลุ่ม
+  const docTargets: Customer[] =
+    mode === "group"
+      ? customers.filter((c) => memberIds.includes(c.id))
+      : selected?.group_id
+        ? [selected]
+        : [];
+  const docsMissing = docTargets.filter(
+    (c) => !docs[c.id]?.doc_number?.trim() || !docs[c.id]?.doc_reference?.trim()
+  ).length;
+
+  function setDoc(id: number, key: keyof DocRef, value: string) {
+    setDocs((prev) => ({
+      ...prev,
+      [id]: { ...(prev[id] ?? { doc_number: "", doc_reference: "" }), [key]: value },
+    }));
+  }
 
   function updateItem(idx: number, patch: Partial<Item>) {
     setItems(items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
@@ -303,6 +325,7 @@ function NewPoInner() {
 
   // Actual submit after confirmation
   async function confirmSubmit() {
+    if (docsMissing > 0) return;
     setShowConfirm(false);
     setLoading(true);
     setErr(null);
@@ -315,6 +338,7 @@ function NewPoInner() {
         body: JSON.stringify({
           group_id: groupId,
           customer_ids: memberIds,
+          docs: Object.fromEntries(memberIds.map((id) => [id, docs[id]])),
           notes,
           items: cleanItems,
         }),
@@ -335,6 +359,7 @@ function NewPoInner() {
       body: JSON.stringify({
         customer_id: customerId,
         credit_term_days: creditTerm,
+        ...(selected?.group_id ? docs[selected.id] : {}),
         notes,
         items: cleanItems,
       }),
@@ -651,6 +676,8 @@ function NewPoInner() {
                       className="h-10 rounded-[10px] border border-border bg-white px-2.5 text-sm text-right outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 transition"
                       required
                       value={it.quantity}
+                      // เลือกทั้งช่องตอน focus → พิมพ์ทับค่าเดิม (กัน 0 นำหน้า)
+                      onFocus={(e) => e.target.select()}
                       onChange={(e) =>
                         updateItem(idx, {
                           quantity: Number(e.target.value),
@@ -684,6 +711,8 @@ function NewPoInner() {
                       className="h-10 rounded-[10px] border border-border bg-white px-2.5 text-sm text-right outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 transition"
                       required
                       value={it.unit_price}
+                      // เลือกทั้งช่องตอน focus → พิมพ์ทับค่าเดิม (กัน 0 นำหน้า)
+                      onFocus={(e) => e.target.select()}
                       onChange={(e) =>
                         updateItem(idx, {
                           unit_price: Number(e.target.value),
@@ -766,6 +795,8 @@ function NewPoInner() {
                         className="input h-11 rounded-xl text-right"
                         required
                         value={it.quantity}
+                        // เลือกทั้งช่องตอน focus → พิมพ์ทับค่าเดิม (กัน 0 นำหน้า)
+                        onFocus={(e) => e.target.select()}
                         onChange={(e) => updateItem(idx, { quantity: Number(e.target.value) })}
                       />
                     </div>
@@ -789,6 +820,8 @@ function NewPoInner() {
                         className="input h-11 rounded-xl text-right"
                         required
                         value={it.unit_price}
+                        // เลือกทั้งช่องตอน focus → พิมพ์ทับค่าเดิม (กัน 0 นำหน้า)
+                        onFocus={(e) => e.target.select()}
                         onChange={(e) => updateItem(idx, { unit_price: Number(e.target.value) })}
                       />
                     </div>
@@ -900,7 +933,11 @@ function NewPoInner() {
       {/* Confirmation Modal */}
       {showConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
+          <div
+            className={`bg-white rounded-2xl shadow-xl w-full p-6 space-y-4 max-h-[92vh] overflow-y-auto ${
+              docTargets.length > 1 ? "max-w-2xl" : "max-w-md"
+            }`}
+          >
             <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-warning" />
               ยืนยันการสร้าง Quotation
@@ -916,7 +953,7 @@ function NewPoInner() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted">จำนวนร้าน:</span>
-                      <span className="font-medium">{memberIds.length} ร้าน ({memberIds.length} ใบ เลขรันต่อกัน)</span>
+                      <span className="font-medium">{memberIds.length} ร้าน ({memberIds.length} ใบ)</span>
                     </div>
                   </>
                 ) : (
@@ -948,6 +985,58 @@ function NewPoInner() {
                 )}
               </div>
 
+              {docTargets.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <div className="font-medium text-foreground">
+                      เลขที่เอกสาร / อ้างอิง <span className="text-red-600">*</span>
+                    </div>
+                    {docTargets.length > 1 && (
+                      <div className={`text-xs ${docsMissing ? "text-red-600" : "text-brand-700"}`}>
+                        {docsMissing ? `ยังไม่ครบ ${docsMissing} ร้าน` : "กรอกครบแล้ว"}
+                      </div>
+                    )}
+                  </div>
+                  <div className="border border-border rounded-xl overflow-hidden">
+                    <div className="grid grid-cols-[minmax(0,1fr)_140px_140px] gap-2 px-3 py-1.5 bg-gray-50 text-xs text-muted">
+                      <span>ร้าน</span>
+                      <span>เลขที่เอกสาร</span>
+                      <span>อ้างอิง</span>
+                    </div>
+                    <div className="max-h-[45vh] overflow-y-auto divide-y divide-gray-100">
+                      {docTargets.map((c, i) => (
+                        <div
+                          key={c.id}
+                          className="grid grid-cols-[minmax(0,1fr)_140px_140px] gap-2 px-3 py-1.5 items-center"
+                        >
+                          <div className="min-w-0">
+                            <div className="truncate text-xs" title={c.name}>
+                              {c.name}
+                            </div>
+                            {c.code && <div className="text-[11px] text-muted font-mono">{c.code}</div>}
+                          </div>
+                          <input
+                            className="input text-sm py-1"
+                            autoFocus={i === 0}
+                            value={docs[c.id]?.doc_number ?? ""}
+                            onChange={(e) => setDoc(c.id, "doc_number", e.target.value)}
+                            placeholder="เลขที่เอกสาร"
+                            maxLength={64}
+                          />
+                          <input
+                            className="input text-sm py-1"
+                            value={docs[c.id]?.doc_reference ?? ""}
+                            onChange={(e) => setDoc(c.id, "doc_reference", e.target.value)}
+                            placeholder="อ้างอิง"
+                            maxLength={64}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <p className="text-muted text-center">
                 ต้องการสร้าง Quotation นี้ใช่หรือไม่?
               </p>
@@ -964,7 +1053,8 @@ function NewPoInner() {
               <button
                 type="button"
                 onClick={confirmSubmit}
-                className="btn-primary"
+                disabled={docsMissing > 0}
+                className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 ยืนยัน สร้าง Quotation
               </button>
@@ -993,6 +1083,9 @@ function NewPoInner() {
                   </Link>
                   <span className="flex-1 min-w-0 truncate text-muted">
                     {customers.find((c) => c.id === po.customer_id)?.name}
+                  </span>
+                  <span className="shrink-0 font-mono text-xs text-muted">
+                    {docs[po.customer_id]?.doc_number}
                   </span>
                   <span className="shrink-0">{fmtMoney(po.total)}</span>
                 </li>

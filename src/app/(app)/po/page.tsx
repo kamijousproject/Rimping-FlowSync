@@ -29,6 +29,7 @@ const PAY_FILTERS = [
 type PurchaseOrder = {
   id: number;
   po_number: string;
+  doc_number: string | null;
   customer_id: number;
   customer_name: string;
   status: string;
@@ -42,6 +43,7 @@ type PurchaseOrder = {
 
 type PoBatch = {
   id: number;
+  group_id: number | null;
   group_name: string | null;
   created_at: string;
   created_by_name: string | null;
@@ -66,6 +68,8 @@ export default function PoListPage() {
   const endDate = searchParams.get("end_date") || "";
   // ใบเสนอราคากลุ่ม: ค่าเริ่มต้นซ่อนใบในชุด (แสดงเป็นก้อน), ?batch=<id> = ดูใบในชุดนั้น
   const batchId = searchParams.get("batch") || "";
+  // กลุ่มลูกค้า: "" = ทั้งหมด, "none" = ลูกค้าเดี่ยว, <id> = กลุ่มนั้น
+  const group = searchParams.get("group") || "";
 
   // Advanced filter states
   const [customerName, setCustomerName] = useState(searchParams.get("customer_name") || "");
@@ -79,14 +83,21 @@ export default function PoListPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [batches, setBatches] = useState<PoBatch[]>([]);
+  const [groups, setGroups] = useState<{ id: number; name: string }[]>([]);
 
   useEffect(() => {
     fetch("/api/po/batches")
       .then((r) => (r.ok ? r.json() : { batches: [] }))
       .then((d) => setBatches(d.batches || []))
       .catch(console.error);
+    fetch("/api/customer-groups")
+      .then((r) => (r.ok ? r.json() : { groups: [] }))
+      .then((d) => setGroups(d.groups || []))
+      .catch(console.error);
   }, []);
   const activeBatch = batchId ? batches.find((b) => String(b.id) === batchId) : undefined;
+  const visibleBatches =
+    group === "none" ? [] : group ? batches.filter((b) => String(b.group_id) === group) : batches;
   // ค้นด้วยชื่อลูกค้า/เลขที่ → ค้นรวมใบในชุดด้วย จะได้หาเจอ
   const searchingAll = !!(searchParams.get("customer_name") || searchParams.get("po_number"));
 
@@ -103,6 +114,7 @@ export default function PoListPage() {
       params.set("limit", limit.toString());
       if (batchId) params.set("batch", batchId);
       else if (!searchingAll) params.set("exclude_batched", "1");
+      if (group) params.set("group", group);
       if (status) params.set("status", status);
       if (paymentStatus) params.set("payment_status", paymentStatus);
       if (startDate) params.set("start_date", startDate);
@@ -123,7 +135,7 @@ export default function PoListPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, status, paymentStatus, startDate, endDate, customerName, poNumber, minAmount, maxAmount, batchId, searchingAll]);
+  }, [page, status, paymentStatus, startDate, endDate, customerName, poNumber, minAmount, maxAmount, batchId, searchingAll, group]);
 
   useEffect(() => {
     fetchData();
@@ -202,14 +214,14 @@ export default function PoListPage() {
       </div>
 
       {/* ใบเสนอราคากลุ่ม — 1 ชุดแสดงเป็น 1 การ์ด กดเพื่อดูใบทั้งหมดในชุด */}
-      {!batchId && !searchingAll && batches.length > 0 && (
+      {!batchId && !searchingAll && visibleBatches.length > 0 && (
         <div className="space-y-2">
           <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
             <Users className="w-4 h-4 text-brand-600" />
             ใบเสนอราคากลุ่ม
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {batches.map((b) => (
+            {visibleBatches.map((b) => (
               <Link
                 key={b.id}
                 href={`/po?batch=${b.id}`}
@@ -291,7 +303,7 @@ export default function PoListPage() {
                 type="text"
                 value={poNumber}
                 onChange={(e) => setPoNumber(e.target.value)}
-                placeholder="PO2026XXXX..."
+                placeholder="PO2026XXXX / เลขที่เอกสาร..."
                 className="input text-sm"
               />
             </div>
@@ -376,6 +388,34 @@ export default function PoListPage() {
 
           <div className="hidden sm:block h-6 w-px bg-border" />
 
+          {/* Customer group segmented control */}
+          {!batchId && (
+            <>
+              <div className="flex items-center gap-2 w-full sm:w-auto min-w-0">
+                <span className="text-xs text-muted shrink-0">กลุ่มลูกค้า</span>
+                <div className="flex items-center gap-0.5 rounded-xl bg-gray-50 border border-border p-1 overflow-x-auto min-w-0">
+                  <SegmentLink href={buildFilterLink("group", null)} active={!group}>
+                    ทั้งหมด
+                  </SegmentLink>
+                  <SegmentLink href={buildFilterLink("group", "none")} active={group === "none"}>
+                    ลูกค้าเดี่ยว
+                  </SegmentLink>
+                  {groups.map((g) => (
+                    <SegmentLink
+                      key={g.id}
+                      href={buildFilterLink("group", String(g.id))}
+                      active={group === String(g.id)}
+                    >
+                      {g.name}
+                    </SegmentLink>
+                  ))}
+                </div>
+              </div>
+
+              <div className="hidden sm:block h-6 w-px bg-border" />
+            </>
+          )}
+
           <Suspense>
             <DateRangeFilter />
           </Suspense>
@@ -410,6 +450,9 @@ export default function PoListPage() {
                 <div className="font-semibold text-brand-700">
                   {p.po_number}
                 </div>
+                {p.doc_number && (
+                  <div className="text-[11px] text-muted font-mono">เลขที่ {p.doc_number}</div>
+                )}
                 <div className="text-sm text-foreground truncate">
                   {p.customer_name}
                 </div>
@@ -502,6 +545,9 @@ export default function PoListPage() {
                   >
                     {p.po_number}
                   </Link>
+                  {p.doc_number && (
+                    <div className="text-[11px] text-muted font-mono">เลขที่ {p.doc_number}</div>
+                  )}
                 </td>
                 <td>
                   <Link

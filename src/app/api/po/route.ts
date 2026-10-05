@@ -18,12 +18,14 @@ export async function GET(req: Request) {
   const max_amount = url.searchParams.get("max_amount");
   const batch = url.searchParams.get("batch");
   const exclude_batched = url.searchParams.get("exclude_batched") === "1";
+  const group = url.searchParams.get("group");
   const page = url.searchParams.get("page");
   const limit = url.searchParams.get("limit");
   try {
     const { pos, total } = await listPos({
       batch_id: batch ? Number(batch) : undefined,
       exclude_batched,
+      group: group === "none" || /^\d+$/.test(group ?? "") ? group! : undefined,
       customer_id: customer_id ? Number(customer_id) : undefined,
       customer_name: customer_name || undefined,
       po_number: po_number || undefined,
@@ -45,6 +47,8 @@ export async function GET(req: Request) {
 const Schema = z.object({
   customer_id: z.coerce.number().int().positive(),
   credit_term_days: z.coerce.number().int().min(0).max(365),
+  doc_number: z.string().max(64).optional(),
+  doc_reference: z.string().max(64).optional(),
   notes: z.string().optional(),
   items: z
     .array(

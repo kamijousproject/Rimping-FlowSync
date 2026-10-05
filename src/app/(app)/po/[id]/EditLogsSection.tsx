@@ -77,6 +77,8 @@ function ItemTable({ items }: { items: NonNullable<PoSnapshot["items"]> }) {
 const FIELD_LABELS: Record<string, string> = {
   status: "สถานะ",
   tax_invoice_number: "เลขใบกำกับภาษี",
+  doc_number: "เลขที่เอกสาร",
+  doc_reference: "อ้างอิง",
   credit_term_days: "เครดิต (วัน)",
   notes: "หมายเหตุ",
   total: "ยอดรวม",
