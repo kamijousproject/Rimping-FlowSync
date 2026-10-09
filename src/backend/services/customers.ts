@@ -365,6 +365,8 @@ export async function updateCustomerWithLog(
 
   const before = existing[0];
   if ("group_id" in input) input.group_id = input.group_id ? Number(input.group_id) : null;
+  // รหัสลูกค้าว่าง = NULL (code เป็น UNIQUE — "" ซ้ำกันได้แค่ร้านเดียว)
+  if ("code" in input) (input as { code: string | null }).code = input.code?.trim() || null;
   const fields = Object.keys(input) as (keyof typeof input)[];
   if (fields.length === 0) return;
 

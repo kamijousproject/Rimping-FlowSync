@@ -147,16 +147,14 @@ export default async function TaxInvoicePage({
             </div>
           </PartyBox>
           <PartyBox title="ผู้ซื้อ">
-            <div className="font-semibold text-[14px]">{buyer.name}</div>
+            {/* ลูกค้ากลุ่ม (7-11): ออกในนามสำนักงานใหญ่ ไม่แสดงสาขา */}
+            <div className="font-semibold text-[14px]">
+              {buyer.branch ? `${buyer.name} สำนักงานใหญ่` : buyer.name}
+            </div>
             {buyer.address && <div className="whitespace-pre-wrap">{buyer.address}</div>}
             {buyer.tax_id && (
               <div>
                 <span className="text-muted">เลขประจำตัวผู้เสียภาษี</span> {buyer.tax_id}
-              </div>
-            )}
-            {buyer.branch && (
-              <div>
-                <span className="text-muted">สาขาที่</span> {buyer.branch.replace(/^สาขาที่\s*/, "")}
               </div>
             )}
             {(contactName || customer?.phone || customer?.email) && (
