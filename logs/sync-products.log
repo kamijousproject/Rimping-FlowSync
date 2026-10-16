@@ -1817,3 +1817,223 @@
 2026-10-05 00:00:46 [INFO] Products created from inventory-only SKUs: 0 rows inserted
 2026-10-05 00:00:46 [INFO] UPC propagated to products: 0 rows updated
 2026-10-05 00:00:46 [INFO] === Sync เสร็จสิ้น ===
+2026-10-06 00:00:01 [INFO] === FlowSync Product & Inventory Sync เริ่มต้น ===
+2026-10-06 00:00:01 [INFO] --- Sync Products ---
+2026-10-06 00:00:02 [INFO] พบไฟล์: price-event-store-500.csv (id=1658Von2k5kCETC4G2IiUb9vs8hzV_Jul)
+2026-10-06 00:00:02 [INFO] กำลังดาวน์โหลด CSV...
+2026-10-06 00:00:12 [INFO] ดาวน์โหลดสำเร็จ 37,531,846 bytes
+2026-10-06 00:00:12 [INFO] Products Header: ['Store', 'Currency', 'SKU', 'Description', 'Price Use']...
+2026-10-06 00:00:16 [INFO] อ่านได้ 172,503 แถว (products)
+2026-10-06 00:00:49 [INFO] Products: ประมวลผล 172,503 แถว | affected rows: 344,956 | ข้าม 0
+2026-10-06 00:00:49 [INFO] --- Sync Inventory ---
+2026-10-06 00:00:50 [INFO] พบไฟล์ inventory: Inventory-500-Horeca.csv (id=1X2EW5gXv1bFfswo-9pMRnkUBZCIG26Yk)
+2026-10-06 00:00:50 [INFO] กำลังดาวน์โหลด inventory CSV...
+2026-10-06 00:00:52 [INFO] ดาวน์โหลด inventory สำเร็จ 1,159,403 bytes
+2026-10-06 00:00:52 [INFO] Inventory Header: ['Store', 'SKU', 'UPC', 'Description', 'Vendor']...
+2026-10-06 00:00:52 [INFO] อ่านได้ 4,735 แถว (inventory)
+2026-10-06 00:00:52 [INFO] Today's sales: 0 SKUs with sold qty
+2026-10-06 00:00:52 [INFO] Applied today's sales deduction to 0 SKUs
+2026-10-06 00:00:53 [INFO] Inventory: ประมวลผล 4,735 แถว | affected rows: 9,461 | ข้าม 0
+2026-10-06 00:00:53 [INFO] Products created from inventory-only SKUs: 0 rows inserted
+2026-10-06 00:00:53 [INFO] UPC propagated to products: 9 rows updated
+2026-10-06 00:00:53 [INFO] === Sync เสร็จสิ้น ===
+2026-10-07 00:00:01 [INFO] === FlowSync Product & Inventory Sync เริ่มต้น ===
+2026-10-07 00:00:01 [INFO] --- Sync Products ---
+2026-10-07 00:00:02 [INFO] พบไฟล์: price-event-store-500.csv (id=1658Von2k5kCETC4G2IiUb9vs8hzV_Jul)
+2026-10-07 00:00:02 [INFO] กำลังดาวน์โหลด CSV...
+2026-10-07 00:00:11 [INFO] ดาวน์โหลดสำเร็จ 37,544,170 bytes
+2026-10-07 00:00:11 [INFO] Products Header: ['Store', 'Currency', 'SKU', 'Description', 'Price Use']...
+2026-10-07 00:00:15 [INFO] อ่านได้ 172,560 แถว (products)
+2026-10-07 00:00:48 [INFO] Products: ประมวลผล 172,560 แถว | affected rows: 345,063 | ข้าม 0
+2026-10-07 00:00:48 [INFO] --- Sync Inventory ---
+2026-10-07 00:00:49 [INFO] พบไฟล์ inventory: Inventory-500-Horeca.csv (id=1X2EW5gXv1bFfswo-9pMRnkUBZCIG26Yk)
+2026-10-07 00:00:49 [INFO] กำลังดาวน์โหลด inventory CSV...
+2026-10-07 00:00:52 [INFO] ดาวน์โหลด inventory สำเร็จ 1,159,118 bytes
+2026-10-07 00:00:52 [INFO] Inventory Header: ['Store', 'SKU', 'UPC', 'Description', 'Vendor']...
+2026-10-07 00:00:52 [INFO] อ่านได้ 4,735 แถว (inventory)
+2026-10-07 00:00:52 [INFO] Today's sales: 0 SKUs with sold qty
+2026-10-07 00:00:52 [INFO] Applied today's sales deduction to 0 SKUs
+2026-10-07 00:00:53 [INFO] Inventory: ประมวลผล 4,735 แถว | affected rows: 9,470 | ข้าม 0
+2026-10-07 00:00:53 [INFO] Products created from inventory-only SKUs: 0 rows inserted
+2026-10-07 00:00:53 [INFO] UPC propagated to products: 0 rows updated
+2026-10-07 00:00:53 [INFO] === Sync เสร็จสิ้น ===
+2026-10-08 00:00:01 [INFO] === FlowSync Product & Inventory Sync เริ่มต้น ===
+2026-10-08 00:00:01 [INFO] --- Sync Products ---
+2026-10-08 00:00:02 [INFO] พบไฟล์: price-event-store-500.csv (id=1658Von2k5kCETC4G2IiUb9vs8hzV_Jul)
+2026-10-08 00:00:02 [INFO] กำลังดาวน์โหลด CSV...
+2026-10-08 00:00:12 [INFO] ดาวน์โหลดสำเร็จ 37,554,834 bytes
+2026-10-08 00:00:12 [INFO] Products Header: ['Store', 'Currency', 'SKU', 'Description', 'Price Use']...
+2026-10-08 00:00:17 [INFO] อ่านได้ 172,608 แถว (products)
+2026-10-08 00:00:52 [INFO] Products: ประมวลผล 172,608 แถว | affected rows: 345,168 | ข้าม 0
+2026-10-08 00:00:52 [INFO] --- Sync Inventory ---
+2026-10-08 00:00:52 [INFO] พบไฟล์ inventory: Inventory-500-Horeca.csv (id=1X2EW5gXv1bFfswo-9pMRnkUBZCIG26Yk)
+2026-10-08 00:00:52 [INFO] กำลังดาวน์โหลด inventory CSV...
+2026-10-08 00:00:54 [INFO] ดาวน์โหลด inventory สำเร็จ 1,159,561 bytes
+2026-10-08 00:00:54 [INFO] Inventory Header: ['Store', 'SKU', 'UPC', 'Description', 'Vendor']...
+2026-10-08 00:00:54 [INFO] อ่านได้ 4,737 แถว (inventory)
+2026-10-08 00:00:54 [INFO] Today's sales: 0 SKUs with sold qty
+2026-10-08 00:00:54 [INFO] Applied today's sales deduction to 0 SKUs
+2026-10-08 00:00:55 [INFO] Inventory: ประมวลผล 4,737 แถว | affected rows: 9,472 | ข้าม 0
+2026-10-08 00:00:55 [INFO] Products created from inventory-only SKUs: 0 rows inserted
+2026-10-08 00:00:55 [INFO] UPC propagated to products: 2 rows updated
+2026-10-08 00:00:55 [INFO] === Sync เสร็จสิ้น ===
+2026-10-09 00:00:01 [INFO] === FlowSync Product & Inventory Sync เริ่มต้น ===
+2026-10-09 00:00:01 [INFO] --- Sync Products ---
+2026-10-09 00:00:03 [INFO] พบไฟล์: price-event-store-500.csv (id=1658Von2k5kCETC4G2IiUb9vs8hzV_Jul)
+2026-10-09 00:00:03 [INFO] กำลังดาวน์โหลด CSV...
+2026-10-09 00:00:13 [INFO] ดาวน์โหลดสำเร็จ 37,556,467 bytes
+2026-10-09 00:00:13 [INFO] Products Header: ['Store', 'Currency', 'SKU', 'Description', 'Price Use']...
+2026-10-09 00:00:17 [INFO] อ่านได้ 172,615 แถว (products)
+2026-10-09 00:00:52 [INFO] Products: ประมวลผล 172,615 แถว | affected rows: 345,223 | ข้าม 0
+2026-10-09 00:00:52 [INFO] --- Sync Inventory ---
+2026-10-09 00:00:53 [INFO] พบไฟล์ inventory: Inventory-500-Horeca.csv (id=1X2EW5gXv1bFfswo-9pMRnkUBZCIG26Yk)
+2026-10-09 00:00:53 [INFO] กำลังดาวน์โหลด inventory CSV...
+2026-10-09 00:00:54 [INFO] ดาวน์โหลด inventory สำเร็จ 1,161,828 bytes
+2026-10-09 00:00:54 [INFO] Inventory Header: ['Store', 'SKU', 'UPC', 'Description', 'Vendor']...
+2026-10-09 00:00:54 [INFO] อ่านได้ 4,746 แถว (inventory)
+2026-10-09 00:00:54 [INFO] Today's sales: 0 SKUs with sold qty
+2026-10-09 00:00:54 [INFO] Applied today's sales deduction to 0 SKUs
+2026-10-09 00:00:55 [INFO] Inventory: ประมวลผล 4,746 แถว | affected rows: 9,483 | ข้าม 0
+2026-10-09 00:00:55 [INFO] Products created from inventory-only SKUs: 0 rows inserted
+2026-10-09 00:00:55 [INFO] UPC propagated to products: 9 rows updated
+2026-10-09 00:00:55 [INFO] === Sync เสร็จสิ้น ===
+2026-10-10 00:00:02 [INFO] === FlowSync Product & Inventory Sync เริ่มต้น ===
+2026-10-10 00:00:02 [INFO] --- Sync Products ---
+2026-10-10 00:00:03 [INFO] พบไฟล์: price-event-store-500.csv (id=1658Von2k5kCETC4G2IiUb9vs8hzV_Jul)
+2026-10-10 00:00:03 [INFO] กำลังดาวน์โหลด CSV...
+2026-10-10 00:00:11 [INFO] ดาวน์โหลดสำเร็จ 37,561,738 bytes
+2026-10-10 00:00:12 [INFO] Products Header: ['Store', 'Currency', 'SKU', 'Description', 'Price Use']...
+2026-10-10 00:00:16 [INFO] อ่านได้ 172,638 แถว (products)
+2026-10-10 00:00:50 [INFO] Products: ประมวลผล 172,638 แถว | affected rows: 345,253 | ข้าม 0
+2026-10-10 00:00:50 [INFO] --- Sync Inventory ---
+2026-10-10 00:00:50 [INFO] พบไฟล์ inventory: Inventory-500-Horeca.csv (id=1X2EW5gXv1bFfswo-9pMRnkUBZCIG26Yk)
+2026-10-10 00:00:50 [INFO] กำลังดาวน์โหลด inventory CSV...
+2026-10-10 00:00:52 [INFO] ดาวน์โหลด inventory สำเร็จ 1,165,643 bytes
+2026-10-10 00:00:52 [INFO] Inventory Header: ['Store', 'SKU', 'UPC', 'Description', 'Vendor']...
+2026-10-10 00:00:52 [INFO] อ่านได้ 4,761 แถว (inventory)
+2026-10-10 00:00:52 [INFO] Today's sales: 0 SKUs with sold qty
+2026-10-10 00:00:52 [INFO] Applied today's sales deduction to 0 SKUs
+2026-10-10 00:00:53 [INFO] Inventory: ประมวลผล 4,761 แถว | affected rows: 9,507 | ข้าม 0
+2026-10-10 00:00:53 [INFO] Products created from inventory-only SKUs: 4 rows inserted
+2026-10-10 00:00:53 [INFO] UPC propagated to products: 11 rows updated
+2026-10-10 00:00:53 [INFO] === Sync เสร็จสิ้น ===
+2026-10-11 00:00:01 [INFO] === FlowSync Product & Inventory Sync เริ่มต้น ===
+2026-10-11 00:00:01 [INFO] --- Sync Products ---
+2026-10-11 00:00:02 [INFO] พบไฟล์: price-event-store-500.csv (id=1658Von2k5kCETC4G2IiUb9vs8hzV_Jul)
+2026-10-11 00:00:02 [INFO] กำลังดาวน์โหลด CSV...
+2026-10-11 00:00:09 [INFO] ดาวน์โหลดสำเร็จ 37,561,979 bytes
+2026-10-11 00:00:10 [INFO] Products Header: ['Store', 'Currency', 'SKU', 'Description', 'Price Use']...
+2026-10-11 00:00:13 [INFO] อ่านได้ 172,639 แถว (products)
+2026-10-11 00:00:47 [INFO] Products: ประมวลผล 172,639 แถว | affected rows: 345,277 | ข้าม 0
+2026-10-11 00:00:47 [INFO] --- Sync Inventory ---
+2026-10-11 00:00:47 [INFO] พบไฟล์ inventory: Inventory-500-Horeca.csv (id=1X2EW5gXv1bFfswo-9pMRnkUBZCIG26Yk)
+2026-10-11 00:00:47 [INFO] กำลังดาวน์โหลด inventory CSV...
+2026-10-11 00:00:48 [INFO] ดาวน์โหลด inventory สำเร็จ 1,166,514 bytes
+2026-10-11 00:00:48 [INFO] Inventory Header: ['Store', 'SKU', 'UPC', 'Description', 'Vendor']...
+2026-10-11 00:00:49 [INFO] อ่านได้ 4,764 แถว (inventory)
+2026-10-11 00:00:49 [INFO] Today's sales: 0 SKUs with sold qty
+2026-10-11 00:00:49 [INFO] Applied today's sales deduction to 0 SKUs
+2026-10-11 00:00:49 [INFO] Inventory: ประมวลผล 4,764 แถว | affected rows: 9,525 | ข้าม 0
+2026-10-11 00:00:49 [INFO] Products created from inventory-only SKUs: 2 rows inserted
+2026-10-11 00:00:49 [INFO] UPC propagated to products: 1 rows updated
+2026-10-11 00:00:49 [INFO] === Sync เสร็จสิ้น ===
+2026-10-12 00:00:01 [INFO] === FlowSync Product & Inventory Sync เริ่มต้น ===
+2026-10-12 00:00:01 [INFO] --- Sync Products ---
+2026-10-12 00:00:02 [INFO] พบไฟล์: price-event-store-500.csv (id=1658Von2k5kCETC4G2IiUb9vs8hzV_Jul)
+2026-10-12 00:00:02 [INFO] กำลังดาวน์โหลด CSV...
+2026-10-12 00:00:11 [INFO] ดาวน์โหลดสำเร็จ 37,561,979 bytes
+2026-10-12 00:00:11 [INFO] Products Header: ['Store', 'Currency', 'SKU', 'Description', 'Price Use']...
+2026-10-12 00:00:15 [INFO] อ่านได้ 172,639 แถว (products)
+2026-10-12 00:00:48 [INFO] Products: ประมวลผล 172,639 แถว | affected rows: 345,278 | ข้าม 0
+2026-10-12 00:00:48 [INFO] --- Sync Inventory ---
+2026-10-12 00:00:48 [INFO] พบไฟล์ inventory: Inventory-500-Horeca.csv (id=1X2EW5gXv1bFfswo-9pMRnkUBZCIG26Yk)
+2026-10-12 00:00:48 [INFO] กำลังดาวน์โหลด inventory CSV...
+2026-10-12 00:00:50 [INFO] ดาวน์โหลด inventory สำเร็จ 1,166,910 bytes
+2026-10-12 00:00:50 [INFO] Inventory Header: ['Store', 'SKU', 'UPC', 'Description', 'Vendor']...
+2026-10-12 00:00:50 [INFO] อ่านได้ 4,764 แถว (inventory)
+2026-10-12 00:00:50 [INFO] Today's sales: 0 SKUs with sold qty
+2026-10-12 00:00:50 [INFO] Applied today's sales deduction to 0 SKUs
+2026-10-12 00:00:51 [INFO] Inventory: ประมวลผล 4,764 แถว | affected rows: 9,528 | ข้าม 0
+2026-10-12 00:00:51 [INFO] Products created from inventory-only SKUs: 0 rows inserted
+2026-10-12 00:00:51 [INFO] UPC propagated to products: 0 rows updated
+2026-10-12 00:00:51 [INFO] === Sync เสร็จสิ้น ===
+2026-10-13 00:00:01 [INFO] === FlowSync Product & Inventory Sync เริ่มต้น ===
+2026-10-13 00:00:01 [INFO] --- Sync Products ---
+2026-10-13 00:00:02 [INFO] พบไฟล์: price-event-store-500.csv (id=1658Von2k5kCETC4G2IiUb9vs8hzV_Jul)
+2026-10-13 00:00:02 [INFO] กำลังดาวน์โหลด CSV...
+2026-10-13 00:00:10 [INFO] ดาวน์โหลดสำเร็จ 37,562,494 bytes
+2026-10-13 00:00:10 [INFO] Products Header: ['Store', 'Currency', 'SKU', 'Description', 'Price Use']...
+2026-10-13 00:00:14 [INFO] อ่านได้ 172,641 แถว (products)
+2026-10-13 00:00:48 [INFO] Products: ประมวลผล 172,641 แถว | affected rows: 345,280 | ข้าม 0
+2026-10-13 00:00:48 [INFO] --- Sync Inventory ---
+2026-10-13 00:00:48 [INFO] พบไฟล์ inventory: Inventory-500-Horeca.csv (id=1X2EW5gXv1bFfswo-9pMRnkUBZCIG26Yk)
+2026-10-13 00:00:48 [INFO] กำลังดาวน์โหลด inventory CSV...
+2026-10-13 00:00:51 [INFO] ดาวน์โหลด inventory สำเร็จ 1,168,965 bytes
+2026-10-13 00:00:51 [INFO] Inventory Header: ['Store', 'SKU', 'UPC', 'Description', 'Vendor']...
+2026-10-13 00:00:51 [INFO] อ่านได้ 4,773 แถว (inventory)
+2026-10-13 00:00:52 [INFO] Today's sales: 0 SKUs with sold qty
+2026-10-13 00:00:52 [INFO] Applied today's sales deduction to 0 SKUs
+2026-10-13 00:00:52 [INFO] Inventory: ประมวลผล 4,773 แถว | affected rows: 9,537 | ข้าม 0
+2026-10-13 00:00:52 [INFO] Products created from inventory-only SKUs: 1 rows inserted
+2026-10-13 00:00:52 [INFO] UPC propagated to products: 8 rows updated
+2026-10-13 00:00:52 [INFO] === Sync เสร็จสิ้น ===
+2026-10-14 00:00:02 [INFO] === FlowSync Product & Inventory Sync เริ่มต้น ===
+2026-10-14 00:00:02 [INFO] --- Sync Products ---
+2026-10-14 00:00:03 [INFO] พบไฟล์: price-event-store-500.csv (id=1658Von2k5kCETC4G2IiUb9vs8hzV_Jul)
+2026-10-14 00:00:03 [INFO] กำลังดาวน์โหลด CSV...
+2026-10-14 00:00:11 [INFO] ดาวน์โหลดสำเร็จ 37,563,807 bytes
+2026-10-14 00:00:11 [INFO] Products Header: ['Store', 'Currency', 'SKU', 'Description', 'Price Use']...
+2026-10-14 00:00:15 [INFO] อ่านได้ 172,647 แถว (products)
+2026-10-14 00:00:52 [INFO] Products: ประมวลผล 172,647 แถว | affected rows: 345,288 | ข้าม 0
+2026-10-14 00:00:52 [INFO] --- Sync Inventory ---
+2026-10-14 00:00:53 [INFO] พบไฟล์ inventory: Inventory-500-Horeca.csv (id=1X2EW5gXv1bFfswo-9pMRnkUBZCIG26Yk)
+2026-10-14 00:00:53 [INFO] กำลังดาวน์โหลด inventory CSV...
+2026-10-14 00:00:54 [INFO] ดาวน์โหลด inventory สำเร็จ 1,169,756 bytes
+2026-10-14 00:00:54 [INFO] Inventory Header: ['Store', 'SKU', 'UPC', 'Description', 'Vendor']...
+2026-10-14 00:00:54 [INFO] อ่านได้ 4,775 แถว (inventory)
+2026-10-14 00:00:54 [INFO] Today's sales: 0 SKUs with sold qty
+2026-10-14 00:00:54 [INFO] Applied today's sales deduction to 0 SKUs
+2026-10-14 00:00:55 [INFO] Inventory: ประมวลผล 4,775 แถว | affected rows: 9,548 | ข้าม 0
+2026-10-14 00:00:55 [INFO] Products created from inventory-only SKUs: 0 rows inserted
+2026-10-14 00:00:55 [INFO] UPC propagated to products: 2 rows updated
+2026-10-14 00:00:55 [INFO] === Sync เสร็จสิ้น ===
+2026-10-15 00:00:02 [INFO] === FlowSync Product & Inventory Sync เริ่มต้น ===
+2026-10-15 00:00:02 [INFO] --- Sync Products ---
+2026-10-15 00:00:04 [INFO] พบไฟล์: price-event-store-500.csv (id=1658Von2k5kCETC4G2IiUb9vs8hzV_Jul)
+2026-10-15 00:00:04 [INFO] กำลังดาวน์โหลด CSV...
+2026-10-15 00:00:12 [INFO] ดาวน์โหลดสำเร็จ 37,573,094 bytes
+2026-10-15 00:00:12 [INFO] Products Header: ['Store', 'Currency', 'SKU', 'Description', 'Price Use']...
+2026-10-15 00:00:16 [INFO] อ่านได้ 172,688 แถว (products)
+2026-10-15 00:00:50 [INFO] Products: ประมวลผล 172,688 แถว | affected rows: 345,335 | ข้าม 0
+2026-10-15 00:00:50 [INFO] --- Sync Inventory ---
+2026-10-15 00:00:51 [INFO] พบไฟล์ inventory: Inventory-500-Horeca.csv (id=1X2EW5gXv1bFfswo-9pMRnkUBZCIG26Yk)
+2026-10-15 00:00:51 [INFO] กำลังดาวน์โหลด inventory CSV...
+2026-10-15 00:00:52 [INFO] ดาวน์โหลด inventory สำเร็จ 1,170,564 bytes
+2026-10-15 00:00:52 [INFO] Inventory Header: ['Store', 'SKU', 'UPC', 'Description', 'Vendor']...
+2026-10-15 00:00:52 [INFO] อ่านได้ 4,780 แถว (inventory)
+2026-10-15 00:00:52 [INFO] Today's sales: 0 SKUs with sold qty
+2026-10-15 00:00:52 [INFO] Applied today's sales deduction to 0 SKUs
+2026-10-15 00:00:53 [INFO] Inventory: ประมวลผล 4,780 แถว | affected rows: 9,555 | ข้าม 0
+2026-10-15 00:00:53 [INFO] Products created from inventory-only SKUs: 0 rows inserted
+2026-10-15 00:00:53 [INFO] UPC propagated to products: 5 rows updated
+2026-10-15 00:00:53 [INFO] === Sync เสร็จสิ้น ===
+2026-10-16 00:00:01 [INFO] === FlowSync Product & Inventory Sync เริ่มต้น ===
+2026-10-16 00:00:01 [INFO] --- Sync Products ---
+2026-10-16 00:00:02 [INFO] พบไฟล์: price-event-store-500.csv (id=1658Von2k5kCETC4G2IiUb9vs8hzV_Jul)
+2026-10-16 00:00:02 [INFO] กำลังดาวน์โหลด CSV...
+2026-10-16 00:00:12 [INFO] ดาวน์โหลดสำเร็จ 37,578,822 bytes
+2026-10-16 00:00:13 [INFO] Products Header: ['Store', 'Currency', 'SKU', 'Description', 'Price Use']...
+2026-10-16 00:00:17 [INFO] อ่านได้ 172,714 แถว (products)
+2026-10-16 00:00:49 [INFO] Products: ประมวลผล 172,714 แถว | affected rows: 345,402 | ข้าม 0
+2026-10-16 00:00:49 [INFO] --- Sync Inventory ---
+2026-10-16 00:00:50 [INFO] พบไฟล์ inventory: Inventory-500-Horeca.csv (id=1X2EW5gXv1bFfswo-9pMRnkUBZCIG26Yk)
+2026-10-16 00:00:50 [INFO] กำลังดาวน์โหลด inventory CSV...
+2026-10-16 00:00:52 [INFO] ดาวน์โหลด inventory สำเร็จ 1,171,045 bytes
+2026-10-16 00:00:52 [INFO] Inventory Header: ['Store', 'SKU', 'UPC', 'Description', 'Vendor']...
+2026-10-16 00:00:52 [INFO] อ่านได้ 4,782 แถว (inventory)
+2026-10-16 00:00:52 [INFO] Today's sales: 0 SKUs with sold qty
+2026-10-16 00:00:52 [INFO] Applied today's sales deduction to 0 SKUs
+2026-10-16 00:00:53 [INFO] Inventory: ประมวลผล 4,782 แถว | affected rows: 9,562 | ข้าม 0
+2026-10-16 00:00:53 [INFO] Products created from inventory-only SKUs: 0 rows inserted
+2026-10-16 00:00:53 [INFO] UPC propagated to products: 2 rows updated
+2026-10-16 00:00:53 [INFO] === Sync เสร็จสิ้น ===

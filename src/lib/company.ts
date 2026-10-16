@@ -23,13 +23,7 @@ export function thDate(d: Date | string | null | undefined): string {
   });
 }
 
-/**
- * วันที่ใบกำกับภาษี = วันที่ส่งของ (ตอน delivered ระบบตั้ง due_date = วันส่ง + credit term)
- * ยังไม่ส่งของ → วันนี้
- */
-export function taxInvoiceDate(po: { due_date: Date | string | null; credit_term_days: number }): Date {
-  if (!po.due_date) return new Date();
-  const d = new Date(po.due_date);
-  d.setDate(d.getDate() - Number(po.credit_term_days || 0));
-  return d;
+/** วันที่ใบกำกับภาษี = วันที่สร้างเอกสาร (PO created_at) */
+export function taxInvoiceDate(po: { created_at: Date | string }): Date {
+  return new Date(po.created_at);
 }
