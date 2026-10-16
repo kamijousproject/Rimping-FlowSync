@@ -17,14 +17,12 @@ export async function GET(req: Request) {
   const min_amount = url.searchParams.get("min_amount");
   const max_amount = url.searchParams.get("max_amount");
   const batch = url.searchParams.get("batch");
-  const exclude_batched = url.searchParams.get("exclude_batched") === "1";
   const group = url.searchParams.get("group");
   const page = url.searchParams.get("page");
   const limit = url.searchParams.get("limit");
   try {
     const { pos, total } = await listPos({
       batch_id: batch ? Number(batch) : undefined,
-      exclude_batched,
       group: group === "none" || /^\d+$/.test(group ?? "") ? group! : undefined,
       customer_id: customer_id ? Number(customer_id) : undefined,
       customer_name: customer_name || undefined,

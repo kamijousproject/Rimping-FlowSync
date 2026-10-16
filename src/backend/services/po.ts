@@ -289,7 +289,6 @@ export async function listPoBatches(): Promise<PoBatch[]> {
 
 export async function listPos(filter?: {
   batch_id?: number;
-  exclude_batched?: boolean;
   /** "none" = ลูกค้าเดี่ยว (ไม่มีกลุ่ม), ตัวเลข = group_id */
   group?: string;
   customer_id?: number;
@@ -309,8 +308,6 @@ export async function listPos(filter?: {
   if (filter?.batch_id) {
     where.push("po.batch_id = ?");
     params.push(filter.batch_id);
-  } else if (filter?.exclude_batched) {
-    where.push("po.batch_id IS NULL");
   }
   if (filter?.customer_id) {
     where.push("po.customer_id = ?");
@@ -374,7 +371,7 @@ export async function listPos(filter?: {
                FROM purchase_orders po
                JOIN customers c ON c.id = po.customer_id
                ${whereClause}
-               ORDER BY ${filter?.batch_id ? "po.po_number ASC" : "po.created_at DESC, po.id DESC"}
+               ORDER BY ${filter?.batch_id ? "po.po_number DESC" : "po.created_at DESC, po.id DESC"}
                LIMIT ? OFFSET ?`;
   const pos = await query<PurchaseOrder>(sql, [...params, limit, offset]);
 

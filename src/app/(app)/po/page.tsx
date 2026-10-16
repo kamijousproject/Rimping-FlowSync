@@ -66,7 +66,7 @@ export default function PoListPage() {
   const paymentStatus = searchParams.get("payment_status") || "";
   const startDate = searchParams.get("start_date") || "";
   const endDate = searchParams.get("end_date") || "";
-  // ใบเสนอราคากลุ่ม: ค่าเริ่มต้นซ่อนใบในชุด (แสดงเป็นก้อน), ?batch=<id> = ดูใบในชุดนั้น
+  // ใบเสนอราคากลุ่ม: แสดงเป็นการ์ดด้านบน + อยู่ในตารางหลักด้วย, ?batch=<id> = ดูเฉพาะใบในชุดนั้น
   const batchId = searchParams.get("batch") || "";
   // กลุ่มลูกค้า: "" = ทั้งหมด, "none" = ลูกค้าเดี่ยว, <id> = กลุ่มนั้น
   const group = searchParams.get("group") || "";
@@ -113,7 +113,6 @@ export default function PoListPage() {
       params.set("page", page.toString());
       params.set("limit", limit.toString());
       if (batchId) params.set("batch", batchId);
-      else if (!searchingAll) params.set("exclude_batched", "1");
       if (group) params.set("group", group);
       if (status) params.set("status", status);
       if (paymentStatus) params.set("payment_status", paymentStatus);
@@ -135,7 +134,7 @@ export default function PoListPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, status, paymentStatus, startDate, endDate, customerName, poNumber, minAmount, maxAmount, batchId, searchingAll, group]);
+  }, [page, status, paymentStatus, startDate, endDate, customerName, poNumber, minAmount, maxAmount, batchId, group]);
 
   useEffect(() => {
     fetchData();
